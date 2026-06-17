@@ -156,6 +156,31 @@ function lireBloc(cell, ligne) {
   return { p: cell, kg: kgBloc(ligne) };
 }
 
+const STORAGE_KEY = "choco-planner-state-v1";
+
+function encodePayload(payload) {
+  const json = JSON.stringify(payload);
+  const bytes = new TextEncoder().encode(json);
+  let binary = "";
+  bytes.forEach((b) => { binary += String.fromCharCode(b); });
+  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+}
+
+function decodePayload(value) {
+  const padded = value.replace(/-/g, "+").replace(/_/g, "/") + "===".slice((value.length + 3) % 4);
+  const binary = atob(padded);
+  const bytes = Uint8Array.from(binary, (ch) => ch.charCodeAt(0));
+  return JSON.parse(new TextDecoder().decode(bytes));
+}
+
+function htmlEscape(value) {
+  return String(value == null ? "" : value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
 export default function PlanificateurChocolat() {
   const [usine, setUsine] = useState(null);
   const [lignes, setLignes] = useState(LIGNES_INIT);
@@ -171,6 +196,7 @@ export default function PlanificateurChocolat() {
   const [msgImport, setMsgImport] = useState("");
   const [msgLigne, setMsgLigne] = useState("");
   const [msgOpti, setMsgOpti] = useState("");
+  const [msgPartage, setMsgPartage] = useState("");
   const [selection, setSelection] = useState(null);
   const [dragKey, setDragKey] = useState(null);
   const [masquerNonConfig, setMasquerNonConfig] = useState(false);
@@ -203,6 +229,83 @@ export default function PlanificateurChocolat() {
   const estConfigure = (p) => p.min != null || p.max != null;
   const demandeJour = (p) => { if (p.demande && p.demande > 0) return p.demande; return (seuils(p).min || 0) / JOURS_MOIS; };
   const projection = (p) => p.stock + (productionParProduit[p.id] || 0) - demandeJour(p) * (HORIZON * 7);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const partage = params.get("plan");
+    if (partage) {
+      try {
+        const data = decodePayload(partage);
+        if (data.usine) setUsine(data.usine);
+        if (data.lundi) setLundi(new Date(data.lundi));
+        if (data.plan && typeof data.plan === "object") setPlan(data.plan);
+        if (Array.isArray(data.lignes)) {
+          setLignes((actuelles) => {
+            const autres = actuelles.filter((l) => !data.lignes.some((x) => x.id === l.id));
+            return [...autres, ...data.lignes];
+          });
+        }
+        if (Array.isArray(data.produits)) {
+          setProduits((actuels) => {
+            const autres = actuels.filter((p) => !data.produits.some((x) => x.id === p.id));
+            return [...autres, ...data.produits];
+          });
+        }
+        setMsgPartage("Planificación compartida cargada.");
+      } catch (e) {
+        setMsgPartage("No se pudo cargar el enlace compartido.");
+      }
+      return;
+    }
+    try {
+      const sauvegarde = localStorage.getItem(STORAGE_KEY);
+      if (!sauvegarde) return;
+      const data = JSON.parse(sauvegarde);
+      if (data.usine) setUsine(data.usine);
+      if (Array.isArray(data.lignes)) setLignes(data.lignes);
+      if (Array.isArray(data.produits)) setProduits(data.produits);
+      if (data.plan && typeof data.plan === "object") setPlan(data.plan);
+      if (data.lundi) setLundi(new Date(data.lundi));
+      setMsgPartage("Planificación guardada cargada.");
+    } catch (e) {
+      localStorage.removeItem(STORAGE_KEY);
+    }
+  }, []);
+
+  const estadoActual = () => ({
+    version: 1,
+    usine,
+    lignes,
+    produits,
+    plan,
+    lundi: cleDate(lundi),
+  });
+
+  const guardarPlanificacion = () => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(estadoActual()));
+    setMsgPartage("Planificación guardada en este navegador.");
+  };
+
+  const compartirPlanificacion = async () => {
+    const idsPlanificados = new Set(Object.values(plan).map((cell) => lireBloc(cell, null)).filter(Boolean).map((b) => b.p));
+    const payload = {
+      version: 1,
+      usine,
+      lundi: cleDate(lundi),
+      plan,
+      lignes: lignes.filter((l) => l.usine === usine),
+      produits: produits.filter((p) => idsPlanificados.has(p.id)),
+    };
+    const url = new URL(window.location.href);
+    url.searchParams.set("plan", encodePayload(payload));
+    const texto = url.toString();
+    try {
+      await navigator.clipboard.writeText(texto);
+      setMsgPartage("Enlace copiado. Compártelo con tus colaboradores.");
+    } catch (e) {
+      setMsgPartage("Copia este enlace: " + texto);
+    }
+  };
 
   const assigner = (cle, pid) => {
     const ligne = lignes.find((l) => l.id === cle.split("|")[1]);
@@ -339,24 +442,87 @@ export default function PlanificateurChocolat() {
     setTexteImport("");
   };
 
-  const exporterCSV = () => {
+  const exporterExcel = () => {
     const nomUsine = (USINES.find((u) => u.id === usine) || {}).nom || "";
-    let csv = "Fábrica;Producto;Línea;U/bulto;kg/u;kg/bulto;Stock mín. (blt);Stock máx. (blt);Demanda/día (blt);Stock actual (blt);Estado;Prod. planificada (blt);Proyectado (blt);Estado proyectado\n";
-    produitsUsine.forEach((p) => {
-      const ligne = lignes.find((l) => l.id === p.ligne); const s = seuils(p); const kgb = kgParBulto(p);
-      const prodB = productionParProduit[p.id] || 0; const projB = projection(p);
-      csv += [nomUsine, p.nom, ligne ? ligne.nom : "Por asignar", p.uxb || "", p.peso || "", kgb ? Math.round(kgb * 1000) / 1000 : "", s.min, s.max, Math.round(demandeJour(p) * 100) / 100, p.stock, statutStock(p.stock, s.min, s.max).label, Math.round(prodB), Math.round(projB), statutStock(projB, s.min, s.max).label].join(";") + "\n";
-    });
-    csv += "\nPlanificación " + nomUsine + "\nFecha;Línea;Bloque;Producto;Cantidad (kg);Cantidad (bultos)\n";
-    Object.entries(plan).sort().forEach(([cle, cell]) => {
-      const parts = cle.split("|"); const ligne = lignes.find((l) => l.id === parts[1] && l.usine === usine);
-      const b = lireBloc(cell, ligne); if (!ligne || !b) return;
-      const prod = produits.find((p) => p.id === b.p); if (!prod) return;
-      const kgb = kgParBulto(prod);
-      csv += [parts[0], ligne.nom, parts[2] === "0" ? "Mañana" : "Tarde", prod.nom, Math.round(b.kg), kgb ? Math.round(b.kg / kgb) : "?"].join(";") + "\n";
-    });
-    const blob = new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8" });
-    const url = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = url; a.download = "planning_" + nomUsine + ".csv"; a.click(); URL.revokeObjectURL(url);
+    const semanas = [];
+    for (let w = 0; w < HORIZON; w++) {
+      const dias = JOURS.map((nom, i) => {
+        const date = new Date(lundi.getFullYear(), lundi.getMonth(), lundi.getDate() + w * 7 + i);
+        return { nom, date, cle: cleDate(date) };
+      });
+      semanas.push(dias);
+    }
+    const estilo = `
+      <style>
+        body { font-family: Arial, sans-serif; }
+        table { border-collapse: collapse; margin-bottom: 24px; }
+        th { background: #78350f; color: white; font-weight: bold; }
+        th, td { border: 1px solid #cbd5e1; padding: 6px; vertical-align: top; }
+        .linea { background: #fef3c7; font-weight: bold; }
+        .bloque { min-width: 150px; height: 52px; }
+        .turno { color: #64748b; font-size: 11px; }
+        .producto { font-weight: bold; color: #78350f; }
+        .cantidad { color: #475569; font-size: 11px; }
+        .vacio { color: #94a3b8; }
+      </style>`;
+    const tablasCalendario = semanas.map((dias, idx) => `
+      <h2>Semana ${idx + 1}: ${htmlEscape(fmtDate(dias[0].date))} al ${htmlEscape(fmtDate(dias[5].date))}</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Línea</th>
+            ${dias.map((j) => `<th>${htmlEscape(j.nom)}<br>${htmlEscape(fmtDate(j.date))}</th>`).join("")}
+            <th>Total kg</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${lignesUsine.map((ligne) => `
+            <tr>
+              <td class="linea">${htmlEscape(ligne.nom)}<br><small>${htmlEscape(ligne.capacite)} kg/turno</small></td>
+              ${dias.map((j) => `
+                <td>
+                  ${[0, 1].map((bloc) => {
+                    const b = lireBloc(plan[j.cle + "|" + ligne.id + "|" + bloc], ligne);
+                    const prod = b ? produits.find((p) => p.id === b.p) : null;
+                    const kgb = prod ? kgParBulto(prod) : null;
+                    const bultos = b && kgb ? b.kg / kgb : null;
+                    return `<div class="bloque">
+                      <div class="turno">${bloc === 0 ? "Mañana" : "Tarde"}</div>
+                      ${prod ? `<div class="producto">${htmlEscape(prod.nom)}</div><div class="cantidad">${htmlEscape(fmtNb(b.kg))} kg${bultos != null ? " · " + htmlEscape(fmtNb(bultos)) + " blt" : ""}</div>` : `<div class="vacio">Sin asignar</div>`}
+                    </div>`;
+                  }).join("")}
+                </td>
+              `).join("")}
+              <td>${htmlEscape(fmtNb(dias.reduce((total, j) => total + [0, 1].reduce((sum, bloc) => {
+                const b = lireBloc(plan[j.cle + "|" + ligne.id + "|" + bloc], ligne);
+                return sum + (b ? b.kg : 0);
+              }, 0), 0)))} kg</td>
+            </tr>
+          `).join("")}
+        </tbody>
+      </table>`).join("");
+    const tablaStocks = `
+      <h2>Resumen de stocks</h2>
+      <table>
+        <thead><tr><th>Producto</th><th>Línea</th><th>Stock</th><th>Mín.</th><th>Máx.</th><th>Prod. planificada</th><th>Proyectado</th><th>Estado</th></tr></thead>
+        <tbody>
+          ${produitsUsine.map((p) => {
+            const ligne = lignes.find((l) => l.id === p.ligne);
+            const s = seuils(p);
+            const prodB = productionParProduit[p.id] || 0;
+            const projB = projection(p);
+            return `<tr><td>${htmlEscape(p.nom)}</td><td>${htmlEscape(ligne ? ligne.nom : "Por asignar")}</td><td>${htmlEscape(p.stock)}</td><td>${htmlEscape(s.min)}</td><td>${htmlEscape(s.max)}</td><td>${htmlEscape(Math.round(prodB))}</td><td>${htmlEscape(Math.round(projB))}</td><td>${htmlEscape(statutStock(projB, s.min, s.max).label)}</td></tr>`;
+          }).join("")}
+        </tbody>
+      </table>`;
+    const html = `<!doctype html><html><head><meta charset="utf-8">${estilo}</head><body><h1>Planificación ${htmlEscape(nomUsine)}</h1>${tablasCalendario}${tablaStocks}</body></html>`;
+    const blob = new Blob(["\ufeff" + html], { type: "application/vnd.ms-excel;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "planificacion_" + nomUsine + ".xls";
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   const changerSemaine = (delta) => setLundi(new Date(lundi.getFullYear(), lundi.getMonth(), lundi.getDate() + delta * 7));
@@ -447,7 +613,10 @@ export default function PlanificateurChocolat() {
             <div className="flex items-center gap-2 mb-3 flex-wrap">
               <button onClick={optimiser} className="px-4 py-2 bg-green-700 text-white rounded-lg text-sm font-medium hover:bg-green-800 shadow">✨ Optimizar las próximas {HORIZON} semanas</button>
               <button onClick={viderHorizon} className="px-3 py-2 bg-white border border-gray-300 text-gray-600 rounded-lg text-sm hover:bg-gray-100">Borrar horizonte</button>
+              <button onClick={guardarPlanificacion} className="px-3 py-2 bg-amber-800 text-white rounded-lg text-sm hover:bg-amber-900">Guardar</button>
+              <button onClick={compartirPlanificacion} className="px-3 py-2 bg-sky-700 text-white rounded-lg text-sm hover:bg-sky-800">Compartir</button>
               {msgOpti && <span className="text-sm text-green-800">{msgOpti}</span>}
+              {msgPartage && <span className="text-sm text-sky-800">{msgPartage}</span>}
             </div>
             {lignesUsine.length === 0 ? (
               <p className="text-center text-gray-500 py-8">No hay líneas en esta fábrica. Agrega una en Productos y Líneas.</p>
@@ -648,8 +817,8 @@ export default function PlanificateurChocolat() {
             </div>
             <div className="bg-white rounded-xl shadow p-4">
               <h2 className="font-semibold text-amber-900 mb-2">📤 Exportar</h2>
-              <p className="text-sm text-gray-600 mb-3">CSV completo (bultos + conversiones + planificación en kg y bultos).</p>
-              <button onClick={exporterCSV} className="px-4 py-2 bg-green-700 text-white rounded-lg text-sm hover:bg-green-800">Descargar CSV</button>
+              <p className="text-sm text-gray-600 mb-3">Excel con calendario por semana y resumen de stocks.</p>
+              <button onClick={exporterExcel} className="px-4 py-2 bg-green-700 text-white rounded-lg text-sm hover:bg-green-800">Descargar Excel</button>
             </div>
           </div>
         )}

@@ -17,16 +17,15 @@ const USINES = [
 ];
 
 const LIGNES_INIT = [
-  { id: "e_bomb", nom: "Bombonera", capacite: 572, pal: 0, usine: "esandi" },
-  { id: "e_crem", nom: "Cremino", capacite: 830, pal: 1, usine: "esandi" },
-  { id: "e_env", nom: "Envasado", capacite: 170, pal: 2, usine: "esandi" },
-  { id: "e_pc", nom: "Paila Caliente", capacite: 278, pal: 3, usine: "esandi" },
-  { id: "e_dec", nom: "Decorado", capacite: 150, pal: 4, usine: "esandi" },
-  { id: "e_mh", nom: "Mini Huevos", capacite: 210, pal: 5, usine: "esandi" },
-  { id: "e_pf", nom: "Paila Fria", capacite: 236, pal: 0, usine: "esandi" },
-  { id: "e_rama", nom: "Rama", capacite: 317, pal: 1, usine: "esandi" },
-  { id: "e_fat", nom: "Fatima", capacite: 140, pal: 2, usine: "esandi" },
-  { id: "e_tur", nom: "Turron", capacite: 78, pal: 3, usine: "esandi" },
+  { id: "e_bomb", nom: "Bombonera", capacite: 550, pal: 0, usine: "esandi" },
+  { id: "e_crem", nom: "Cremino", capacite: 850, pal: 1, usine: "esandi" },
+  { id: "e_pf", nom: "Paila Fria", capacite: 250, pal: 2, usine: "esandi" },
+  { id: "e_pc", nom: "Paila Caliente", capacite: 175, pal: 3, usine: "esandi" },
+  { id: "e_tur", nom: "Turrones", capacite: 60, pal: 4, usine: "esandi" },
+  { id: "e_rama", nom: "Rama", capacite: 230, pal: 5, usine: "esandi" },
+  { id: "e_dec", nom: "Decorado", capacite: 145, pal: 0, usine: "esandi" },
+  { id: "e_env", nom: "Envasado", capacite: 170, pal: 1, usine: "esandi" },
+  { id: "e_mh", nom: "Mini Huevos", capacite: 100, pal: 2, usine: "esandi" },
   { id: "l3", nom: "GDG", capacite: 500, pal: 2, usine: "mitre" },
   { id: "l4", nom: "Sollich", capacite: 500, pal: 3, usine: "mitre" },
   { id: "l5", nom: "Bulher", capacite: 500, pal: 4, usine: "mitre" },
@@ -35,80 +34,234 @@ const LIGNES_INIT = [
   { id: "l8", nom: "Refinado", capacite: 500, pal: 2, usine: "vb" },
 ];
 
-// [unités par bulto, poids unitaire en kg] — null si inconnu
-const CONVERSIONS = {
-  "BOMBON x4": [38, 0.045], "CAFE EN GRANO ENV. X250": [40, 0.03], "CAFE MOLIDO ENV.X250": [40, null],
-  "CASCOTE LECHE AVELLANAS": [45, 0.125], "CHOCO TAZA BOLSA 200gr": [63, null], "MARROC 100gr (comun)": [50, 0.12],
-  "FIGURAS MACIZAS MIx": [99, 0.09], "FONDUE MICRO": [27, null], "FONDUE TRADICIONAL X 200gr": [38, 0.2],
-  "GARRAP ALMENDRA 100gr": [15, 0.1], "GARRAP AVELLANA 100gr": [40, 0.1], "GARRAP CAJU 100gr": [50, 0.1],
-  "GARRAP PECAN 100gr": [15, 0.1], "GARRAP PISTACHO 100gr": [77, 0.1], "GATITAS": [63, 0.1],
-  "OSOS DDL x12": [50, 0.0725], "GOLOSA 1 MH LECHE xBULTO": [50, 0.045], "GOLOSA 2 MH BLANCO xBULTO": [50, null],
-  "GOLOSA 3 MH CROCANTE xBULTO": [33, 0.8], "GOLOSA 4 NOUGAT PISTACHO xBULTO": [7, 0.08], "TABLETA PISTACHO": [27, 0.08],
-  "LAPIZ MINI NUICCIOLA x5": [33, 0.05], "PAILA ALMEN LECHE 100gr": [38, 0.08], "MARROC 50gr (comun)": [null, 0.8],
-  "MARROC CEREAL 260": [33, 0.125], "MARROC CEREAL 275": [32, null], "MARROC CROCANTE X50GR": [50, 0.1],
-  "MARROC DE MANI (VENTA) (comun)": [24, 0.08], "MIX TORTUGAS 22uni": [40, 0.05], "MUNECO DE NIEVE": [null, 0.1],
-  "TABLETA RELLENA DDL 120gr": [45, 0.145], "CORAZON x5": [54, 0.0725], "NUICCIOLATO X 50 GR": [38, 0.1],
-  "OSO CON AUTO": [40, 0.1], "OSO CON PELOTA": [38, 0.1], "OSOS DDL x6 BLANCO": [77, 0.048], "OSOS DDL x6": [32, 0.1],
-  "TAB SAL CARAMELO 100gr": [72, 0.045], "PAILA ALM CROCANTE 100gr": [32, 0.06], "PAILA ALMEN AMARGA 100gr": [40, 0.2],
-  "TURRON ALMENDRA": [77, 0.05], "PAILA AVELL LECHE 100gr": [7, 0.06], "PAILA CRANBERRIES x100gr": [60, null],
-  "PAILA MANI LECHE 100gr": [99, 0.06], "PAILA NIBS X100gr": [80, null], "PAILA NUICCIOLATO": [80, 0.06],
-  "PAILA PASAS LECHE 100gr": [63, 0.06], "PAILA PISTACHO C/ CHOCOLATE BLANCO": [33, 0.8], "PELOTA CHICA": [38, 0.1],
-  "PERRITA": [36, 0.1], "TABLETA 60 VB": [38, 0.045], "RAMA 60 AMARGO": [63, 0.1], "RAMA 60 BLANCO": [24, 0.1],
-  "RAMA 60 LECHE": [40, 0.1], "RAMA AMARGA GRANEL": [40, 0.1], "RAMA LECHE GRANEL": [63, 0.08], "RAMON": [38, null],
-  "RAPASAURIO 3D": [60, null], "SUBMARINO X 3": [77, 0.075], "TAB 60 DIET": [50, 0.08], "TAB LECHE DIET": [7, 0.04],
-  "TEJA 60": [22, 0.04], "PRALINE DEGUSTACION (cereal)": [63, null], "TABLETA 70 VB": [38, 0.25], "TABLETA 80 VB": [38, 0.075],
-  "TABLETA 90 VB": [50, 0.1], "TABLETA AMARGA XXL AVELLANA": [99, 0.125], "TABLETA BLANCO LIM/JEN x 45 gramos": [50, 0.063],
-  "TABLETA BLANCO X80gr": [24, 0.1], "TABLETA CAFE NIBS 40 gramos": [99, null], "TABLETA DUBAI": [50, 0.1],
-  "TABLETA LECHE ALMENDRA": [33, 0.8], "TABLETA LECHE PURO X80gr": [38, 0.1], "TABLETA LECHE XXL ALMENDRA": [24, null],
-  "TABLETA MINI GOTA DDL": [7, 0.075], "PRALINE DE AVELLANA Y PISTACHO": [20, 0.08], "NUI X 12": [80, null],
-  "TABLETA XXL LECHE PURA": [7, 0.8], "NUI X 6": [90, null], "TEJA 70": [63, 0.125], "TEJA 80": [22, 0.125],
-  "TEJA 90": [30, 0.125], "TEJA LECHE": [33, 0.125], "TORTUGAS": [77, 0.25], "LAPIZ DDL x 9 U": [50, null],
-  "TURRON ALMENDRA BAÑADO": [null, 0.26], "TURRON GIANDUIA": [33, 0.275], "TURRON MANI": [35, 0.2],
-  "TURRON NUEZ": [20, null], "TURRON NUEZ Y DAMASCO": [32, 0.1], "TURRON PISTACHO Y NARANJA": [48, 0.05],
+const mkEsandi = (id, nom, ligne, pesoBulto) => ({ id, nom, ligne, usine: "esandi", stock: 0, demande: 0, min: null, max: null, pesoBulto });
+
+const PESO_BULTO_POR_PRODUCTO = {
+  "BARRA AMARGO ALMENDRA": 4.4,
+  "BARRA AMARGO PURO": 4.4,
+  "BARRA BLANCO ALMENDRA": 4.4,
+  "BARRA BLANCO PURO": 4.4,
+  "BARRA LECHE ALMENDRA": 4.4,
+  "BARRA LECHE CEREAL": 4.4,
+  "BARRA LECHE PURO": 4.4,
+  "BOMBON x4": 2.4,
+  "CAFE EN GRANO ENV. X250": 5,
+  "CAFE MOLIDO ENV.X250": 5,
+  "CAFE TOSTADO CONFI x 1 kg": 6,
+  "CHOCO TAZA BOLSA 200gr": 6,
+  "CORAZON DDL GRANEL": 4.92,
+  "CORAZON x5": 4.32,
+  "FIGURAS MACIZAS MIx": 4.5,
+  "FONDUE MICRO": 5.4,
+  "FONDUE TRADICIONAL X 200gr": 6,
+  "GARRAP ALMENDRA 100gr": 3.2,
+  "GARRAP AVELLANA 100gr": 3.2,
+  "GARRAP CAJU 100gr": 3.2,
+  "GARRAP PECAN 100gr": 3.2,
+  "GARRAP PISTACHO 100gr": 3.2,
+  "GATITAS": 1.8,
+  "GOLOSA 1 MH LECHE xBULTO": 3.15,
+  "GOLOSA 2 MH BLANCO xBULTO": 3.15,
+  "GOLOSA 3 MH CROCANTE xBULTO": 3.15,
+  "GOLOSA 4 NOUGAT PISTACHO xBULTO": 3.15,
+  "LAPIZ DDL x 9 U": 1.92,
+  "LAPIZ MINI NUICCIOLA x5": 2.7,
+  "MARROC 100gr (comun)": 7.2,
+  "MARROC 50gr (comun)": 4.95,
+  "MARROC CEREAL 260": 6.24,
+  "MARROC CEREAL 275": 6.6,
+  "MARROC CROCANTE X50GR": 4.95,
+  "MARROC DE MANI (VENTA) (comun)": 6,
+  "MEDALLON AMARGO": 3.2,
+  "MEDALLON BLANCO": 3.2,
+  "MEDALLON LECHE": 3.2,
+  "MIL HOJAS AMARGO": 9.6,
+  "MIL HOJAS BLANCO": 9.6,
+  "MIL HOJAS LECHE": 9.6,
+  "MIX TORTUGAS 22uni": 2.926,
+  "MUNECO DE NIEVE": 2.025,
+  "NUI X 12": 6.42,
+  "NUI X 6": 3.21,
+  "NUICCIOLATO X 50 GR": 4.95,
+  "OSO CON AUTO": 0.975,
+  "OSO CON PELOTA": 2.04,
+  "OSOS DDL GRANEL": 4.92,
+  "OSOS DDL x12": 2.88,
+  "OSOS DDL x4": 2.592,
+  "OSOS DDL x6": 3.24,
+  "OSOS DDL x6 BLANCO": 3.24,
+  "PAILA ALM CROCANTE 100gr": 5,
+  "PAILA ALMEN AMARGA 100gr": 5,
+  "PAILA ALMEN LECHE 100gr": 5,
+  "PAILA AVELL LECHE 100gr": 5,
+  "PAILA CRANBERRIES x100gr": 5,
+  "PAILA MANI LECHE 100gr": 5,
+  "PAILA MICROGALLETITAS": 5,
+  "PAILA NIBS X100gr": 5,
+  "PAILA NUICCIOLATO": 5,
+  "PAILA PASAS LECHE 100gr": 5,
+  "PAILA PISTACHO C/ CHOCOLATE BLANCO": 5,
+  "PELOTA CHICA": 1,
+  "PERRITA": 1.755,
+  "PRALINE DE AVELLANA Y PISTACHO": 3.969,
+  "PRALINE DEGUSTACION (cereal)": 3.969,
+  "PRALINE MANI CEREAL BOCADITO": 3.969,
+  "PRALINE MANI CEREAL VENTA": 3.969,
+  "RAMA 60 AMARGO": 4.62,
+  "RAMA 60 BLANCO": 4.62,
+  "RAMA 60 LECHE": 4.62,
+  "RAMA AMARGA GRANEL": 7,
+  "RAMA LECHE GRANEL": 7,
+  "RAMON": 4.8,
+  "RAPASAURIO 3D": 2.5,
+  "SUBMARINO PIGGY": 1.575,
+  "SUBMARINO X 3": 1.98,
+  "TAB 60 DIET": 3.04,
+  "TAB LECHE DIET": 3.04,
+  "TAB SAL CARAMELO 100gr": 3.8,
+  "TABLETA 60 VB": 3.04,
+  "TABLETA 70 VB": 3.04,
+  "TABLETA 80 VB": 3.04,
+  "TABLETA 90 VB": 3.04,
+  "TABLETA AMARGA XXL ALMENDRA": 11.2,
+  "TABLETA AMARGA XXL AVELLANA": 11.2,
+  "TABLETA BLANCO LIM/JEN x 45 gramos": 3.6,
+  "TABLETA BLANCO X80gr": 3.04,
+  "TABLETA CAFE NIBS 40 gramos": 3.2,
+  "TABLETA DUBAI": 2.88,
+  "TABLETA FRAMB/CRANBERRIES X 45 gramos": 3.6,
+  "TABLETA GOTA DEGUSTACION ENV": 4.8,
+  "TABLETA LECHE ALMENDRA": 3.8,
+  "TABLETA LECHE PURO X80gr": 3.04,
+  "TABLETA LECHE XXL ALMENDRA": 11.2,
+  "TABLETA LECHE XXL AVELLANA": 11.2,
+  "TABLETA MINI GOTA DDL": 3.15,
+  "TABLETA PISTACHO": 3.8,
+  "TABLETA RELLENA DDL 120gr": 5.13,
+  "TABLETA XXL LECHE PURA": 5.6,
+  "TORTUGAS": 1.275,
+  "TURRON ALMENDRA": 3.63,
+  "TURRON ALMENDRA BANADO": 3.63,
+  "TURRON GIANDUIA": 3.63,
+  "TURRON MANI": 3.63,
+  "TURRON NUEZ": 3.63,
+  "TURRON NUEZ Y DAMASCO": 3.63,
+  "TURRON PISTACHO Y NARANJA": 3.63,
+  "CONEJITO DDL X 5": 2.1,
 };
 
-function mkProd(id, nom, ligne) {
-  const c = CONVERSIONS[nom] || [null, null];
-  return { id, nom, ligne, usine: "esandi", stock: 0, demande: 0, min: null, max: null, uxb: c[0], peso: c[1] };
-}
-
 const PRODUITS_INIT = [
-  mkProd(1, "BARRA AMARGO NUEZ", "e_crem"), mkProd(2, "BARRA BLANCO PURO", "e_crem"), mkProd(3, "BARRA LECHE CAJÚ (SOLO PARA SURTIDO)", "e_crem"),
-  mkProd(4, "BOMBON x4", "e_bomb"), mkProd(5, "CAFE EN GRANO ENV. X250", "e_env"), mkProd(6, "CAFE MOLIDO ENV.X250", "e_env"),
-  mkProd(7, "CAFE TOSTADO CONFI x 1 kg", "e_env"), mkProd(8, "CASCOTE LECHE AVELLANAS", "e_env"), mkProd(9, "CHOCO TAZA BOLSA 200gr", "e_env"),
-  mkProd(10, "CONEJITO DDL X 5", "e_bomb"), mkProd(11, "CORAZON DDL GRANEL", "e_bomb"), mkProd(12, "CORAZON x5", "e_bomb"),
-  mkProd(13, "FIGURAS MACIZAS MIx", "e_bomb"), mkProd(14, "FONDUE MICRO", "e_bomb"), mkProd(15, "FONDUE TRADICIONAL X 200gr", "e_env"),
-  mkProd(16, "GARRAP ALMENDRA 100gr", "e_pc"), mkProd(17, "GARRAP AVELLANA 100gr", "e_pc"), mkProd(18, "GARRAP CAJU 100gr", "e_pc"),
-  mkProd(19, "GARRAP PECAN 100gr", "e_pc"), mkProd(20, "GARRAP PISTACHO 100gr", "e_pc"), mkProd(21, "GATITAS", "e_dec"),
-  mkProd(22, "GOLOSA 1 MH LECHE xBULTO", "e_crem"), mkProd(23, "GOLOSA 2 MH BLANCO xBULTO", "e_crem"), mkProd(24, "GOLOSA 3 MH CROCANTE xBULTO", "e_crem"),
-  mkProd(25, "GOLOSA 4 NOUGAT PISTACHO xBULTO", "e_crem"), mkProd(26, "HUESITO FIG MACIZA", "e_bomb"), mkProd(27, "LAPIZ DDL x 9 U", "e_mh"),
-  mkProd(28, "LAPIZ MINI NUICCIOLA x5", "e_mh"), mkProd(29, "MARROC 100gr (comun)", "e_crem"), mkProd(30, "MARROC 50gr (comun)", "e_crem"),
-  mkProd(31, "MARROC CEREAL 260", "e_crem"), mkProd(32, "MARROC CEREAL 275", "e_crem"), mkProd(33, "MARROC CROCANTE X50GR", "e_crem"),
-  mkProd(34, "MARROC DE MANI (VENTA) (comun)", "e_crem"), mkProd(35, "MIL HOJAS AMARGO", "e_crem"), mkProd(36, "MIX TORTUGAS 22uni", "e_bomb"),
-  mkProd(37, "MUNECO DE NIEVE", "e_dec"), mkProd(38, "NUI X 12", "e_dec"), mkProd(39, "NUI X 6", "e_dec"),
-  mkProd(40, "NUICCIOLATO X 50 GR", "e_crem"), mkProd(41, "OSO CON AUTO", "e_dec"), mkProd(42, "OSO CON PELOTA", "e_dec"),
-  mkProd(43, "OSOS DDL GRANEL", "e_bomb"), mkProd(44, "OSOS DDL x12", "e_bomb"), mkProd(45, "OSOS DDL x6", "e_bomb"),
-  mkProd(46, "OSOS DDL x6 BLANCO", "e_bomb"), mkProd(47, "PAILA ALM CROCANTE 100gr", "e_pf"), mkProd(48, "PAILA ALMEN AMARGA 100gr", "e_pf"),
-  mkProd(49, "PAILA ALMEN LECHE 100gr", "e_pf"), mkProd(50, "PAILA AVELL LECHE 100gr", "e_pf"), mkProd(51, "PAILA CRANBERRIES x100gr", "e_pf"),
-  mkProd(52, "PAILA MANI LECHE 100gr", "e_pf"), mkProd(53, "PAILA NIBS X100gr", "e_pf"), mkProd(54, "PAILA NUICCIOLATO", "e_pf"),
-  mkProd(55, "PAILA PASAS LECHE 100gr", "e_pf"), mkProd(56, "PAILA PISTACHO C/ CHOCOLATE BLANCO", "e_pf"), mkProd(57, "PELOTA CHICA", "e_dec"),
-  mkProd(58, "PERRITA", "e_dec"), mkProd(59, "PRALINE DE AVELLANA Y PISTACHO", "e_crem"), mkProd(60, "PRALINE DEGUSTACION (cereal)", "e_crem"),
-  mkProd(61, "PRALINE MANI CEREAL BOCADITO", "e_crem"), mkProd(62, "PRALINE MANI CEREAL VENTA", "e_crem"), mkProd(63, "RAMA 60 AMARGO", "e_rama"),
-  mkProd(64, "RAMA 60 BLANCO", "e_rama"), mkProd(65, "RAMA 60 LECHE", "e_rama"), mkProd(66, "RAMA AMARGA GRANEL", "e_rama"),
-  mkProd(67, "RAMA LECHE GRANEL", "e_rama"), mkProd(68, "RAMON", "e_rama"), mkProd(69, "RAPASAURIO 3D", "e_mh"),
-  mkProd(70, "SUBMARINO A GRANEL", "e_bomb"), mkProd(71, "SUBMARINO PIGGY", "e_bomb"), mkProd(72, "SUBMARINO X 3", "e_bomb"),
-  mkProd(73, "TAB 60 DIET", "e_bomb"), mkProd(74, "TAB LECHE DIET", "e_bomb"), mkProd(75, "TAB SAL CARAMELO 100gr", "e_crem"),
-  mkProd(76, "TABLETA 60 VB", "e_bomb"), mkProd(77, "TABLETA 70 VB", "e_bomb"), mkProd(78, "TABLETA 80 VB", "e_bomb"),
-  mkProd(79, "TABLETA 90 VB", "e_bomb"), mkProd(80, "TABLETA AMARGA XXL ALMENDRA", "e_crem"), mkProd(81, "TABLETA AMARGA XXL AVELLANA", "e_crem"),
-  mkProd(82, "TABLETA BLANCO LIM/JEN x 45 gramos", "e_bomb"), mkProd(83, "TABLETA BLANCO X80gr", "e_bomb"), mkProd(84, "TABLETA CAFE NIBS 40 gramos", "e_bomb"),
-  mkProd(85, "TABLETA DUBAI", "e_bomb"), mkProd(86, "TABLETA FRAMB/CRANBERRIES X 45 gramos", "e_bomb"), mkProd(87, "TABLETA LECHE ALMENDRA", "e_bomb"),
-  mkProd(88, "TABLETA LECHE PURO X80gr", "e_bomb"), mkProd(89, "TABLETA LECHE XXL ALMENDRA", "e_crem"), mkProd(90, "TABLETA LECHE XXL AVELLANA", "e_crem"),
-  mkProd(91, "TABLETA MINI GOTA DDL", "e_bomb"), mkProd(92, "TABLETA PISTACHO", "e_crem"), mkProd(93, "TABLETA RELLENA DDL 120gr", "e_bomb"),
-  mkProd(94, "TABLETA XXL LECHE PURA", "e_crem"), mkProd(95, "TEJA 60", "e_fat"), mkProd(96, "TEJA 70", "e_fat"),
-  mkProd(97, "TEJA 80", "e_fat"), mkProd(98, "TEJA 90", "e_fat"), mkProd(99, "TEJA LECHE", "e_fat"),
-  mkProd(100, "TORTUGAS", "e_dec"), mkProd(101, "TURRON ALMENDRA", "e_tur"), mkProd(102, "TURRON ALMENDRA BAÑADO", "e_tur"),
-  mkProd(103, "TURRON GIANDUIA", "e_tur"), mkProd(104, "TURRON MANI", "e_tur"), mkProd(105, "TURRON NUEZ", "e_tur"),
-  mkProd(106, "TURRON NUEZ Y DAMASCO", "e_tur"), mkProd(107, "TURRON PISTACHO Y NARANJA", "e_tur"),
+  mkEsandi(1, "BARRA AMARGO ALMENDRA", "e_crem", 4.4),
+  mkEsandi(2, "BARRA AMARGO PURO", "e_crem", 4.4),
+  mkEsandi(3, "BARRA BLANCO ALMENDRA", "e_crem", 4.4),
+  mkEsandi(4, "BARRA BLANCO PURO", "e_crem", 4.4),
+  mkEsandi(5, "BARRA LECHE ALMENDRA", "e_crem", 4.4),
+  mkEsandi(6, "BARRA LECHE CEREAL", "e_crem", 4.4),
+  mkEsandi(7, "BARRA LECHE PURO", "e_crem", 4.4),
+  mkEsandi(8, "BOMBON x4", "e_bomb", 2.4),
+  mkEsandi(9, "CAFE EN GRANO ENV. X250", "e_env", 5),
+  mkEsandi(10, "CAFE MOLIDO ENV.X250", "e_env", 5),
+  mkEsandi(11, "CAFE TOSTADO CONFI x 1 kg", "e_env", 6),
+  mkEsandi(12, "CHOCO TAZA BOLSA 200gr", "e_env", 6),
+  mkEsandi(13, "CORAZON DDL GRANEL", "e_bomb", 4.92),
+  mkEsandi(14, "CORAZON x5", "e_bomb", 4.32),
+  mkEsandi(15, "FIGURAS MACIZAS MIx", "e_bomb", 4.5),
+  mkEsandi(16, "FONDUE MICRO", "e_bomb", 5.4),
+  mkEsandi(17, "FONDUE TRADICIONAL X 200gr", "e_env", 6),
+  mkEsandi(18, "GARRAP ALMENDRA 100gr", "e_pc", 3.2),
+  mkEsandi(19, "GARRAP AVELLANA 100gr", "e_pc", 3.2),
+  mkEsandi(20, "GARRAP CAJU 100gr", "e_pc", 3.2),
+  mkEsandi(21, "GARRAP PECAN 100gr", "e_pc", 3.2),
+  mkEsandi(22, "GARRAP PISTACHO 100gr", "e_pc", 3.2),
+  mkEsandi(23, "GATITAS", "e_dec", 1.8),
+  mkEsandi(24, "GOLOSA 1 MH LECHE xBULTO", "e_crem", 3.15),
+  mkEsandi(25, "GOLOSA 2 MH BLANCO xBULTO", "e_crem", 3.15),
+  mkEsandi(26, "GOLOSA 3 MH CROCANTE xBULTO", "e_crem", 3.15),
+  mkEsandi(27, "GOLOSA 4 NOUGAT PISTACHO xBULTO", "e_crem", 3.15),
+  mkEsandi(28, "LAPIZ DDL x 9 U", "e_mh", 1.92),
+  mkEsandi(29, "LAPIZ MINI NUICCIOLA x5", "e_mh", 2.7),
+  mkEsandi(30, "MARROC 100gr (comun)", "e_crem", 7.2),
+  mkEsandi(31, "MARROC 50gr (comun)", "e_crem", 4.95),
+  mkEsandi(32, "MARROC CEREAL 260", "e_crem", 6.24),
+  mkEsandi(33, "MARROC CEREAL 275", "e_crem", 6.6),
+  mkEsandi(34, "MARROC CROCANTE X50GR", "e_crem", 4.95),
+  mkEsandi(35, "MARROC DE MANI (VENTA) (comun)", "e_crem", 6),
+  mkEsandi(36, "MEDALLON AMARGO", "e_bomb", 3.2),
+  mkEsandi(37, "MEDALLON BLANCO", "e_bomb", 3.2),
+  mkEsandi(38, "MEDALLON LECHE", "e_bomb", 3.2),
+  mkEsandi(39, "MIL HOJAS AMARGO", "e_crem", 9.6),
+  mkEsandi(40, "MIL HOJAS BLANCO", "e_crem", 9.6),
+  mkEsandi(41, "MIL HOJAS LECHE", "e_crem", 9.6),
+  mkEsandi(42, "MIX TORTUGAS 22uni", "e_bomb", 2.926),
+  mkEsandi(43, "MUNECO DE NIEVE", "e_dec", 2.025),
+  mkEsandi(44, "NUI X 12", "e_dec", 6.42),
+  mkEsandi(45, "NUI X 6", "e_dec", 3.21),
+  mkEsandi(46, "NUICCIOLATO X 50 GR", "e_crem", 4.95),
+  mkEsandi(47, "OSO CON AUTO", "e_dec", 0.975),
+  mkEsandi(48, "OSO CON PELOTA", "e_dec", 2.04),
+  mkEsandi(49, "OSOS DDL GRANEL", "e_bomb", 4.92),
+  mkEsandi(50, "OSOS DDL x12", "e_bomb", 2.88),
+  mkEsandi(51, "OSOS DDL x4", "e_bomb", 2.592),
+  mkEsandi(52, "OSOS DDL x6", "e_bomb", 3.24),
+  mkEsandi(53, "OSOS DDL x6 BLANCO", "e_bomb", 3.24),
+  mkEsandi(54, "PAILA ALM CROCANTE 100gr", "e_pf", 5),
+  mkEsandi(55, "PAILA ALMEN AMARGA 100gr", "e_pf", 5),
+  mkEsandi(56, "PAILA ALMEN LECHE 100gr", "e_pf", 5),
+  mkEsandi(57, "PAILA AVELL LECHE 100gr", "e_pf", 5),
+  mkEsandi(58, "PAILA CRANBERRIES x100gr", "e_pf", 5),
+  mkEsandi(59, "PAILA MANI LECHE 100gr", "e_pf", 5),
+  mkEsandi(60, "PAILA MICROGALLETITAS", "e_pf", 5),
+  mkEsandi(61, "PAILA NIBS X100gr", "e_pf", 5),
+  mkEsandi(62, "PAILA NUICCIOLATO", "e_pf", 5),
+  mkEsandi(63, "PAILA PASAS LECHE 100gr", "e_pf", 5),
+  mkEsandi(64, "PAILA PISTACHO C/ CHOCOLATE BLANCO", "e_pf", 5),
+  mkEsandi(65, "PELOTA CHICA", "e_dec", 1),
+  mkEsandi(66, "PERRITA", "e_dec", 1.755),
+  mkEsandi(67, "PRALINE DE AVELLANA Y PISTACHO", "e_crem", 3.969),
+  mkEsandi(68, "PRALINE DEGUSTACION (cereal)", "e_crem", 3.969),
+  mkEsandi(69, "PRALINE MANI CEREAL BOCADITO", "e_crem", 3.969),
+  mkEsandi(70, "PRALINE MANI CEREAL VENTA", "e_crem", 3.969),
+  mkEsandi(71, "RAMA 60 AMARGO", "e_rama", 4.62),
+  mkEsandi(72, "RAMA 60 BLANCO", "e_rama", 4.62),
+  mkEsandi(73, "RAMA 60 LECHE", "e_rama", 4.62),
+  mkEsandi(74, "RAMA AMARGA GRANEL", "e_rama", 7),
+  mkEsandi(75, "RAMA LECHE GRANEL", "e_rama", 7),
+  mkEsandi(76, "RAMON", "e_rama", 4.8),
+  mkEsandi(77, "RAPASAURIO 3D", "e_mh", 2.5),
+  mkEsandi(78, "SUBMARINO PIGGY", "e_bomb", 1.575),
+  mkEsandi(79, "SUBMARINO X 3", "e_bomb", 1.98),
+  mkEsandi(80, "TAB 60 DIET", "e_bomb", 3.04),
+  mkEsandi(81, "TAB LECHE DIET", "e_bomb", 3.04),
+  mkEsandi(82, "TAB SAL CARAMELO 100gr", "e_crem", 3.8),
+  mkEsandi(83, "TABLETA 60 VB", "e_bomb", 3.04),
+  mkEsandi(84, "TABLETA 70 VB", "e_bomb", 3.04),
+  mkEsandi(85, "TABLETA 80 VB", "e_bomb", 3.04),
+  mkEsandi(86, "TABLETA 90 VB", "e_bomb", 3.04),
+  mkEsandi(87, "TABLETA AMARGA XXL ALMENDRA", "e_crem", 11.2),
+  mkEsandi(88, "TABLETA AMARGA XXL AVELLANA", "e_crem", 11.2),
+  mkEsandi(89, "TABLETA BLANCO LIM/JEN x 45 gramos", "e_bomb", 3.6),
+  mkEsandi(90, "TABLETA BLANCO X80gr", "e_bomb", 3.04),
+  mkEsandi(91, "TABLETA CAFE NIBS 40 gramos", "e_bomb", 3.2),
+  mkEsandi(92, "TABLETA DUBAI", "e_bomb", 2.88),
+  mkEsandi(93, "TABLETA FRAMB/CRANBERRIES X 45 gramos", "e_bomb", 3.6),
+  mkEsandi(94, "TABLETA GOTA DEGUSTACION ENV", "e_bomb", 4.8),
+  mkEsandi(95, "TABLETA LECHE ALMENDRA", "e_bomb", 3.8),
+  mkEsandi(96, "TABLETA LECHE PURO X80gr", "e_bomb", 3.04),
+  mkEsandi(97, "TABLETA LECHE XXL ALMENDRA", "e_crem", 11.2),
+  mkEsandi(98, "TABLETA LECHE XXL AVELLANA", "e_crem", 11.2),
+  mkEsandi(99, "TABLETA MINI GOTA DDL", "e_bomb", 3.15),
+  mkEsandi(100, "TABLETA PISTACHO", "e_crem", 3.8),
+  mkEsandi(101, "TABLETA RELLENA DDL 120gr", "e_bomb", 5.13),
+  mkEsandi(102, "TABLETA XXL LECHE PURA", "e_crem", 5.6),
+  mkEsandi(103, "TORTUGAS", "e_dec", 1.275),
+  mkEsandi(104, "TURRON ALMENDRA", "e_tur", 3.63),
+  mkEsandi(105, "TURRON ALMENDRA BANADO", "e_tur", 3.63),
+  mkEsandi(106, "TURRON GIANDUIA", "e_tur", 3.63),
+  mkEsandi(107, "TURRON MANI", "e_tur", 3.63),
+  mkEsandi(108, "TURRON NUEZ", "e_tur", 3.63),
+  mkEsandi(109, "TURRON NUEZ Y DAMASCO", "e_tur", 3.63),
+  mkEsandi(110, "TURRON PISTACHO Y NARANJA", "e_tur", 3.63),
+  mkEsandi(111, "CONEJITO DDL X 5", "e_bomb", 2.1),
 ];
 
 const JOURS = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
@@ -128,7 +281,12 @@ function statutStock(stock, min, max) {
 }
 function getPal(ligne) { return PALETTE[((ligne && ligne.pal) || 0) % PALETTE.length]; }
 function kgBloc(l) { return (l && l.capacite ? l.capacite : 0) / 2; } // kg par demi-turno (4h)
-function kgParBulto(p) { return (p && p.uxb > 0 && p.peso > 0) ? p.uxb * p.peso : null; }
+function kgParBulto(p) {
+  if (!p) return null;
+  if (p.pesoBulto > 0) return p.pesoBulto;
+  if (p.uxb > 0 && p.peso > 0) return p.uxb * p.peso;
+  return null;
+}
 function parseNum(s) {
   if (s == null) return NaN;
   let t = String(s).trim().replace(/\s/g, "");
@@ -156,7 +314,7 @@ function lireBloc(cell, ligne) {
   return { p: cell, kg: kgBloc(ligne) };
 }
 
-const STORAGE_KEY = "choco-planner-state-v1";
+const STORAGE_KEY = "choco-planner-state-v2";
 
 function encodePayload(payload) {
   const json = JSON.stringify(payload);
@@ -386,7 +544,7 @@ export default function PlanificateurChocolat() {
     if (!nouveauNom.trim() || !usine) return;
     const id = produits.reduce((m, p) => Math.max(m, p.id), 0) + 1;
     const ligneCible = nouvelleLigneProd || (lignesUsine[0] ? lignesUsine[0].id : null);
-    setProduits([...produits, { id, nom: nouveauNom.trim(), ligne: ligneCible, usine, stock: 0, demande: 0, min: null, max: null, uxb: null, peso: null }]);
+    setProduits([...produits, { id, nom: nouveauNom.trim(), ligne: ligneCible, usine, stock: 0, demande: 0, min: null, max: null, pesoBulto: null }]);
     setNouveauNom("");
   };
   const supprimerProduit = (id) => {
@@ -424,21 +582,22 @@ export default function PlanificateurChocolat() {
     const ligneStock = idxStock !== -1 ? rows[idxStock] : [];
     const dateStock = ligneStock[0] || "";
     const debut = (isNaN(parseNum(ligneMax[0])) && isNaN(parseNum(ligneMin[0]))) ? 1 : 0;
-    let maj = 0, ajoutes = 0, avecMinMax = 0;
+    let maj = 0, ajoutes = 0, avecMinMax = 0, ignores = 0;
     let nouveaux = [...produits];
     const nbCols = Math.max(ligneNoms.length, ligneMax.length, ligneMin.length, ligneStock.length);
     for (let c = debut; c < nbCols; c++) {
       const nom = normaliser(ligneNoms[c]); if (!nom) continue;
       const vMax = parseNum(ligneMax[c]), vMin = parseNum(ligneMin[c]), vStock = parseNum(ligneStock[c]);
+      if (isNaN(vStock) && isNaN(vMin) && isNaN(vMax)) { ignores++; continue; }
       if (!isNaN(vMin) || !isNaN(vMax)) avecMinMax++;
       const champs = { ...(isNaN(vStock) ? {} : { stock: vStock }), ...(isNaN(vMin) ? {} : { min: vMin }), ...(isNaN(vMax) ? {} : { max: vMax }) };
       const existant = nouveaux.find((p) => p.usine === usine && p.nom.toLowerCase() === nom.toLowerCase());
       if (existant) { nouveaux = nouveaux.map((p) => (p.id === existant.id ? { ...p, ...champs } : p)); maj++; }
-      else { const id = nouveaux.reduce((m, p) => Math.max(m, p.id), 0) + 1; const conv = CONVERSIONS[nom] || [null, null]; nouveaux.push({ id, nom, ligne: null, usine, stock: isNaN(vStock) ? 0 : vStock, demande: 0, min: isNaN(vMin) ? null : vMin, max: isNaN(vMax) ? null : vMax, uxb: conv[0], peso: conv[1] }); ajoutes++; }
+      else { const id = nouveaux.reduce((m, p) => Math.max(m, p.id), 0) + 1; nouveaux.push({ id, nom, ligne: null, usine, stock: isNaN(vStock) ? 0 : vStock, demande: 0, min: isNaN(vMin) ? null : vMin, max: isNaN(vMax) ? null : vMax, pesoBulto: PESO_BULTO_POR_PRODUCTO[nom] ?? null }); ajoutes++; }
     }
     if (maj === 0 && ajoutes === 0) { setMsgImport("⚠️ No se detectó ningún producto. Verifica el pegado."); return; }
     setProduits(nouveaux);
-    setMsgImport("✓ Importación (stock del " + (dateStock || "?") + "): " + maj + " actualizado(s), " + ajoutes + " nuevo(s), de los cuales " + avecMinMax + " con mín./máx." + (avecMinMax === 0 ? " ⚠️ No se leyó ningún mín./máx." : ""));
+    setMsgImport("Importacion (stock del " + (dateStock || "?") + "): " + maj + " actualizado(s), " + ajoutes + " nuevo(s), " + avecMinMax + " con min./max. " + ignores + " producto(s) ignorado(s) por celdas vacias." + (avecMinMax === 0 ? " No se leyo ningun min./max." : ""));
     setTexteImport("");
   };
 
@@ -706,7 +865,7 @@ export default function PlanificateurChocolat() {
                       <table className="w-full text-sm">
                         <thead>
                           <tr className="text-left text-gray-500 border-b">
-                            <th className="py-1 pr-2">Producto</th><th className="py-1 text-right">U/blt</th><th className="py-1 text-right">kg/u</th>
+                            <th className="py-1 pr-2">Producto</th><th className="py-1 text-right">kg/bulto</th>
                             <th className="py-1 text-right">Min</th><th className="py-1 text-right">Max</th><th className="py-1 text-right">Dem/j</th>
                             <th className="py-1 text-right">Stock</th><th className="py-1 text-center">Indicador</th><th className="py-1 text-center">Estado</th>
                             <th className="py-1 text-right">Prod (blt)</th><th className="py-1 text-right">Proyectado</th><th className="py-1 text-center">Estado proy.</th>
@@ -721,8 +880,7 @@ export default function PlanificateurChocolat() {
                             return (
                               <tr key={p.id} className={"border-b border-gray-100 " + gris}>
                                 <td className="py-2 pr-2 font-medium">{p.nom}</td>
-                                <td className="py-2 text-right"><input type="number" className="w-14 text-right border rounded p-1" value={p.uxb != null ? p.uxb : ""} placeholder="—" onChange={(e) => majProduit(p.id, "uxb", e.target.value === "" ? null : parseFloat(e.target.value) || 0)} /></td>
-                                <td className="py-2 text-right"><input type="number" step="0.001" className="w-16 text-right border rounded p-1" value={p.peso != null ? p.peso : ""} placeholder="—" onChange={(e) => majProduit(p.id, "peso", e.target.value === "" ? null : parseFloat(e.target.value) || 0)} /></td>
+                                <td className="py-2 text-right"><input type="number" step="0.001" className="w-20 text-right border rounded p-1" value={p.pesoBulto != null ? p.pesoBulto : ""} placeholder="-" onChange={(e) => majProduit(p.id, "pesoBulto", e.target.value === "" ? null : parseFloat(e.target.value) || 0)} /></td>
                                 <td className="py-2 text-right"><input type="number" className="w-16 text-right border rounded p-1" value={p.min != null ? p.min : ""} placeholder="—" onChange={(e) => majProduit(p.id, "min", e.target.value === "" ? null : parseFloat(e.target.value) || 0)} /></td>
                                 <td className="py-2 text-right"><input type="number" className="w-16 text-right border rounded p-1" value={p.max != null ? p.max : ""} placeholder="—" onChange={(e) => majProduit(p.id, "max", e.target.value === "" ? null : parseFloat(e.target.value) || 0)} /></td>
                                 <td className="py-2 text-right text-xs">{config ? fmtNb(demandeJour(p)) : "—"}</td>
@@ -741,7 +899,7 @@ export default function PlanificateurChocolat() {
                   </div>
                 );
               })}
-            <p className="text-xs text-gray-500 mt-3">Todo está en <strong>bultos</strong>. Demanda/día = Stock mín. ÷ {JOURS_MOIS}. Completa U/blt y kg/u para los productos donde falten (si no, no se podrán planificar).</p>
+            <p className="text-xs text-gray-500 mt-3">Todo esta en <strong>bultos</strong>. Demanda/dia = Stock min. / {JOURS_MOIS}. El campo kg/bulto convierte los bultos a kg para planificar turnos y medios turnos.</p>
           </div>
         )}
 
@@ -838,6 +996,39 @@ export default function PlanificateurChocolat() {
           const goulots = diag.filter((d) => d.marge <= 0 && d.demH > 0);
           const finis = diag.filter((d) => d.temps !== Infinity);
           const maxTemps = finis.length ? Math.max(...finis.map((d) => d.temps)) : 0;
+          const produitsCritiques = produitsUsine
+            .filter((p) => estConfigure(p) && kgParBulto(p))
+            .map((p) => {
+              const ligne = lignes.find((l) => l.id === p.ligne);
+              const d = ligne ? diag.find((x) => x.ligne.id === ligne.id) : null;
+              const s = seuils(p);
+              const kgBulto = kgParBulto(p);
+              const objectifVert = s.min * 1.5;
+              const deficitBultos = Math.max(0, objectifVert - p.stock);
+              const deficitKg = deficitBultos * kgBulto;
+              const demandeHebdoKg = demandeJour(p) * 7 * kgBulto;
+              const tempsSemaines =
+                deficitKg <= 0 ? 0 : (d && d.marge > 0 ? deficitKg / d.marge : Infinity);
+              return {
+                p,
+                ligne,
+                stock: p.stock,
+                objectifVert,
+                deficitBultos,
+                deficitKg,
+                demandeHebdoKg,
+                chargeLigne: d ? d.charge : 0,
+                margeLigne: d ? d.marge : 0,
+                tempsSemaines,
+              };
+            })
+            .filter((r) => r.deficitBultos > 0)
+            .sort((a, b) => {
+              if (a.tempsSemaines === Infinity && b.tempsSemaines !== Infinity) return -1;
+              if (b.tempsSemaines === Infinity && a.tempsSemaines !== Infinity) return 1;
+              if (b.tempsSemaines !== a.tempsSemaines) return b.tempsSemaines - a.tempsSemaines;
+              return b.deficitKg - a.deficitKg;
+            });
           return (
             <div className="bg-white rounded-xl shadow p-4">
               <h2 className="font-semibold text-amber-900 mb-1">Diagnóstico de capacidad — {usineActive ? usineActive.nom : ""}</h2>
@@ -848,6 +1039,59 @@ export default function PlanificateurChocolat() {
                 <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-800 mb-3">⚠️ {goulots.length} línea(s) en sobrecarga ({goulots.map((d) => d.ligne.nom).join(", ")}): la demanda supera la capacidad; esos productos no podrán mantenerse todos en verde sin turnos adicionales.</div>
               ) : (
                 <div className="p-3 bg-green-50 border border-green-200 rounded-lg text-sm text-green-800 mb-3">✓ Todas las líneas tienen margen positivo. Tiempo estimado para llevar todos los productos a verde: <strong>{maxTemps < 1 ? "menos de una semana" : Math.ceil(maxTemps) + " semana(s)"}</strong> (marcado por la línea más cargada).</div>
+              )}
+
+              {totalDem > 0 && (
+                <div className="mb-5">
+                  <h3 className="font-semibold text-amber-900 mb-2">Productos mas criticos</h3>
+                  {produitsCritiques.length === 0 ? (
+                    <div className="p-3 bg-green-50 border border-green-200 rounded-lg text-sm text-green-800">No hay productos por debajo del nivel verde.</div>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead><tr className="text-left text-gray-500 border-b">
+                          <th className="py-1 pr-2">Producto</th>
+                          <th className="py-1 pr-2">Linea</th>
+                          <th className="py-1 text-right">Stock</th>
+                          <th className="py-1 text-right">Objetivo verde</th>
+                          <th className="py-1 text-right">Faltan (blt)</th>
+                          <th className="py-1 text-right">Faltan (kg)</th>
+                          <th className="py-1 text-right">Demanda/sem (kg)</th>
+                          <th className="py-1 text-right">Margen linea/sem</th>
+                          <th className="py-1 text-right">Tiempo estimado</th>
+                        </tr></thead>
+                        <tbody>
+                          {produitsCritiques.slice(0, 20).map((r) => {
+                            const tiempo =
+                              r.tempsSemaines === Infinity
+                                ? "sin margen"
+                                : (r.tempsSemaines < 1 ? "< 1 sem." : Math.ceil(r.tempsSemaines) + " sem.");
+                            const riesgo =
+                              r.tempsSemaines === Infinity || r.chargeLigne > 1
+                                ? "text-red-700 font-bold"
+                                : r.tempsSemaines > 2 || r.chargeLigne > 0.85
+                                  ? "text-orange-700 font-semibold"
+                                  : "text-amber-800";
+                            return (
+                              <tr key={r.p.id} className="border-b border-gray-100">
+                                <td className="py-2 pr-2 font-medium">{r.p.nom}</td>
+                                <td className="py-2 pr-2">{r.ligne ? r.ligne.nom : "Por asignar"}</td>
+                                <td className="py-2 text-right">{fmtNb(r.stock)}</td>
+                                <td className="py-2 text-right">{fmtNb(r.objectifVert)}</td>
+                                <td className="py-2 text-right">{fmtNb(r.deficitBultos)}</td>
+                                <td className="py-2 text-right">{fmtNb(r.deficitKg)}</td>
+                                <td className="py-2 text-right">{fmtNb(r.demandeHebdoKg)}</td>
+                                <td className={"py-2 text-right " + (r.margeLigne > 0 ? "text-green-700" : "text-red-600")}>{r.margeLigne > 0 ? "+" : ""}{fmtNb(r.margeLigne)}</td>
+                                <td className={"py-2 text-right " + riesgo}>{tiempo}</td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                  <p className="text-xs text-gray-500 mt-2">Objetivo verde = stock min. x 1,5. El tiempo estimado supone que la margen disponible de la linea se prioriza primero a ese producto; si varios productos compiten por la misma linea, el tiempo real puede ser mayor.</p>
+                </div>
               )}
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">

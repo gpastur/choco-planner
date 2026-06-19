@@ -29,12 +29,11 @@ const LIGNES_INIT = [
   { id: "l3", nom: "GDG", capacite: 500, pal: 2, usine: "mitre" },
   { id: "l4", nom: "Sollich", capacite: 500, pal: 3, usine: "mitre" },
   { id: "l5", nom: "Bulher", capacite: 500, pal: 4, usine: "mitre" },
-  { id: "l6", nom: "Tostadora", capacite: 500, pal: 0, usine: "vb" },
-  { id: "l7", nom: "Dulceria", capacite: 500, pal: 1, usine: "vb" },
-  { id: "l8", nom: "Refinado", capacite: 500, pal: 2, usine: "vb" },
+  { id: "vb_stephan", nom: "Stephan", capacite: 130, pal: 0, usine: "vb" },
 ];
 
 const mkEsandi = (id, nom, ligne, pesoBulto) => ({ id, nom, ligne, usine: "esandi", stock: 0, demande: 0, min: null, max: null, pesoBulto });
+const mkVB = (id, nom, ligne, pesoBulto = null) => ({ id, nom, ligne, usine: "vb", stock: 0, demande: 0, min: null, max: null, pesoBulto });
 
 const PESO_BULTO_POR_PRODUCTO = {
   "BARRA AMARGO ALMENDRA": 4.4,
@@ -262,12 +261,36 @@ const PRODUITS_INIT = [
   mkEsandi(109, "TURRON NUEZ Y DAMASCO", "e_tur", 3.63),
   mkEsandi(110, "TURRON PISTACHO Y NARANJA", "e_tur", 3.63),
   mkEsandi(111, "CONEJITO DDL X 5", "e_bomb", 2.1),
+  mkVB(112, "DULCE FRAMBUESA 420gr", "vb_stephan"),
+  mkVB(113, "DULCE FRUTILLA 420gr", "vb_stephan"),
+  mkVB(114, "DULCE FRUTOS DEL BOSQUE", "vb_stephan"),
+  mkVB(115, "DULCE MOSQUETA 420gr", "vb_stephan"),
+  mkVB(116, "DULCE SAUCO 420gr", "vb_stephan"),
 ];
 
 const JOURS = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
 const HORIZON = 4;
 const JOURS_HORIZON = HORIZON * JOURS.length;
 const JOURS_MOIS = 30;
+const TURNOS_PAR_USINE = {
+  esandi: [
+    { id: "m1", nom: "Mañana 1", facteur: 0.5 },
+    { id: "m2", nom: "Mañana 2", facteur: 0.5 },
+    { id: "t1", nom: "Tarde 1", facteur: 0.5 },
+    { id: "t2", nom: "Tarde 2", facteur: 0.5 },
+  ],
+  fatima: [{ id: "m", nom: "Mañana", facteur: 1 }],
+  mitre: [
+    { id: "m", nom: "Mañana", facteur: 1 },
+    { id: "t", nom: "Tarde", facteur: 1 },
+    { id: "n", nom: "Noche", facteur: 1 },
+  ],
+  vb: [
+    { id: "m", nom: "Mañana", facteur: 1 },
+    { id: "t", nom: "Tarde", facteur: 1 },
+    { id: "n", nom: "Noche", facteur: 1 },
+  ],
+};
 
 function lundiDeLaSemaine(d) { const date = new Date(d.getFullYear(), d.getMonth(), d.getDate()); const j = date.getDay(); date.setDate(date.getDate() + (j === 0 ? -6 : 1 - j)); return date; }
 function cleDate(d) { return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); }
@@ -280,7 +303,13 @@ function statutStock(stock, min, max) {
   return { label: "Sobrestock", badge: "bg-purple-500", fond: "bg-purple-100 text-purple-800 border-purple-500" };
 }
 function getPal(ligne) { return PALETTE[((ligne && ligne.pal) || 0) % PALETTE.length]; }
-function kgBloc(l) { return (l && l.capacite ? l.capacite : 0) / 2; } // kg par demi-turno (4h)
+function turnosUsine(usineId) { return TURNOS_PAR_USINE[usineId] || TURNOS_PAR_USINE.fatima; }
+function turnosLigne(ligne) { return turnosUsine(ligne && ligne.usine); }
+function turnoDepuisCle(cle, ligne) {
+  const turnoId = String(cle || "").split("|")[2];
+  return turnosLigne(ligne).find((t) => String(t.id) === turnoId) || turnosLigne(ligne)[0];
+}
+function kgBloc(l, turno = null) { return (l && l.capacite ? l.capacite : 0) * ((turno && turno.facteur) || 1); }
 function kgParBulto(p) {
   if (!p) return null;
   if (p.pesoBulto > 0) return p.pesoBulto;
@@ -314,7 +343,7 @@ function lireBloc(cell, ligne) {
   return { p: cell, kg: kgBloc(ligne) };
 }
 
-const STORAGE_KEY = "choco-planner-state-v2";
+const STORAGE_KEY = "choco-planner-state-v3";
 
 function encodePayload(payload) {
   const json = JSON.stringify(payload);
@@ -467,7 +496,8 @@ export default function PlanificateurChocolat() {
 
   const assigner = (cle, pid) => {
     const ligne = lignes.find((l) => l.id === cle.split("|")[1]);
-    setPlan((p) => { const np = { ...p }; if (pid === "") delete np[cle]; else np[cle] = { p: Number(pid), kg: kgBloc(ligne) }; return np; });
+    const turno = turnoDepuisCle(cle, ligne);
+    setPlan((p) => { const np = { ...p }; if (pid === "") delete np[cle]; else np[cle] = { p: Number(pid), kg: kgBloc(ligne, turno) }; return np; });
     setSelection(null);
   };
 
@@ -498,10 +528,10 @@ export default function PlanificateurChocolat() {
       produitsUsine.forEach((p) => { if (estConfigure(p)) stockSim[p.id] -= demandeJour(p); });
       if (!jour.prod) return;
       lignesUsine.forEach((ligne) => {
-        const kgb_ligne = kgBloc(ligne); // kg disponibles por bloque
         const prods = produitsUsine.filter((p) => p.ligne === ligne.id && estConfigure(p) && kgParBulto(p) && seuils(p).max > 0);
         if (prods.length === 0) return;
-        [0, 1].forEach((bloc) => {
+        turnosLigne(ligne).forEach((turno) => {
+          const kgb_ligne = kgBloc(ligne, turno); // kg disponibles por turno/bloque
           // Produit le plus en déficit sous le plancher vert (min*1.5)
           let meilleur = null, urgenceMax = 0;
           prods.forEach((p) => {
@@ -517,7 +547,7 @@ export default function PlanificateurChocolat() {
           const kgNecessaires = bultosManquants * kgpb;
           const kgProduit = Math.max(0, Math.min(kgb_ligne, kgNecessaires)); // divisible : on ne fait que le nécessaire
           if (kgProduit <= 0) return;
-          nouveauPlan[jour.cle + "|" + ligne.id + "|" + bloc] = { p: meilleur.id, kg: kgProduit };
+          nouveauPlan[jour.cle + "|" + ligne.id + "|" + turno.id] = { p: meilleur.id, kg: kgProduit };
           stockSim[meilleur.id] += kgProduit / kgpb;
           blocsUtilises++;
         });
@@ -640,20 +670,20 @@ export default function PlanificateurChocolat() {
               <td class="linea">${htmlEscape(ligne.nom)}<br><small>${htmlEscape(ligne.capacite)} kg/turno</small></td>
               ${dias.map((j) => `
                 <td>
-                  ${[0, 1].map((bloc) => {
-                    const b = lireBloc(plan[j.cle + "|" + ligne.id + "|" + bloc], ligne);
+                  ${turnosLigne(ligne).map((turno) => {
+                    const b = lireBloc(plan[j.cle + "|" + ligne.id + "|" + turno.id], ligne);
                     const prod = b ? produits.find((p) => p.id === b.p) : null;
                     const kgb = prod ? kgParBulto(prod) : null;
                     const bultos = b && kgb ? b.kg / kgb : null;
                     return `<div class="bloque">
-                      <div class="turno">${bloc === 0 ? "Mañana" : "Tarde"}</div>
+                      <div class="turno">${htmlEscape(turno.nom)}</div>
                       ${prod ? `<div class="producto">${htmlEscape(prod.nom)}</div><div class="cantidad">${htmlEscape(fmtNb(b.kg))} kg${bultos != null ? " · " + htmlEscape(fmtNb(bultos)) + " blt" : ""}</div>` : `<div class="vacio">Sin asignar</div>`}
                     </div>`;
                   }).join("")}
                 </td>
               `).join("")}
-              <td>${htmlEscape(fmtNb(dias.reduce((total, j) => total + [0, 1].reduce((sum, bloc) => {
-                const b = lireBloc(plan[j.cle + "|" + ligne.id + "|" + bloc], ligne);
+              <td>${htmlEscape(fmtNb(dias.reduce((total, j) => total + turnosLigne(ligne).reduce((sum, turno) => {
+                const b = lireBloc(plan[j.cle + "|" + ligne.id + "|" + turno.id], ligne);
                 return sum + (b ? b.kg : 0);
               }, 0), 0)))} kg</td>
             </tr>
@@ -688,7 +718,7 @@ export default function PlanificateurChocolat() {
   const totalSemaineLigne = (ligneId) => {
     const ligne = lignes.find((l) => l.id === ligneId); if (!ligne) return 0;
     let total = 0;
-    joursSemaine.forEach((j) => { [0, 1].forEach((bloc) => { const b = lireBloc(plan[j.cle + "|" + ligneId + "|" + bloc], ligne); if (b) total += b.kg; }); });
+    joursSemaine.forEach((j) => { turnosLigne(ligne).forEach((turno) => { const b = lireBloc(plan[j.cle + "|" + ligneId + "|" + turno.id], ligne); if (b) total += b.kg; }); });
     return total;
   };
 
@@ -794,11 +824,11 @@ export default function PlanificateurChocolat() {
                       const pal = getPal(ligne);
                       return (
                         <tr key={ligne.id}>
-                          <td className={"p-2 font-semibold align-top " + pal.texte}>{ligne.nom}<div className="text-xs font-normal text-gray-500">{ligne.capacite} kg/turno<br />{fmtNb(kgBloc(ligne))} kg / bloque máx.</div></td>
+                          <td className={"p-2 font-semibold align-top " + pal.texte}>{ligne.nom}<div className="text-xs font-normal text-gray-500">{ligne.capacite} kg/turno<br />{turnosLigne(ligne).length} bloque(s)/dia</div></td>
                           {joursSemaine.map((j) => (
                             <td key={j.cle} className="p-1 align-top">
-                              {[0, 1].map((bloc) => {
-                                const cle = j.cle + "|" + ligne.id + "|" + bloc;
+                              {turnosLigne(ligne).map((turno) => {
+                                const cle = j.cle + "|" + ligne.id + "|" + turno.id;
                                 const b = lireBloc(plan[cle], ligne);
                                 const prod = b ? produits.find((p) => p.id === b.p) : null;
                                 const enEdition = selection === cle;
@@ -807,7 +837,7 @@ export default function PlanificateurChocolat() {
                                 const kgpb = prod ? kgParBulto(prod) : null;
                                 const bultos = (b && kgpb) ? b.kg / kgpb : 0;
                                 return (
-                                  <div key={bloc} className="mb-1" onDragOver={(e) => e.preventDefault()} onDrop={() => onDrop(cle)}>
+                                  <div key={turno.id} className="mb-1" onDragOver={(e) => e.preventDefault()} onDrop={() => onDrop(cle)}>
                                     {enEdition ? (
                                       <select autoFocus className="w-full text-xs border rounded p-1" value={b ? b.p : ""} onChange={(e) => assigner(cle, e.target.value)} onBlur={() => setSelection(null)}>
                                         <option value="">— vacío —</option>
@@ -817,7 +847,7 @@ export default function PlanificateurChocolat() {
                                       <div draggable={!!prod} onDragStart={() => setDragKey(cle)} onClick={() => setSelection(cle)} title={b ? fmtNb(b.kg) + " kg" + (kgpb ? " · ≈ " + fmtNb(bultos) + " bultos" : " · conversión faltante") : ""}
                                         className={"w-full text-xs rounded p-1.5 border-2 text-left min-h-10 transition cursor-pointer " + (prod ? pal.clair + " " + pal.bordure + " " + pal.texte + " font-medium" : "bg-gray-50 border-dashed border-gray-300 text-gray-400 hover:bg-gray-100") + (dragKey === cle ? " opacity-40" : "")}>
                                         <span className="flex items-center justify-between">
-                                          <span className="text-[10px] opacity-60">{bloc === 0 ? "Mañana" : "Tarde"}</span>
+                                          <span className="text-[10px] opacity-60">{turno.nom}</span>
                                           {pastille && <span className={"w-2.5 h-2.5 rounded-full " + pastille}></span>}
                                         </span>
                                         {prod ? prod.nom : "+ asignar"}
@@ -837,7 +867,7 @@ export default function PlanificateurChocolat() {
                 </table>
               </div>
             )}
-            <p className="text-xs text-gray-500 mt-2">Un medio turno (4 h) produce hasta <strong>capacidad ÷ 2 kg</strong> de un solo producto, pero la cantidad es <strong>divisible</strong>: el optimizador fabrica solo lo necesario para llegar al stock máximo sin superarlo. Cada bloque muestra los kg y los bultos realmente producidos.</p>
+            <p className="text-xs text-gray-500 mt-2">Cada bloque produce segun los turnos de la fabrica: Esandi usa bloques de 4 h, Fatima 1 turno, Mitre/VB 3 turnos. La cantidad es <strong>divisible</strong>: el optimizador fabrica solo lo necesario para llegar al stock maximo sin superarlo. Cada bloque muestra los kg y los bultos realmente producidos.</p>
             <Legende />
           </div>
         )}
@@ -921,7 +951,7 @@ export default function PlanificateurChocolat() {
                       <span className={"w-3 h-3 rounded-full " + pal.couleur}></span>
                       <input className="flex-1 bg-transparent border-b border-transparent focus:border-amber-400 outline-none text-sm font-medium" value={l.nom} onChange={(e) => majLigne(l.id, "nom", e.target.value)} />
                       <input type="number" className="w-20 border rounded p-1 text-sm text-right" value={l.capacite} onChange={(e) => majLigne(l.id, "capacite", parseFloat(e.target.value) || 0)} />
-                      <span className="text-xs text-gray-500">kg/turno → {fmtNb(kgBloc(l))} kg/bloc</span>
+                      <span className="text-xs text-gray-500">kg/turno - {turnosLigne(l).length} bloque(s)/dia</span>
                       <button onClick={() => supprimerLigne(l.id)} className="text-red-500 hover:text-red-700 text-sm px-1">✕</button>
                     </div>
                   );
@@ -984,7 +1014,7 @@ export default function PlanificateurChocolat() {
         {onglet === "diagnostic" && (() => {
           const diag = lignesUsine.map((ligne) => {
             const prods = produitsUsine.filter((p) => p.ligne === ligne.id && estConfigure(p) && kgParBulto(p));
-            const capH = ligne.capacite * 6;
+            const capH = turnosLigne(ligne).reduce((s, t) => s + kgBloc(ligne, t), 0) * 6;
             const demH = prods.reduce((s, p) => s + demandeJour(p) * 7 * kgParBulto(p), 0);
             const defi = prods.reduce((s, p) => s + Math.max(0, (seuils(p).min * 1.5 - p.stock)) * kgParBulto(p), 0);
             const marge = capH - demH;
@@ -1032,7 +1062,7 @@ export default function PlanificateurChocolat() {
           return (
             <div className="bg-white rounded-xl shadow p-4">
               <h2 className="font-semibold text-amber-900 mb-1">Diagnóstico de capacidad — {usineActive ? usineActive.nom : ""}</h2>
-              <p className="text-xs text-gray-500 mb-3">Supuestos: 1 turno/día, 6 días de producción/semana, ventas 7 días/semana. Capacidad/sem = capacidad × 6; Demanda/sem = Σ (demanda/día × 7 × kg/bulto).</p>
+              <p className="text-xs text-gray-500 mb-3">Supuestos: turnos por fabrica, 6 dias de produccion/semana, ventas 7 dias/semana. Capacidad/sem = suma de turnos diarios x 6; Demanda/sem = suma(demanda/dia x 7 x kg/bulto).</p>
               {totalDem === 0 ? (
                 <div className="p-3 bg-amber-50 rounded-lg text-sm text-amber-800">Primero importa los stocks (mín./máx.) en la pestaña Importar: el diagnóstico se calcula con tus valores reales.</div>
               ) : goulots.length > 0 ? (

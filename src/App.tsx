@@ -261,11 +261,11 @@ const PRODUITS_INIT = [
   mkEsandi(109, "TURRON NUEZ Y DAMASCO", "e_tur", 3.63),
   mkEsandi(110, "TURRON PISTACHO Y NARANJA", "e_tur", 3.63),
   mkEsandi(111, "CONEJITO DDL X 5", "e_bomb", 2.1),
-  mkVB(112, "DULCE FRAMBUESA 420gr", "vb_stephan"),
-  mkVB(113, "DULCE FRUTILLA 420gr", "vb_stephan"),
-  mkVB(114, "DULCE FRUTOS DEL BOSQUE", "vb_stephan"),
-  mkVB(115, "DULCE MOSQUETA 420gr", "vb_stephan"),
-  mkVB(116, "DULCE SAUCO 420gr", "vb_stephan"),
+  mkVB(112, "DULCE FRAMBUESA 420gr", "vb_stephan", 4.62),
+  mkVB(113, "DULCE FRUTILLA 420gr", "vb_stephan", 4.62),
+  mkVB(114, "DULCE FRUTOS DEL BOSQUE", "vb_stephan", 4.62),
+  mkVB(115, "DULCE MOSQUETA 420gr", "vb_stephan", 4.62),
+  mkVB(116, "DULCE SAUCO 420gr", "vb_stephan", 4.62),
 ];
 
 const JOURS = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
@@ -414,7 +414,8 @@ export default function PlanificateurChocolat() {
 
   const seuils = (p) => ({ min: p.min != null ? p.min : 0, max: p.max != null ? p.max : 0 });
   const estConfigure = (p) => p.min != null || p.max != null;
-  const demandeJour = (p) => { if (p.demande && p.demande > 0) return p.demande; return (seuils(p).min || 0) / JOURS_MOIS; };
+  const demandeJourCalculee = (p) => (seuils(p).min || 0) / JOURS_MOIS;
+  const demandeJour = (p) => (p.demande != null && p.demande !== "" && Number(p.demande) > 0 ? Number(p.demande) : demandeJourCalculee(p));
   const projection = (p) => p.stock + (productionParProduit[p.id] || 0) - demandeJour(p) * (HORIZON * 7);
 
   useEffect(() => {
@@ -896,7 +897,7 @@ export default function PlanificateurChocolat() {
                         <thead>
                           <tr className="text-left text-gray-500 border-b">
                             <th className="py-1 pr-2">Producto</th><th className="py-1 text-right">kg/bulto</th>
-                            <th className="py-1 text-right">Min</th><th className="py-1 text-right">Max</th><th className="py-1 text-right">Dem/j</th>
+                            <th className="py-1 text-right">Min</th><th className="py-1 text-right">Max</th><th className="py-1 text-right">Dem/d</th>
                             <th className="py-1 text-right">Stock</th><th className="py-1 text-center">Indicador</th><th className="py-1 text-center">Estado</th>
                             <th className="py-1 text-right">Prod (blt)</th><th className="py-1 text-right">Proyectado</th><th className="py-1 text-center">Estado proy.</th>
                           </tr>
@@ -913,7 +914,16 @@ export default function PlanificateurChocolat() {
                                 <td className="py-2 text-right"><input type="number" step="0.001" className="w-20 text-right border rounded p-1" value={p.pesoBulto != null ? p.pesoBulto : ""} placeholder="-" onChange={(e) => majProduit(p.id, "pesoBulto", e.target.value === "" ? null : parseFloat(e.target.value) || 0)} /></td>
                                 <td className="py-2 text-right"><input type="number" className="w-16 text-right border rounded p-1" value={p.min != null ? p.min : ""} placeholder="—" onChange={(e) => majProduit(p.id, "min", e.target.value === "" ? null : parseFloat(e.target.value) || 0)} /></td>
                                 <td className="py-2 text-right"><input type="number" className="w-16 text-right border rounded p-1" value={p.max != null ? p.max : ""} placeholder="—" onChange={(e) => majProduit(p.id, "max", e.target.value === "" ? null : parseFloat(e.target.value) || 0)} /></td>
-                                <td className="py-2 text-right text-xs">{config ? fmtNb(demandeJour(p)) : "—"}</td>
+                                <td className="py-2 text-right">
+                                  <input
+                                    type="number"
+                                    step="0.01"
+                                    className="w-16 text-right border rounded p-1"
+                                    value={p.demande != null && p.demande !== "" && Number(p.demande) > 0 ? p.demande : ""}
+                                    placeholder={config ? String(Math.round(demandeJourCalculee(p))) : "-"}
+                                    onChange={(e) => majProduit(p.id, "demande", e.target.value === "" ? 0 : parseFloat(e.target.value) || 0)}
+                                  />
+                                </td>
                                 <td className="py-2 text-right"><input type="number" className="w-16 text-right border rounded p-1" value={p.stock} onChange={(e) => majProduit(p.id, "stock", parseFloat(e.target.value) || 0)} /></td>
                                 <td className="py-2">{config ? <div className="flex justify-center"><Jauge stock={p.stock} min={s.min} max={s.max} /></div> : null}</td>
                                 <td className="py-2 text-center">{config ? <span className={"inline-block px-2 py-0.5 rounded-full border text-xs font-medium " + stA.fond}>{stA.label}</span> : <span className="inline-block px-2 py-0.5 rounded-full border text-xs bg-gray-100 text-gray-400 border-gray-300">No configurado</span>}</td>

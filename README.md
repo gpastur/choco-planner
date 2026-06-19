@@ -1,36 +1,24 @@
-# Choco Planner
-
-Aplicación React/Vite para planificar la producción de chocolate por fábrica, línea, stock mínimo/máximo y capacidad.
-
-## Ejecutar localmente
-
-```bash
-npm install
-npm run dev
-```
-
-## Verificar antes de publicar
-
-```bash
-npm run typecheck
-npm run build
-```
-
-La carpeta publicable generada es `dist/`.
-
-## Publicar en Vercel
-
-1. Subir este proyecto a GitHub.
-2. Ir a Vercel.
-3. Importar el repositorio de GitHub.
-4. Framework: Vite.
-5. Build command: `npm run build`.
-6. Output directory: `dist`.
-
-## Publicar sin GitHub
-
-```bash
-npm install -g vercel
-vercel
-vercel --prod
-```
+{
+  "name": "choco-planner",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc -b --pretty false"
+  },
+  "dependencies": {
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^6.0.2",
+    "autoprefixer": "^10.4.20",
+    "postcss": "^8.5.15",
+    "tailwindcss": "^3.4.17",
+    "typescript": "^6.0.3",
+    "vite": "^8.0.16"
+  }
+}

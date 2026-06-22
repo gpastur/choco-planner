@@ -376,6 +376,24 @@ function parseTSV(text) {
   return rows;
 }
 const normaliser = (s) => String(s || "").replace(/\s+/g, " ").trim();
+const NOMS_FATIMA_PROTEGES = [
+  "TAB SAL CARAMELO 100gr",
+  "TABLETA PISTACHO",
+  "TABLETA LECHE PURO X80gr",
+  "TABLETA LECHE PURO X80gr solo BsAs stock max p/4 meses min 2",
+  "TABLETA 70 VB",
+  "TABLETA 70 solo BsAs stock max p/4 meses min 2",
+  "TABLETA LECHE ALMENDRA",
+  "TABLETA LECHE ALMENDRA solo BsAs stock max p/4 meses min 2",
+  "TABLETA BLANCO X80gr",
+  "TABLETA BLANCO X80gr solo BsAs stock max p/4 meses min 2",
+  "TABLETA 80 VB",
+  "TABLETA 80 solo BsAs stock max p/4 meses min 2",
+  "TABLETA 60 VB",
+  "TABLETA 60 solo BsAs stock max p/4 meses min 2",
+  "TABLETA 90 VB",
+  "TABLETA 90 solo BsAs stock max p/4 meses min 2",
+];
 const MOTS_IMPORT_IGNORES = new Set([
   "SOLO", "BSAS", "BUENOS", "AIRES", "STOCK", "MAX", "MIN", "MAXIMO", "MINIMO",
   "P", "POR", "PARA", "MESES", "MES", "OBJETIVO", "BASE", "VB", "BARILOCHE", "DE", "DEL", "LA", "EL",
@@ -427,6 +445,22 @@ function trouverProduitExistant(produitsListe, usineId, nomImporte) {
     if (score >= 78 && (!meilleur || score > meilleur.score)) meilleur = { produit: p, score };
   });
   return meilleur ? meilleur.produit : null;
+}
+function trouverProduitFatimaProtege(produitsListe, nomImporte) {
+  const cleImport = tokensProduit(nomImporte).join(" ");
+  if (!cleImport) return null;
+  const protege = NOMS_FATIMA_PROTEGES.some((nom) => {
+    const cle = tokensProduit(nom).join(" ");
+    return cle && (cle === cleImport || (" " + cleImport + " ").includes(" " + cle + " ") || (" " + cle + " ").includes(" " + cleImport + " "));
+  });
+  return protege ? trouverProduitExistant(produitsListe, "fatima", nomImporte) : null;
+}
+function estNomFatimaProtege(nomProduit) {
+  const cleProduit = tokensProduit(nomProduit).join(" ");
+  return NOMS_FATIMA_PROTEGES.some((nom) => {
+    const cle = tokensProduit(nom).join(" ");
+    return cle && (cle === cleProduit || (" " + cleProduit + " ").includes(" " + cle + " ") || (" " + cle + " ").includes(" " + cleProduit + " "));
+  });
 }
 // Lecture d'une cellule de planning -> { p, kg } (rétro-compatible)
 function lireBloc(cell, ligne) {
@@ -496,7 +530,7 @@ export default function PlanificateurChocolat() {
   ]);
 
   const lignesUsine = useMemo(() => lignes.filter((l) => l.usine === usine), [lignes, usine]);
-  const produitsUsine = useMemo(() => produits.filter((p) => p.usine === usine), [produits, usine]);
+  const produitsUsine = useMemo(() => produits.filter((p) => p.usine === usine && !(usine === "esandi" && estNomFatimaProtege(p.nom))), [produits, usine]);
   const produitsNonAssignes = useMemo(() => produitsUsine.filter((p) => !p.ligne || !lignes.some((l) => l.id === p.ligne)), [produitsUsine, lignes]);
 
   const joursSemaine = useMemo(() => JOURS.map((nom, i) => {
@@ -748,7 +782,7 @@ export default function PlanificateurChocolat() {
     const ligneStock = idxStock !== -1 ? rows[idxStock] : [];
     const dateStock = ligneStock[0] || "";
     const debut = (isNaN(parseNum(ligneMax[0])) && isNaN(parseNum(ligneMin[0]))) ? 1 : 0;
-    let maj = 0, ajoutes = 0, avecMinMax = 0, ignores = 0, reconnus = 0;
+    let maj = 0, ajoutes = 0, avecMinMax = 0, ignores = 0, reconnus = 0, redirigesFatima = 0;
     let nouveaux = [...produits];
     const nbCols = Math.max(ligneNoms.length, ligneMax.length, ligneMin.length, ligneStock.length);
     for (let c = debut; c < nbCols; c++) {
@@ -757,18 +791,20 @@ export default function PlanificateurChocolat() {
       if (isNaN(vStock) && isNaN(vMin) && isNaN(vMax)) { ignores++; continue; }
       if (!isNaN(vMin) || !isNaN(vMax)) avecMinMax++;
       const champs = { ...(isNaN(vStock) ? {} : { stock: vStock }), ...(isNaN(vMin) ? {} : { min: vMin }), ...(isNaN(vMax) ? {} : { max: vMax }) };
-      const exact = nouveaux.find((p) => p.usine === usine && p.nom.toLowerCase() === nom.toLowerCase());
-      const existant = exact || trouverProduitExistant(nouveaux, usine, nom);
+      const cibleFatima = usine !== "fatima" ? trouverProduitFatimaProtege(nouveaux, nom) : null;
+      const exact = cibleFatima ? null : nouveaux.find((p) => p.usine === usine && p.nom.toLowerCase() === nom.toLowerCase());
+      const existant = cibleFatima || exact || trouverProduitExistant(nouveaux, usine, nom);
       if (existant) {
         nouveaux = nouveaux.map((p) => (p.id === existant.id ? { ...p, ...champs } : p));
         maj++;
+        if (cibleFatima) redirigesFatima++;
         if (!exact) reconnus++;
       }
       else { const id = nouveaux.reduce((m, p) => Math.max(m, p.id), 0) + 1; nouveaux.push({ id, nom, ligne: null, usine, stock: isNaN(vStock) ? 0 : vStock, demande: 0, min: isNaN(vMin) ? null : vMin, max: isNaN(vMax) ? null : vMax, pesoBulto: PESO_BULTO_POR_PRODUCTO[nom] ?? null }); ajoutes++; }
     }
     if (maj === 0 && ajoutes === 0) { setMsgImport("⚠️ No se detectó ningún producto. Verifica el pegado."); return; }
     setProduits(nouveaux);
-    setMsgImport("Importacion (stock del " + (dateStock || "?") + "): " + maj + " actualizado(s), " + ajoutes + " nuevo(s), " + reconnus + " reconocido(s) por nombre similar, " + avecMinMax + " con min./max. " + ignores + " producto(s) ignorado(s) por celdas vacias." + (avecMinMax === 0 ? " No se leyo ningun min./max." : ""));
+    setMsgImport("Importacion (stock del " + (dateStock || "?") + "): " + maj + " actualizado(s), " + ajoutes + " nuevo(s), " + reconnus + " reconocido(s) por nombre similar, " + redirigesFatima + " redirigido(s) a Fatima, " + avecMinMax + " con min./max. " + ignores + " producto(s) ignorado(s) por celdas vacias." + (avecMinMax === 0 ? " No se leyo ningun min./max." : ""));
     setTexteImport("");
   };
 
@@ -876,12 +912,66 @@ export default function PlanificateurChocolat() {
     .sort((a, b) => b.manque - a.manque)
     .slice(0, 6);
 
+  const analyseAldo = () => {
+    const configures = produitsUsine.filter(estConfigure);
+    const sousMin = configures.filter((p) => p.stock < seuils(p).min);
+    const alertes = configures.filter((p) => p.stock >= seuils(p).min && p.stock < seuils(p).min * 1.5);
+    const surstocks = configures.filter((p) => seuils(p).max > 0 && p.stock > seuils(p).max);
+    const sansKg = configures.filter((p) => !kgParBulto(p));
+    const lignesAnalyse = lignesUsine.map((ligne) => {
+      const prods = produitsUsine.filter((p) => p.ligne === ligne.id && estConfigure(p) && kgParBulto(p));
+      const capSem = JOURS.reduce((s, _j, idx) => {
+        const date = new Date(lundi.getFullYear(), lundi.getMonth(), lundi.getDate() + idx);
+        return s + capaciteJour(ligne, date);
+      }, 0);
+      const demSem = prods.reduce((s, p) => s + demandeJour(p) * 7 * kgParBulto(p), 0);
+      return { ligne, capSem, demSem, charge: capSem > 0 ? demSem / capSem : 0 };
+    }).sort((a, b) => b.charge - a.charge);
+    const critiques = produitsCritiquesAldo();
+    const ligneChargee = lignesAnalyse[0];
+    return {
+      texte:
+        "Resumen " + (usineActive ? usineActive.nom : "") + ": " +
+        configures.length + " producto(s) configurado(s), " +
+        sousMin.length + " bajo minimo, " +
+        alertes.length + " en alerta, " +
+        surstocks.length + " en sobrestock" +
+        (sansKg.length ? ", " + sansKg.length + " sin kg/bulto" : "") + ". " +
+        (ligneChargee ? "Linea mas cargada: " + ligneChargee.ligne.nom + " (" + Math.round(ligneChargee.charge * 100) + "%). " : "") +
+        (critiques.length ? "Prioridad: " + critiques.map((r) => r.p.nom + " +" + fmtNb(r.manque) + " blt").join("; ") + "." : "No detecto urgencias fuertes con los datos actuales."),
+      lignesAnalyse,
+      critiques,
+    };
+  };
+
   const repondreAldo = (questionBrute = "") => {
     const question = questionBrute.trim();
     if (!question) return;
     const q = question.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
     let reponse = "";
-    if (q.includes("optim") || q.includes("planif") || q.includes("planning")) {
+    if (q.includes("analys") || q.includes("analyse") || q.includes("analiza") || q.includes("resumen") || q.includes("situation") || q.includes("estado")) {
+      const a = analyseAldo();
+      setOnglet("diagnostic");
+      reponse = a.texte;
+    } else if (q.includes("capac") || q.includes("charge") || q.includes("carga") || q.includes("goulot") || q.includes("cuello")) {
+      const a = analyseAldo();
+      setOnglet("diagnostic");
+      reponse = a.lignesAnalyse.length
+        ? "Carga por linea: " + a.lignesAnalyse.slice(0, 5).map((d) => d.ligne.nom + " " + Math.round(d.charge * 100) + "% (" + fmtNb(d.demSem) + "/" + fmtNb(d.capSem) + " kg/sem)").join("; ") + "."
+        : "No hay lineas suficientes para analizar capacidad.";
+    } else if (q.includes("rupture") || q.includes("quiebre") || q.includes("bajo") || q.includes("minimum") || q.includes("minimo")) {
+      const critiques = produitsCritiquesAldo();
+      setOnglet("stocks");
+      reponse = critiques.length
+        ? "Riesgo de ruptura: " + critiques.map((r) => r.p.nom + " faltan aprox. " + fmtNb(r.manque) + " blt para zona verde").join("; ") + "."
+        : "No veo productos por debajo de la zona verde con los datos configurados.";
+    } else if (q.includes("surstock") || q.includes("sobrestock") || q.includes("exceso")) {
+      const surstocks = produitsUsine.filter((p) => estConfigure(p) && seuils(p).max > 0 && projection(p) > seuils(p).max).slice(0, 8);
+      setOnglet("stocks");
+      reponse = surstocks.length
+        ? "Productos con riesgo de sobrestock proyectado: " + surstocks.map((p) => p.nom + " (" + fmtNb(projection(p)) + "/" + fmtNb(seuils(p).max) + " blt)").join("; ") + "."
+        : "No veo sobrestocks proyectados importantes.";
+    } else if (q.includes("optim") || q.includes("planif") || q.includes("planning")) {
       optimiser();
       setOnglet("calendrier");
       reponse = "He relanzado la optimizacion del planning para esta fabrica. Revisa el calendario: prioriza productos bajo zona verde y respeta capacidades/turnos.";
@@ -903,7 +993,8 @@ export default function PlanificateurChocolat() {
     } else if (q.includes("fatima") || q.includes("esandi") || q.includes("mitre") || q.includes("vb")) {
       reponse = "Puedo ayudarte por fabrica. Primero selecciona la fabrica correcta; luego puedo optimizar, revisar criticos, abrir importacion o explicar el planning.";
     } else {
-      reponse = "Puedo ayudarte con: 'optimiza el planning', 'cuales son los productos criticos', 'abre importacion', 'borra el planning', o 'explica los colores'.";
+      const a = analyseAldo();
+      reponse = "Te doy una lectura rapida: " + a.texte + " Tambien puedes pedirme: optimizar, productos criticos, carga por linea, riesgo de sobrestock, importar stocks o explicar colores.";
     }
     setAldoMessages((m) => [...m, { role: "user", texte: question }, { role: "aldo", texte: reponse }].slice(-10));
     setAldoTexte("");

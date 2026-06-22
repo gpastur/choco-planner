@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 
 const PALETTE = [
-  { couleur: "bg-amber-600", clair: "bg-amber-100", bordure: "border-amber-600", texte: "text-amber-800" },
+  { couleur: "bg-violet-600", clair: "bg-violet-100", bordure: "border-violet-600", texte: "text-violet-800" },
   { couleur: "bg-rose-700", clair: "bg-rose-100", bordure: "border-rose-700", texte: "text-rose-800" },
   { couleur: "bg-sky-600", clair: "bg-sky-100", bordure: "border-sky-600", texte: "text-sky-800" },
   { couleur: "bg-emerald-600", clair: "bg-emerald-100", bordure: "border-emerald-600", texte: "text-emerald-800" },
@@ -30,8 +30,7 @@ const LIGNES_INIT = [
   { id: "l4", nom: "Sollich", capacite: 500, pal: 3, usine: "mitre" },
   { id: "l5", nom: "Bulher", capacite: 500, pal: 4, usine: "mitre" },
   { id: "vb_stephan", nom: "Stephan", capacite: 130, pal: 0, usine: "vb" },
-  { id: "f_tabletas", nom: "Tabletas Bs As", capacite: 1600, pal: 1, usine: "fatima" },
-  { id: "f_tabletas_bariloche", nom: "Tabletas Bariloche", capacite: 1600, pal: 2, usine: "fatima" },
+  { id: "f_tabletas", nom: "Tabletas", capacite: 3200, pal: 1, usine: "fatima" },
 ];
 
 const mkEsandi = (id, nom, ligne, pesoBulto) => ({ id, nom, ligne, usine: "esandi", stock: 0, demande: 0, min: null, max: null, pesoBulto });
@@ -277,28 +276,30 @@ const PRODUITS_INIT = [
   mkVB(114, "DULCE FRUTOS DEL BOSQUE", "vb_stephan", 4.62),
   mkVB(115, "DULCE MOSQUETA 420gr", "vb_stephan", 4.62),
   mkVB(116, "DULCE SAUCO 420gr", "vb_stephan", 4.62),
-  mkFatima(117, "TABLETA DE PISTACHO, SAL Y CARAMELO", "f_tabletas", 3.8, ["TAB SAL CARAMELO 100gr"]),
-  mkFatima(118, "TAB CHOC LECHE PURO 80G", "f_tabletas", 3.04, ["TABLETA LECHE PURO X80gr solo BsAs stock max p/4 meses min 2"]),
-  mkFatima(119, "TABLETA CHOC AMARGO 70%", "f_tabletas", 3.04, ["TABLETA 70 solo BsAs stock max p/4 meses min 2"]),
-  mkFatima(120, "TAB 100GS CHOCO LECHE Y ALM", "f_tabletas", 3.8, ["TABLETA LECHE ALMENDRA solo BsAs stock max p/4 meses min 2"]),
-  mkFatima(121, "TABLETA PURA BLANCA", "f_tabletas", 3.04, ["TABLETA BLANCO X80gr solo BsAs stock max p/4 meses min 2"]),
-  mkFatima(122, "TABLETA CHOC AMARGO 80%", "f_tabletas", 3.04, ["TABLETA 80 solo BsAs stock max p/4 meses min 2"]),
-  mkFatima(123, "TABLETA CHOC AMARGO 60%", "f_tabletas", 3.04, ["TABLETA 60 solo BsAs stock max p/4 meses min 2"]),
-  mkFatima(124, "TABLETA CHOC AMARGO 90%", "f_tabletas", 3.04, ["TABLETA 90 solo BsAs stock max p/4 meses min 2"]),
-  mkFatima(125, "TABLETA DE PISTACHO, SAL Y CARAMELO", "f_tabletas_bariloche", 3.8, ["TABLETA PISTACHO"]),
-  mkFatima(126, "TAB CHOC LECHE PURO 80G", "f_tabletas_bariloche", 3.04, ["TABLETA LECHE PURO X80gr"]),
-  mkFatima(127, "TABLETA CHOC AMARGO 70%", "f_tabletas_bariloche", 3.04, ["TABLETA 70 VB"]),
-  mkFatima(128, "TAB 100GS CHOCO LECHE Y ALM", "f_tabletas_bariloche", 3.8, ["TABLETA LECHE ALMENDRA"]),
-  mkFatima(129, "TABLETA PURA BLANCA", "f_tabletas_bariloche", 3.04, ["TABLETA BLANCO X80gr"]),
-  mkFatima(130, "TABLETA CHOC AMARGO 80%", "f_tabletas_bariloche", 3.04, ["TABLETA 80 VB"]),
-  mkFatima(131, "TABLETA CHOC AMARGO 60%", "f_tabletas_bariloche", 3.04, ["TABLETA 60 VB"]),
-  mkFatima(132, "TABLETA CHOC AMARGO 90%", "f_tabletas_bariloche", 3.04, ["TABLETA 90 VB"]),
+  mkFatima(117, "TABLETA DE PISTACHO, SAL Y CARAMELO BsAs", "f_tabletas", 3.8, ["TAB SAL CARAMELO 100gr", "TABLETA DE PISTACHO, SAL Y CARAMELO BsAs"]),
+  mkFatima(118, "TAB CHOC LECHE PURO 80G BsAs", "f_tabletas", 3.04, ["TABLETA LECHE PURO X80gr solo BsAs stock max p/4 meses min 2", "TAB CHOC LECHE PURO 80G BsAs"]),
+  mkFatima(119, "TABLETA CHOC AMARGO 70% BsAs", "f_tabletas", 3.04, ["TABLETA 70 solo BsAs stock max p/4 meses min 2", "TABLETA CHOC AMARGO 70% BsAs"]),
+  mkFatima(120, "TAB 100GS CHOCO LECHE Y ALM BsAs", "f_tabletas", 3.8, ["TABLETA LECHE ALMENDRA solo BsAs stock max p/4 meses min 2", "TAB 100GS CHOCO LECHE Y ALM BsAs"]),
+  mkFatima(121, "TABLETA PURA BLANCA BsAs", "f_tabletas", 3.04, ["TABLETA BLANCO X80gr solo BsAs stock max p/4 meses min 2", "TABLETA PURA BLANCA BsAs"]),
+  mkFatima(122, "TABLETA CHOC AMARGO 80% BsAs", "f_tabletas", 3.04, ["TABLETA 80 solo BsAs stock max p/4 meses min 2", "TABLETA CHOC AMARGO 80% BsAs"]),
+  mkFatima(123, "TABLETA CHOC AMARGO 60% BsAs", "f_tabletas", 3.04, ["TABLETA 60 solo BsAs stock max p/4 meses min 2", "TABLETA CHOC AMARGO 60% BsAs"]),
+  mkFatima(124, "TABLETA CHOC AMARGO 90% BsAs", "f_tabletas", 3.04, ["TABLETA 90 solo BsAs stock max p/4 meses min 2", "TABLETA CHOC AMARGO 90% BsAs"]),
+  mkFatima(125, "TABLETA DE PISTACHO, SAL Y CARAMELO VB", "f_tabletas", 3.8, ["TABLETA PISTACHO", "TABLETA DE PISTACHO, SAL Y CARAMELO VB"]),
+  mkFatima(126, "TAB CHOC LECHE PURO 80G VB", "f_tabletas", 3.04, ["TABLETA LECHE PURO X80gr", "TAB CHOC LECHE PURO 80G VB"]),
+  mkFatima(127, "TABLETA CHOC AMARGO 70% VB", "f_tabletas", 3.04, ["TABLETA 70 VB", "TABLETA CHOC AMARGO 70% VB"]),
+  mkFatima(128, "TAB 100GS CHOCO LECHE Y ALM VB", "f_tabletas", 3.8, ["TABLETA LECHE ALMENDRA", "TAB 100GS CHOCO LECHE Y ALM VB"]),
+  mkFatima(129, "TABLETA PURA BLANCA VB", "f_tabletas", 3.04, ["TABLETA BLANCO X80gr", "TABLETA PURA BLANCA VB"]),
+  mkFatima(130, "TABLETA CHOC AMARGO 80% VB", "f_tabletas", 3.04, ["TABLETA 80 VB", "TABLETA CHOC AMARGO 80% VB"]),
+  mkFatima(131, "TABLETA CHOC AMARGO 60% VB", "f_tabletas", 3.04, ["TABLETA 60 VB", "TABLETA CHOC AMARGO 60% VB"]),
+  mkFatima(132, "TABLETA CHOC AMARGO 90% VB", "f_tabletas", 3.04, ["TABLETA 90 VB", "TABLETA CHOC AMARGO 90% VB"]),
 ];
 
 const JOURS = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
 const HORIZON = 4;
 const JOURS_HORIZON = HORIZON * JOURS.length;
 const JOURS_MOIS = 30;
+const JOURS_MIN_TABLETAS_FATIMA = 60;
+const JOURS_MAX_TABLETAS_FATIMA = 120;
 const TURNOS_PAR_USINE = {
   esandi: [
     { id: "m", nom: "Mañana", facteur: 1 },
@@ -324,6 +325,7 @@ function lundiDeLaSemaine(d) { const date = new Date(d.getFullYear(), d.getMonth
 function cleDate(d) { return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); }
 function fmtDate(d) { return String(d.getDate()).padStart(2, "0") + "/" + String(d.getMonth() + 1).padStart(2, "0"); }
 function fmtNb(n) { return Math.round(n).toLocaleString("es-AR"); }
+function memeId(a, b) { return String(a) === String(b); }
 function statutStock(stock, min, max) {
   if (stock < min) return { label: "Bajo mín.", badge: "bg-red-500", fond: "bg-red-100 text-red-800 border-red-400" };
   if (stock < min * 1.5) return { label: "Alerta", badge: "bg-yellow-400", fond: "bg-yellow-100 text-yellow-800 border-yellow-400" };
@@ -333,6 +335,7 @@ function statutStock(stock, min, max) {
 function getPal(ligne) { return PALETTE[((ligne && ligne.pal) || 0) % PALETTE.length]; }
 function turnosUsine(usineId) { return TURNOS_PAR_USINE[usineId] || TURNOS_PAR_USINE.fatima; }
 function turnosLigne(ligne) { return turnosUsine(ligne && ligne.usine); }
+function turnosBaseAffiches(ligne) { return ligne && ligne.usine === "fatima" ? 1 : turnosLigne(ligne).length; }
 function turnosUsinePourDate(usineId, date) {
   const turnos = turnosUsine(usineId);
   const jour = date instanceof Date ? date.getDay() : null;
@@ -378,19 +381,35 @@ function parseTSV(text) {
 const normaliser = (s) => String(s || "").replace(/\s+/g, " ").trim();
 const NOMS_FATIMA_PROTEGES = [
   "TAB SAL CARAMELO 100gr",
+  "TABLETA DE PISTACHO, SAL Y CARAMELO BsAs",
+  "TABLETA DE PISTACHO, SAL Y CARAMELO VB",
   "TABLETA PISTACHO",
+  "TAB CHOC LECHE PURO 80G BsAs",
+  "TAB CHOC LECHE PURO 80G VB",
   "TABLETA LECHE PURO X80gr",
   "TABLETA LECHE PURO X80gr solo BsAs stock max p/4 meses min 2",
+  "TABLETA CHOC AMARGO 70% BsAs",
+  "TABLETA CHOC AMARGO 70% VB",
   "TABLETA 70 VB",
   "TABLETA 70 solo BsAs stock max p/4 meses min 2",
+  "TAB 100GS CHOCO LECHE Y ALM BsAs",
+  "TAB 100GS CHOCO LECHE Y ALM VB",
   "TABLETA LECHE ALMENDRA",
   "TABLETA LECHE ALMENDRA solo BsAs stock max p/4 meses min 2",
+  "TABLETA PURA BLANCA BsAs",
+  "TABLETA PURA BLANCA VB",
   "TABLETA BLANCO X80gr",
   "TABLETA BLANCO X80gr solo BsAs stock max p/4 meses min 2",
+  "TABLETA CHOC AMARGO 80% BsAs",
+  "TABLETA CHOC AMARGO 80% VB",
   "TABLETA 80 VB",
   "TABLETA 80 solo BsAs stock max p/4 meses min 2",
+  "TABLETA CHOC AMARGO 60% BsAs",
+  "TABLETA CHOC AMARGO 60% VB",
   "TABLETA 60 VB",
   "TABLETA 60 solo BsAs stock max p/4 meses min 2",
+  "TABLETA CHOC AMARGO 90% BsAs",
+  "TABLETA CHOC AMARGO 90% VB",
   "TABLETA 90 VB",
   "TABLETA 90 solo BsAs stock max p/4 meses min 2",
 ];
@@ -414,10 +433,14 @@ function tokensProduit(s) {
 function trouverProduitExistant(produitsListe, usineId, nomImporte) {
   const importTokens = tokensProduit(nomImporte);
   const importKey = importTokens.join(" ");
+  const nomUpper = String(nomImporte || "").toUpperCase();
+  const demandeBsAs = nomUpper.includes("BSAS") || nomUpper.includes("BUENOS AIRES");
+  const demandeVB = /\bVB\b/.test(nomUpper) || nomUpper.includes("BARILOCHE");
   if (!importKey) return null;
   let meilleur = null;
   produitsListe.filter((p) => p.usine === usineId).forEach((p) => {
     const nomsCandidats = [p.nom, ...((Array.isArray(p.aliases) ? p.aliases : []))];
+    const produitUpper = nomsCandidats.join(" ").toUpperCase();
     let score = 0;
     nomsCandidats.forEach((nomCandidat, idx) => {
       const baseTokens = tokensProduit(nomCandidat);
@@ -440,6 +463,10 @@ function trouverProduitExistant(produitsListe, usineId, nomImporte) {
         else scoreCandidat = Math.round(couvertureBase * 70 + couvertureImport * 20);
         if (idx > 0 && scoreCandidat >= 78) scoreCandidat += 15;
       }
+      if (demandeBsAs && produitUpper.includes("BSAS")) scoreCandidat += 35;
+      if (demandeVB && (/\bVB\b/.test(produitUpper) || produitUpper.includes("BARILOCHE"))) scoreCandidat += 35;
+      if (demandeBsAs && (/\bVB\b/.test(produitUpper) || produitUpper.includes("BARILOCHE"))) scoreCandidat -= 35;
+      if (demandeVB && produitUpper.includes("BSAS")) scoreCandidat -= 35;
       score = Math.max(score, scoreCandidat);
     });
     if (score >= 78 && (!meilleur || score > meilleur.score)) meilleur = { produit: p, score };
@@ -461,6 +488,18 @@ function estNomFatimaProtege(nomProduit) {
     const cle = tokensProduit(nom).join(" ");
     return cle && (cle === cleProduit || (" " + cleProduit + " ").includes(" " + cle + " ") || (" " + cle + " ").includes(" " + cleProduit + " "));
   });
+}
+function familleProduit(p) {
+  const toks = tokensProduit(p && p.nom);
+  const type = toks.includes("AMARGO") ? "AMARGO" : toks.includes("LECHE") ? "LECHE" : toks.includes("BLANCO") || toks.includes("BLANCA") ? "BLANCO" : toks.includes("PISTACHO") ? "PISTACHO" : toks.includes("DDL") ? "DDL" : "";
+  const ingredients = ["ALMENDRA", "PISTACHO", "SAL", "CARAMELO", "BLANCO", "BLANCA", "LECHE", "AMARGO"].filter((t) => toks.includes(t));
+  return [type, ingredients.filter((t) => t !== type).join("-")].filter(Boolean).join("|") || toks.filter((t) => !/^\d+$/.test(t)).slice(0, 3).join("|");
+}
+function etiquetaZonaProducto(p) {
+  const toks = tokensProduit(p && p.nom);
+  if (toks.includes("BSAS")) return "BsAs";
+  if (toks.includes("VB")) return "VB";
+  return "";
 }
 // Lecture d'une cellule de planning -> { p, kg } (rétro-compatible)
 function lireBloc(cell, ligne) {
@@ -496,8 +535,18 @@ function htmlEscape(value) {
 function fusionAvecBase(base: any[], sauvegarde: any[]) {
   const parId = new Map(base.map((item) => [item.id, item]));
   (Array.isArray(sauvegarde) ? sauvegarde : []).forEach((item) => {
+    if (item.id === "f_tabletas_bariloche") return;
     const fusionne = { ...(parId.get(item.id) || {}), ...item };
-    if (fusionne.id === "f_tabletas" && fusionne.nom === "Tabletas") fusionne.nom = "Tabletas Bs As";
+    const baseItem = parId.get(item.id);
+    if (fusionne.id === "f_tabletas") {
+      fusionne.nom = "Tabletas";
+      fusionne.capacite = 3200;
+    }
+    if (baseItem && fusionne.usine === "fatima" && fusionne.id >= 117 && fusionne.id <= 132) {
+      fusionne.nom = baseItem.nom;
+      fusionne.ligne = "f_tabletas";
+      fusionne.aliases = baseItem.aliases;
+    }
     if (fusionne.id === 117 && fusionne.pesoBulto === 3.04) fusionne.pesoBulto = 3.8;
     parId.set(item.id, fusionne);
   });
@@ -545,7 +594,7 @@ export default function PlanificateurChocolat() {
       const ligne = lignes.find((l) => l.id === cle.split("|")[1]);
       const b = lireBloc(cell, ligne);
       if (!b || b.p == null || !ligne) return;
-      const p = produits.find((x) => x.id === b.p);
+      const p = produits.find((x) => memeId(x.id, b.p));
       const kgb = kgParBulto(p);
       if (!kgb) return;
       prod[b.p] = (prod[b.p] || 0) + b.kg / kgb;
@@ -555,9 +604,24 @@ export default function PlanificateurChocolat() {
 
   const seuils = (p) => ({ min: p.min != null ? p.min : 0, max: p.max != null ? p.max : 0 });
   const estConfigure = (p) => p.min != null || p.max != null;
-  const demandeJourCalculee = (p) => (seuils(p).min || 0) / JOURS_MOIS;
+  const estTabletaFatima = (p) => p && p.usine === "fatima" && p.id >= 117 && p.id <= 132;
+  const joursMinCouverture = (p) => (estTabletaFatima(p) ? JOURS_MIN_TABLETAS_FATIMA : JOURS_MOIS);
+  const joursMaxCouverture = (p) => (estTabletaFatima(p) ? JOURS_MAX_TABLETAS_FATIMA : JOURS_MOIS * 2);
+  const demandeJourCalculee = (p) => {
+    const s = seuils(p);
+    if (s.min > 0) return s.min / joursMinCouverture(p);
+    if (s.max > 0) return s.max / joursMaxCouverture(p);
+    return 0;
+  };
   const demandeJour = (p) => (p.demande != null && p.demande !== "" && Number(p.demande) > 0 ? Number(p.demande) : demandeJourCalculee(p));
   const projection = (p) => p.stock + (productionParProduit[p.id] || 0) - demandeJour(p) * (HORIZON * 7);
+  const optionProduitPlanning = (p) => {
+    if (!estConfigure(p)) return "○ " + p.nom + " · sin min/max";
+    const s = seuils(p);
+    const st = statutStock(p.stock, s.min, s.max);
+    const point = st.badge.includes("red") ? "🔴" : st.badge.includes("yellow") ? "🟡" : st.badge.includes("green") ? "🟢" : "🟣";
+    return point + " " + p.nom + " · " + st.label + " · stock " + fmtNb(p.stock);
+  };
   const etatApresBloc = useMemo(() => {
     const stockSim = {};
     const resultat = {};
@@ -569,7 +633,7 @@ export default function PlanificateurChocolat() {
           const cle = j.cle + "|" + ligne.id + "|" + turno.id;
           const b = lireBloc(plan[cle], ligne);
           if (!b || b.p == null) return;
-          const prod = produits.find((p) => p.id === b.p);
+          const prod = produits.find((p) => memeId(p.id, b.p));
           const kgpb = kgParBulto(prod);
           if (kgpb) stockSim[b.p] = (stockSim[b.p] || 0) + b.kg / kgpb;
           if (prod && estConfigure(prod)) {
@@ -647,7 +711,7 @@ export default function PlanificateurChocolat() {
       lundi: cleDate(lundi),
       plan,
       lignes: lignes.filter((l) => l.usine === usine),
-      produits: produits.filter((p) => idsPlanificados.has(p.id)),
+      produits: produits.filter((p) => idsPlanificados.has(p.id) || idsPlanificados.has(String(p.id))),
     };
     const url = new URL(window.location.href);
     url.searchParams.set("plan", encodePayload(payload));
@@ -690,6 +754,7 @@ export default function PlanificateurChocolat() {
     produitsUsine.forEach((p) => { stockSim[p.id] = p.stock; });
 
     let blocsUtilises = 0;
+    const derniereFamilleParLigne = {};
     datesHorizon.forEach((jour) => {
       produitsUsine.forEach((p) => { if (estConfigure(p)) stockSim[p.id] -= demandeJour(p); });
       if (!jour.prod) return;
@@ -699,12 +764,16 @@ export default function PlanificateurChocolat() {
         turnosLignePourDate(ligne, jour.date).forEach((turno) => {
           const kgb_ligne = kgBloc(ligne, turno); // kg disponibles por turno
           // Produit le plus en déficit sous le plancher vert (min*1.5)
-          let meilleur = null, urgenceMax = 0;
+          let meilleur = null, meilleurScore = -Infinity;
           prods.forEach((p) => {
             const s = seuils(p);
             const plancher = s.min * 1.5;
             const urgence = plancher - stockSim[p.id]; // > 0 si est? debajo del verde
-            if (urgence > urgenceMax && stockSim[p.id] < s.max) { meilleur = p; urgenceMax = urgence; }
+            if (stockSim[p.id] >= s.max) return;
+            const deficitMax = Math.max(0, s.max - stockSim[p.id]);
+            const memeFamille = derniereFamilleParLigne[ligne.id] && derniereFamilleParLigne[ligne.id] === familleProduit(p);
+            const score = urgence * 1000 + deficitMax + (memeFamille ? Math.max(25, Math.abs(urgence) * 120) : 0);
+            if (score > meilleurScore) { meilleur = p; meilleurScore = score; }
           });
           if (!meilleur) return;
           const s = seuils(meilleur);
@@ -713,8 +782,13 @@ export default function PlanificateurChocolat() {
           const kgNecessaires = bultosManquants * kgpb;
           const kgProduit = Math.max(0, Math.min(kgb_ligne, kgNecessaires)); // divisible : on ne fait que le nécessaire
           if (kgProduit <= 0) return;
-          nouveauPlan[jour.cle + "|" + ligne.id + "|" + turno.id] = { p: meilleur.id, kg: kgProduit };
+          const famille = familleProduit(meilleur);
+          const raison = (derniereFamilleParLigne[ligne.id] === famille)
+            ? "Agrupado por familia similar (" + famille + ")"
+            : (stockSim[meilleur.id] < s.min ? "Prioridad: bajo minimo" : "Reposicion hasta maximo");
+          nouveauPlan[jour.cle + "|" + ligne.id + "|" + turno.id] = { p: meilleur.id, kg: kgProduit, raison };
           stockSim[meilleur.id] += kgProduit / kgpb;
+          derniereFamilleParLigne[ligne.id] = famille;
           blocsUtilises++;
         });
       });
@@ -725,7 +799,7 @@ export default function PlanificateurChocolat() {
     const sansConv = configures.filter((p) => !kgParBulto(p)).length;
     const enVert = configures.filter((p) => { const s = seuils(p); if (s.max <= 0) return true; return stockSim[p.id] >= s.min * 1.5 && stockSim[p.id] <= s.max; }).length;
     const sousMin = configures.filter((p) => stockSim[p.id] < seuils(p).min).length;
-    setMsgOpti("✓ " + blocsUtilises + " turno(s) utilizado(s) en " + HORIZON + " sem. · " + enVert + "/" + configures.length + " en zona verde al final del horizonte" + (sousMin > 0 ? " · ⚠️ " + sousMin + " todavía bajo el mínimo (capacidad insuficiente)" : "") + (sansConv > 0 ? " · " + sansConv + " sin conversión no planificados" : "") + ".");
+    setMsgOpti("✓ " + blocsUtilises + " turno(s) utilizado(s) en " + HORIZON + " sem. · familias similares agrupadas cuando la urgencia lo permite · " + enVert + "/" + configures.length + " en zona verde al final del horizonte" + (sousMin > 0 ? " · ⚠️ " + sousMin + " todavía bajo el mínimo (capacidad insuficiente)" : "") + (sansConv > 0 ? " · " + sansConv + " sin conversión no planificados" : "") + ".");
   };
 
   const viderHorizon = () => {
@@ -745,7 +819,7 @@ export default function PlanificateurChocolat() {
   };
   const supprimerProduit = (id) => {
     setProduits(produits.filter((p) => p.id !== id));
-    setPlan((p) => { const np = {}; Object.entries(p).forEach(([k, v]) => { const b = lireBloc(v, null); if (b && b.p === id) return; np[k] = v; }); return np; });
+    setPlan((p) => { const np = {}; Object.entries(p).forEach(([k, v]) => { const b = lireBloc(v, null); if (b && memeId(b.p, id)) return; np[k] = v; }); return np; });
   };
   const majProduit = (id, champ, valeur) => setProduits(produits.map((p) => (p.id === id ? { ...p, [champ]: valeur } : p)));
 
@@ -800,11 +874,12 @@ export default function PlanificateurChocolat() {
         if (cibleFatima) redirigesFatima++;
         if (!exact) reconnus++;
       }
+      else if (usine === "fatima") { ignores++; }
       else { const id = nouveaux.reduce((m, p) => Math.max(m, p.id), 0) + 1; nouveaux.push({ id, nom, ligne: null, usine, stock: isNaN(vStock) ? 0 : vStock, demande: 0, min: isNaN(vMin) ? null : vMin, max: isNaN(vMax) ? null : vMax, pesoBulto: PESO_BULTO_POR_PRODUCTO[nom] ?? null }); ajoutes++; }
     }
     if (maj === 0 && ajoutes === 0) { setMsgImport("⚠️ No se detectó ningún producto. Verifica el pegado."); return; }
     setProduits(nouveaux);
-    setMsgImport("Importacion (stock del " + (dateStock || "?") + "): " + maj + " actualizado(s), " + ajoutes + " nuevo(s), " + reconnus + " reconocido(s) por nombre similar, " + redirigesFatima + " redirigido(s) a Fatima, " + avecMinMax + " con min./max. " + ignores + " producto(s) ignorado(s) por celdas vacias." + (avecMinMax === 0 ? " No se leyo ningun min./max." : ""));
+    setMsgImport("Importacion (stock del " + (dateStock || "?") + "): " + maj + " actualizado(s), " + ajoutes + " nuevo(s), " + reconnus + " reconocido(s) por nombre similar, " + redirigesFatima + " redirigido(s) a Fatima, " + avecMinMax + " con min./max. " + ignores + (usine === "fatima" ? " producto(s) ignorado(s) por estar fuera de la lista autorizada o por celdas vacias." : " producto(s) ignorado(s) por celdas vacias.") + (avecMinMax === 0 ? " No se leyo ningun min./max." : ""));
     setTexteImport("");
   };
 
@@ -849,7 +924,7 @@ export default function PlanificateurChocolat() {
                 <td>
                   ${turnosLignePourDate(ligne, j.date).map((turno) => {
                     const b = lireBloc(plan[j.cle + "|" + ligne.id + "|" + turno.id], ligne);
-                    const prod = b ? produits.find((p) => p.id === b.p) : null;
+                    const prod = b ? produits.find((p) => memeId(p.id, b.p)) : null;
                     const kgb = prod ? kgParBulto(prod) : null;
                     const bultos = b && kgb ? b.kg / kgb : null;
                     return `<div class="bloque">
@@ -898,6 +973,10 @@ export default function PlanificateurChocolat() {
     joursSemaine.forEach((j) => { turnosLignePourDate(ligne, j.date).forEach((turno) => { const b = lireBloc(plan[j.cle + "|" + ligneId + "|" + turno.id], ligne); if (b) total += b.kg; }); });
     return total;
   };
+  const totalJourLigne = (ligne, jour) => turnosLignePourDate(ligne, jour.date).reduce((total, turno) => {
+    const b = lireBloc(plan[jour.cle + "|" + ligne.id + "|" + turno.id], ligne);
+    return total + (b ? b.kg : 0);
+  }, 0);
 
   const produitsCritiquesAldo = () => produitsUsine
     .filter((p) => estConfigure(p) && kgParBulto(p))
@@ -918,6 +997,12 @@ export default function PlanificateurChocolat() {
     const alertes = configures.filter((p) => p.stock >= seuils(p).min && p.stock < seuils(p).min * 1.5);
     const surstocks = configures.filter((p) => seuils(p).max > 0 && p.stock > seuils(p).max);
     const sansKg = configures.filter((p) => !kgParBulto(p));
+    const couvertures = configures
+      .map((p) => ({ p, jours: demandeJour(p) > 0 ? p.stock / demandeJour(p) : Infinity, cibleMin: joursMinCouverture(p), cibleMax: joursMaxCouverture(p) }))
+      .filter((r) => r.jours !== Infinity)
+      .sort((a, b) => a.jours - b.jours);
+    const faiblesCouvertures = couvertures.filter((r) => r.jours < r.cibleMin).slice(0, 5);
+    const excesCouvertures = couvertures.filter((r) => r.jours > r.cibleMax).sort((a, b) => b.jours - a.jours).slice(0, 5);
     const lignesAnalyse = lignesUsine.map((ligne) => {
       const prods = produitsUsine.filter((p) => p.ligne === ligne.id && estConfigure(p) && kgParBulto(p));
       const capSem = JOURS.reduce((s, _j, idx) => {
@@ -938,9 +1023,13 @@ export default function PlanificateurChocolat() {
         surstocks.length + " en sobrestock" +
         (sansKg.length ? ", " + sansKg.length + " sin kg/bulto" : "") + ". " +
         (ligneChargee ? "Linea mas cargada: " + ligneChargee.ligne.nom + " (" + Math.round(ligneChargee.charge * 100) + "%). " : "") +
+        (faiblesCouvertures.length ? "Menor cobertura: " + faiblesCouvertures.map((r) => r.p.nom + " " + Math.round(r.jours) + "d").join("; ") + ". " : "") +
         (critiques.length ? "Prioridad: " + critiques.map((r) => r.p.nom + " +" + fmtNb(r.manque) + " blt").join("; ") + "." : "No detecto urgencias fuertes con los datos actuales."),
       lignesAnalyse,
       critiques,
+      couvertures,
+      faiblesCouvertures,
+      excesCouvertures,
     };
   };
 
@@ -953,6 +1042,12 @@ export default function PlanificateurChocolat() {
       const a = analyseAldo();
       setOnglet("diagnostic");
       reponse = a.texte;
+    } else if (q.includes("demande") || q.includes("demanda") || q.includes("couverture") || q.includes("cobertura") || q.includes("jours") || q.includes("dias")) {
+      const a = analyseAldo();
+      setOnglet("stocks");
+      reponse = "Demanda/cobertura: en general uso min/30. Para tabletas Fatima uso min/60 porque el minimo equivale a 2 meses; si solo hay max, uso max/120. " +
+        (a.faiblesCouvertures.length ? "Coberturas mas bajas: " + a.faiblesCouvertures.map((r) => r.p.nom + " " + Math.round(r.jours) + "d vs min " + r.cibleMin + "d").join("; ") + "." : "No veo coberturas bajo el minimo con los datos actuales.") +
+        (a.excesCouvertures.length ? " Sobrecobertura: " + a.excesCouvertures.map((r) => r.p.nom + " " + Math.round(r.jours) + "d").join("; ") + "." : "");
     } else if (q.includes("capac") || q.includes("charge") || q.includes("carga") || q.includes("goulot") || q.includes("cuello")) {
       const a = analyseAldo();
       setOnglet("diagnostic");
@@ -1025,21 +1120,27 @@ export default function PlanificateurChocolat() {
 
   if (!usine) {
     return (
-      <div className="min-h-screen bg-amber-50 flex items-center justify-center p-4 font-sans">
-        <div className="max-w-2xl w-full text-center">
-          <h1 className="text-3xl font-bold text-amber-900 mb-2">🍫 Planificador de Producción</h1>
-          <p className="text-amber-700 mb-8">Elige la fábrica con la que quieres trabajar</p>
+      <div className="min-h-screen bg-violet-50 flex items-center justify-center p-4 font-sans text-slate-800">
+        <div className="max-w-4xl w-full">
+          <div className="mb-6 bg-white/95 border border-violet-100 rounded-xl shadow-sm p-6 text-center">
+            <h1 className="text-3xl font-bold text-violet-950 mb-2">Planificador de Producción</h1>
+            <p className="text-violet-700">Elige una fábrica para revisar stocks, capacidad y planning.</p>
+          </div>
           <div className="grid gap-4 md:grid-cols-2">
             {USINES.map((u) => {
               const nbL = lignes.filter((l) => l.usine === u.id).length;
               const nbP = produits.filter((p) => p.usine === u.id).length;
               return (
-                <button key={u.id} onClick={() => { setUsine(u.id); setOnglet("calendrier"); }} className="bg-white rounded-2xl shadow hover:shadow-lg p-6 transition transform hover:-translate-y-1 border-2 border-transparent hover:border-amber-400">
-                  <div className="text-4xl mb-2">{u.icone}</div>
-                  <div className="text-xl font-bold text-amber-900">{u.nom}</div>
-                  <div className="text-sm text-gray-500 mt-2">{nbL} línea(s) · {nbP} producto(s)</div>
-                  <div className="text-xs text-amber-600 mt-3 flex flex-wrap gap-1 justify-center">
-                    {lignes.filter((l) => l.usine === u.id).map((l) => <span key={l.id} className="bg-amber-100 px-2 py-0.5 rounded-full">{l.nom}</span>)}
+                <button key={u.id} onClick={() => { setUsine(u.id); setOnglet("calendrier"); }} className="bg-white rounded-lg shadow-sm border border-violet-100 hover:shadow-md p-5 transition transform hover:-translate-y-0.5 hover:border-violet-300 text-left">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <div className="text-xl font-bold text-violet-950">{u.nom}</div>
+                      <div className="text-sm text-slate-500 mt-1">{nbL} línea(s) · {nbP} producto(s)</div>
+                    </div>
+                    <div className="text-3xl">{u.icone}</div>
+                  </div>
+                  <div className="text-xs text-violet-700 mt-4 flex flex-wrap gap-1">
+                    {lignes.filter((l) => l.usine === u.id).map((l) => <span key={l.id} className="bg-violet-50 border border-violet-100 px-2 py-0.5 rounded-full">{l.nom}</span>)}
                   </div>
                 </button>
               );
@@ -1053,35 +1154,41 @@ export default function PlanificateurChocolat() {
   const usineActive = USINES.find((u) => u.id === usine);
 
   return (
-    <div className="min-h-screen bg-amber-50 p-4 font-sans">
+    <div className="min-h-screen bg-violet-50 p-4 font-sans text-slate-800">
       <div className="max-w-7xl mx-auto">
-        <header className="mb-4 flex flex-wrap items-center justify-between gap-2">
+        <header className="mb-4 flex flex-wrap items-center justify-between gap-3 bg-white/95 border border-violet-100 rounded-xl shadow-sm p-4">
           <div>
-            <h1 className="text-2xl font-bold text-amber-900">🍫 Fábrica {usineActive ? usineActive.nom : ""}</h1>
-            <p className="text-sm text-amber-700">Stocks en bultos · capacidades en kg/turno · producción divisible</p>
+            <h1 className="text-2xl font-bold text-violet-900">🍫 Fábrica {usineActive ? usineActive.nom : ""}</h1>
+            <p className="text-sm text-violet-700">Stocks en bultos · capacidades en kg/turno · producción divisible</p>
+            <div className="flex flex-wrap gap-2 mt-2 text-xs">
+              <span className="px-2 py-1 rounded-full bg-violet-50 text-violet-800 border border-violet-100">{lignesUsine.length} línea(s)</span>
+              <span className="px-2 py-1 rounded-full bg-sky-50 text-sky-800 border border-sky-100">{produitsUsine.length} producto(s)</span>
+              <span className="px-2 py-1 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-100">{produitsUsine.filter(estConfigure).length} configurado(s)</span>
+              {produitsNonAssignes.length > 0 && <span className="px-2 py-1 rounded-full bg-orange-50 text-orange-700 border border-orange-100">{produitsNonAssignes.length} sin línea</span>}
+            </div>
           </div>
-          <button onClick={() => setUsine(null)} className="px-3 py-2 bg-white border border-amber-300 rounded-lg text-sm text-amber-800 hover:bg-amber-100">⇄ Cambiar fábrica</button>
+          <button onClick={() => setUsine(null)} className="px-3 py-2 bg-white border border-violet-300 rounded-lg text-sm text-violet-800 hover:bg-violet-100">⇄ Cambiar fábrica</button>
         </header>
 
-        <div className="flex gap-2 mb-4 flex-wrap">
-          <button onClick={() => setOnglet("calendrier")} className={"px-4 py-2 rounded-lg text-sm font-medium transition " + (onglet === "calendrier" ? "bg-amber-800 text-white shadow" : "bg-white text-amber-800 hover:bg-amber-100")}>📅 Calendario</button>
-          <button onClick={() => setOnglet("stocks")} className={"px-4 py-2 rounded-lg text-sm font-medium transition " + (onglet === "stocks" ? "bg-amber-800 text-white shadow" : "bg-white text-amber-800 hover:bg-amber-100")}>📦 Estado de Stocks</button>
-          <button onClick={() => setOnglet("produits")} className={"px-4 py-2 rounded-lg text-sm font-medium transition " + (onglet === "produits" ? "bg-amber-800 text-white shadow" : "bg-white text-amber-800 hover:bg-amber-100")}>⚙️ Productos y Líneas{produitsNonAssignes.length > 0 ? " (" + produitsNonAssignes.length + ")" : ""}</button>
-          <button onClick={() => setOnglet("diagnostic")} className={"px-4 py-2 rounded-lg text-sm font-medium transition " + (onglet === "diagnostic" ? "bg-amber-800 text-white shadow" : "bg-white text-amber-800 hover:bg-amber-100")}>📊 Diagnóstico</button>
-              <button onClick={() => setOnglet("import")} className={"px-4 py-2 rounded-lg text-sm font-medium transition " + (onglet === "import" ? "bg-amber-800 text-white shadow" : "bg-white text-amber-800 hover:bg-amber-100")}>🔄 Importar / Exportar</button>
+        <div className="flex gap-2 mb-4 flex-wrap bg-white/90 border border-violet-100 rounded-xl shadow-sm p-2">
+          <button onClick={() => setOnglet("calendrier")} className={"px-4 py-2 rounded-lg text-sm font-medium transition " + (onglet === "calendrier" ? "bg-violet-800 text-white shadow" : "bg-white text-violet-800 hover:bg-violet-100")}>📅 Calendario</button>
+          <button onClick={() => setOnglet("stocks")} className={"px-4 py-2 rounded-lg text-sm font-medium transition " + (onglet === "stocks" ? "bg-violet-800 text-white shadow" : "bg-white text-violet-800 hover:bg-violet-100")}>📦 Estado de Stocks</button>
+          <button onClick={() => setOnglet("produits")} className={"px-4 py-2 rounded-lg text-sm font-medium transition " + (onglet === "produits" ? "bg-violet-800 text-white shadow" : "bg-white text-violet-800 hover:bg-violet-100")}>⚙️ Productos y Líneas{produitsNonAssignes.length > 0 ? " (" + produitsNonAssignes.length + ")" : ""}</button>
+          <button onClick={() => setOnglet("diagnostic")} className={"px-4 py-2 rounded-lg text-sm font-medium transition " + (onglet === "diagnostic" ? "bg-violet-800 text-white shadow" : "bg-white text-violet-800 hover:bg-violet-100")}>📊 Diagnóstico</button>
+              <button onClick={() => setOnglet("import")} className={"px-4 py-2 rounded-lg text-sm font-medium transition " + (onglet === "import" ? "bg-violet-800 text-white shadow" : "bg-white text-violet-800 hover:bg-violet-100")}>🔄 Importar / Exportar</button>
         </div>
 
         {onglet === "calendrier" && (
-          <div className="bg-white rounded-xl shadow p-4">
+          <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-4">
             <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
-              <button onClick={() => changerSemaine(-1)} className="px-3 py-1 bg-amber-100 rounded-lg hover:bg-amber-200 text-amber-900">← Semana ant.</button>
-              <div className="font-semibold text-amber-900">Semana del {fmtDate(joursSemaine[0].date)} al {fmtDate(joursSemaine[5].date)}</div>
-              <button onClick={() => changerSemaine(1)} className="px-3 py-1 bg-amber-100 rounded-lg hover:bg-amber-200 text-amber-900">Semana sig. →</button>
+              <button onClick={() => changerSemaine(-1)} className="px-3 py-1 bg-violet-100 rounded-lg hover:bg-violet-200 text-violet-900">← Semana ant.</button>
+              <div className="font-semibold text-violet-900">Semana del {fmtDate(joursSemaine[0].date)} al {fmtDate(joursSemaine[5].date)}</div>
+              <button onClick={() => changerSemaine(1)} className="px-3 py-1 bg-violet-100 rounded-lg hover:bg-violet-200 text-violet-900">Semana sig. →</button>
             </div>
             <div className="flex items-center gap-2 mb-3 flex-wrap">
               <button onClick={optimiser} className="px-4 py-2 bg-green-700 text-white rounded-lg text-sm font-medium hover:bg-green-800 shadow">✨ Optimizar las próximas {HORIZON} semanas</button>
               <button onClick={viderHorizon} className="px-3 py-2 bg-white border border-gray-300 text-gray-600 rounded-lg text-sm hover:bg-gray-100">Borrar horizonte</button>
-              <button onClick={guardarPlanificacion} className="px-3 py-2 bg-amber-800 text-white rounded-lg text-sm hover:bg-amber-900">Guardar</button>
+              <button onClick={guardarPlanificacion} className="px-3 py-2 bg-violet-800 text-white rounded-lg text-sm hover:bg-violet-900">Guardar</button>
               <button onClick={compartirPlanificacion} className="px-3 py-2 bg-sky-700 text-white rounded-lg text-sm hover:bg-sky-800">Compartir</button>
               {msgOpti && <span className="text-sm text-green-800">{msgOpti}</span>}
               {msgPartage && <span className="text-sm text-sky-800">{msgPartage}</span>}
@@ -1093,9 +1200,9 @@ export default function PlanificateurChocolat() {
                 <table className="w-full border-collapse">
                   <thead>
                     <tr>
-                      <th className="p-2 text-left text-sm text-amber-900 w-32">Línea</th>
-                      {joursSemaine.map((j) => <th key={j.cle} className="p-2 text-center text-sm text-amber-900">{j.nom}<br /><span className="text-xs font-normal text-amber-600">{fmtDate(j.date)}</span></th>)}
-                      <th className="p-2 text-center text-sm text-amber-900">Total</th>
+                      <th className="p-2 text-left text-sm text-violet-900 w-32">Línea</th>
+                      {joursSemaine.map((j) => <th key={j.cle} className="p-2 text-center text-sm text-violet-900">{j.nom}<br /><span className="text-xs font-normal text-violet-600">{fmtDate(j.date)}</span></th>)}
+                      <th className="p-2 text-center text-sm text-violet-900">Total</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1103,37 +1210,45 @@ export default function PlanificateurChocolat() {
                       const pal = getPal(ligne);
                       return (
                         <tr key={ligne.id}>
-                          <td className={"p-2 font-semibold align-top " + pal.texte}>{ligne.nom}<div className="text-xs font-normal text-gray-500">{ligne.capacite} kg/turno<br />{turnosLigne(ligne).length} turno(s)/dia base</div></td>
+                          <td className={"p-2 font-semibold align-top " + pal.texte}>{ligne.nom}<div className="text-xs font-normal text-gray-500">{ligne.capacite} kg/turno<br />{turnosBaseAffiches(ligne)} turno(s)/dia base</div></td>
                           {joursSemaine.map((j) => {
                             const turnosJour = turnosLignePourDate(ligne, j.date);
+                            const utiliseJour = totalJourLigne(ligne, j);
+                            const capJour = capaciteJour(ligne, j.date);
                             return (
                             <td key={j.cle} className="p-1 align-top">
+                              <div className="text-[10px] text-gray-400 text-center mb-1">{fmtNb(utiliseJour)} / {fmtNb(capJour)} kg</div>
                               {turnosJour.length === 0 ? (
                                 <div className="w-full text-xs rounded p-1.5 border-2 border-dashed border-gray-200 bg-gray-50 text-gray-400 text-center min-h-10">Sin turno</div>
                               ) : turnosJour.map((turno) => {
                                 const cle = j.cle + "|" + ligne.id + "|" + turno.id;
                                 const b = lireBloc(plan[cle], ligne);
-                                const prod = b ? produits.find((p) => p.id === b.p) : null;
+                                const prod = b ? produits.find((p) => memeId(p.id, b.p)) : null;
                                 const enEdition = selection === cle;
-                                const etatBloc = etatApresBloc[cle] || null;
+                                const etatBloc = etatApresBloc[cle] || (prod && estConfigure(prod) ? (() => {
+                                  const s = seuils(prod);
+                                  const st = statutStock(prod.stock, s.min, s.max);
+                                  return { badge: st.badge, label: st.label, stock: prod.stock, actuel: true };
+                                })() : null);
                                 const pastille = etatBloc ? etatBloc.badge : null;
                                 const kgpb = prod ? kgParBulto(prod) : null;
                                 const bultos = (b && kgpb) ? b.kg / kgpb : 0;
+                                const zone = prod ? etiquetaZonaProducto(prod) : "";
                                 return (
                                   <div key={turno.id} className="mb-1" onDragOver={(e) => e.preventDefault()} onDrop={() => onDrop(cle)}>
                                     {enEdition ? (
                                       <select autoFocus className="w-full text-xs border rounded p-1" value={b ? b.p : ""} onChange={(e) => assigner(cle, e.target.value)} onBlur={() => setSelection(null)}>
                                         <option value="">— vacío —</option>
-                                        {produits.filter((p) => p.ligne === ligne.id).map((p) => <option key={p.id} value={p.id}>{p.nom}</option>)}
+                                        {produits.filter((p) => p.ligne === ligne.id && estConfigure(p)).map((p) => <option key={p.id} value={p.id}>{optionProduitPlanning(p)}</option>)}
                                       </select>
                                     ) : (
-                                      <div draggable={!!prod} onDragStart={() => setDragKey(cle)} onClick={() => setSelection(cle)} title={b ? fmtNb(b.kg) + " kg" + (kgpb ? " · ≈ " + fmtNb(bultos) + " bultos" : " · conversión faltante") + (etatBloc ? " · stock despues del bloque: " + fmtNb(etatBloc.stock) + " (" + etatBloc.label + ")" : "") : ""}
+                                      <div draggable={!!prod} onDragStart={() => setDragKey(cle)} onClick={() => setSelection(cle)} title={b ? fmtNb(b.kg) + " kg" + (kgpb ? " · ≈ " + fmtNb(bultos) + " bultos" : " · conversión faltante") + (etatBloc ? " · " + (etatBloc.actuel ? "stock actual: " : "stock despues del bloque: ") + fmtNb(etatBloc.stock) + " (" + etatBloc.label + ")" : "") + ((b as any).raison ? " · " + (b as any).raison : "") : ""}
                                         className={"w-full text-xs rounded p-1.5 border-2 text-left min-h-10 transition cursor-pointer " + (prod ? pal.clair + " " + pal.bordure + " " + pal.texte + " font-medium" : "bg-gray-50 border-dashed border-gray-300 text-gray-400 hover:bg-gray-100") + (dragKey === cle ? " opacity-40" : "")}>
                                         <span className="flex items-center justify-between">
                                           <span className="text-[10px] opacity-60">{turno.nom}</span>
                                           {pastille && <span className={"w-2.5 h-2.5 rounded-full " + pastille}></span>}
                                         </span>
-                                        {prod ? prod.nom : "+ asignar"}
+                                        {prod ? <><span>{prod.nom}</span>{zone && <span className="ml-1 px-1 rounded bg-white/70 text-[10px]">{zone}</span>}</> : "+ asignar"}
                                         {prod && <span className="block text-[10px] opacity-60">{fmtNb(b.kg)} kg{kgpb ? " · " + fmtNb(bultos) + " blt" : ""}</span>}
                                       </div>
                                     )}
@@ -1156,13 +1271,13 @@ export default function PlanificateurChocolat() {
         )}
 
         {onglet === "stocks" && (
-          <div className="bg-white rounded-xl shadow p-4">
+          <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-4">
             <div className="flex flex-wrap items-center justify-between gap-3 mb-2">
-              <h2 className="font-semibold text-amber-900">Estado de stocks (en bultos) — {usineActive ? usineActive.nom : ""}</h2>
+              <h2 className="font-semibold text-violet-900">Estado de stocks (en bultos) — {usineActive ? usineActive.nom : ""}</h2>
               <div className="flex items-center gap-3 text-xs text-gray-500">
                 <span className="font-medium">{produitsUsine.filter(estConfigure).length} configurado(s)</span>
                 <span>· {produitsUsine.filter((p) => !estConfigure(p)).length} sin mín./máx.</span>
-                <label className="flex items-center gap-1 cursor-pointer select-none text-amber-800"><input type="checkbox" checked={masquerNonConfig} onChange={(e) => setMasquerNonConfig(e.target.checked)} />Ocultar sin mín./máx.</label>
+                <label className="flex items-center gap-1 cursor-pointer select-none text-violet-800"><input type="checkbox" checked={masquerNonConfig} onChange={(e) => setMasquerNonConfig(e.target.checked)} />Ocultar sin mín./máx.</label>
               </div>
             </div>
             <Legende />
@@ -1190,9 +1305,10 @@ export default function PlanificateurChocolat() {
                             const prodB = productionParProduit[p.id] || 0; const projB = projection(p);
                             const stA = statutStock(p.stock, s.min, s.max); const stP = statutStock(projB, s.min, s.max);
                             const gris = config ? "" : "text-gray-400 bg-gray-50";
+                            const zone = etiquetaZonaProducto(p);
                             return (
                               <tr key={p.id} className={"border-b border-gray-100 " + gris}>
-                                <td className="py-2 pr-2 font-medium">{p.nom}</td>
+                                <td className="py-2 pr-2 font-medium">{p.nom}{zone && <span className="ml-2 px-1.5 py-0.5 rounded bg-violet-100 text-violet-800 text-[10px]">{zone}</span>}</td>
                                 <td className="py-2 text-right"><input type="number" step="0.001" className="w-20 text-right border rounded p-1" value={p.pesoBulto != null ? p.pesoBulto : ""} placeholder="-" onChange={(e) => majProduit(p.id, "pesoBulto", e.target.value === "" ? null : parseFloat(e.target.value) || 0)} /></td>
                                 <td className="py-2 text-right"><input type="number" className="w-16 text-right border rounded p-1" value={p.min != null ? p.min : ""} placeholder="—" onChange={(e) => majProduit(p.id, "min", e.target.value === "" ? null : parseFloat(e.target.value) || 0)} /></td>
                                 <td className="py-2 text-right"><input type="number" className="w-16 text-right border rounded p-1" value={p.max != null ? p.max : ""} placeholder="—" onChange={(e) => majProduit(p.id, "max", e.target.value === "" ? null : parseFloat(e.target.value) || 0)} /></td>
@@ -1221,18 +1337,18 @@ export default function PlanificateurChocolat() {
                   </div>
                 );
               })}
-            <p className="text-xs text-gray-500 mt-3">Todo esta en <strong>bultos</strong>. Demanda/dia = Stock min. / {JOURS_MOIS}. El campo kg/bulto convierte los bultos a kg para planificar turnos.</p>
+            <p className="text-xs text-gray-500 mt-3">Todo esta en <strong>bultos</strong>. Demanda/dia = Stock min. / {JOURS_MOIS}; para las tabletas Fatima, min = 2 meses y max = 4 meses, entonces Dem/d = min / {JOURS_MIN_TABLETAS_FATIMA}. El campo kg/bulto convierte los bultos a kg para planificar turnos.</p>
           </div>
         )}
 
         {onglet === "produits" && (
           <div className="grid gap-4 md:grid-cols-2">
-            <div className="bg-white rounded-xl shadow p-4">
-              <h2 className="font-semibold text-amber-900 mb-3">Líneas de producción — {usineActive ? usineActive.nom : ""}</h2>
+            <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-4">
+              <h2 className="font-semibold text-violet-900 mb-3">Líneas de producción — {usineActive ? usineActive.nom : ""}</h2>
               <div className="flex gap-2 mb-3 flex-wrap">
                 <input className="flex-1 min-w-32 border rounded-lg p-2 text-sm" placeholder="Nombre de la nueva línea" value={nomNouvelleLigne} onChange={(e) => setNomNouvelleLigne(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") ajouterLigne(); }} />
                 <input type="number" className="w-24 border rounded-lg p-2 text-sm text-right" placeholder="kg/turno" value={capNouvelleLigne} onChange={(e) => setCapNouvelleLigne(e.target.value)} />
-                <button onClick={ajouterLigne} className="px-3 py-2 bg-amber-800 text-white rounded-lg text-sm hover:bg-amber-900">+ Agregar</button>
+                <button onClick={ajouterLigne} className="px-3 py-2 bg-violet-800 text-white rounded-lg text-sm hover:bg-violet-900">+ Agregar</button>
               </div>
               {msgLigne && <p className="text-sm text-red-600 mb-2">{msgLigne}</p>}
               <div className="space-y-2">
@@ -1241,24 +1357,24 @@ export default function PlanificateurChocolat() {
                   return (
                     <div key={l.id} className="flex items-center gap-2 p-2 bg-gray-50 rounded-lg">
                       <span className={"w-3 h-3 rounded-full " + pal.couleur}></span>
-                      <input className="flex-1 bg-transparent border-b border-transparent focus:border-amber-400 outline-none text-sm font-medium" value={l.nom} onChange={(e) => majLigne(l.id, "nom", e.target.value)} />
+                      <input className="flex-1 bg-transparent border-b border-transparent focus:border-violet-400 outline-none text-sm font-medium" value={l.nom} onChange={(e) => majLigne(l.id, "nom", e.target.value)} />
                       <input type="number" className="w-20 border rounded p-1 text-sm text-right" value={l.capacite} onChange={(e) => majLigne(l.id, "capacite", parseFloat(e.target.value) || 0)} />
-                      <span className="text-xs text-gray-500">kg/turno - {turnosLigne(l).length} turno(s)/dia base</span>
+                      <span className="text-xs text-gray-500">kg/turno - {turnosBaseAffiches(l)} turno(s)/dia base</span>
                       <button onClick={() => supprimerLigne(l.id)} className="text-red-500 hover:text-red-700 text-sm px-1">✕</button>
                     </div>
                   );
                 })}
               </div>
             </div>
-            <div className="bg-white rounded-xl shadow p-4">
-              <h2 className="font-semibold text-amber-900 mb-3">Productos — {usineActive ? usineActive.nom : ""}</h2>
+            <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-4">
+              <h2 className="font-semibold text-violet-900 mb-3">Productos — {usineActive ? usineActive.nom : ""}</h2>
               <div className="flex gap-2 mb-3">
                 <input className="flex-1 border rounded-lg p-2 text-sm" placeholder="Nombre del nuevo producto" value={nouveauNom} onChange={(e) => setNouveauNom(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") ajouterProduit(); }} />
                 <select className="border rounded-lg p-2 text-sm" value={nouvelleLigneProd} onChange={(e) => setNouvelleLigneProd(e.target.value)}>
                   <option value="">Línea...</option>
                   {lignesUsine.map((l) => <option key={l.id} value={l.id}>{l.nom}</option>)}
                 </select>
-                <button onClick={ajouterProduit} className="px-3 py-2 bg-amber-800 text-white rounded-lg text-sm hover:bg-amber-900">+ Agregar</button>
+                <button onClick={ajouterProduit} className="px-3 py-2 bg-violet-800 text-white rounded-lg text-sm hover:bg-violet-900">+ Agregar</button>
               </div>
               {produitsNonAssignes.length > 0 && <p className="text-sm text-orange-600 mb-2">⚠️ {produitsNonAssignes.length} producto(s) sin línea: asígnalos abajo.</p>}
               <div className="space-y-1 max-h-96 overflow-y-auto">
@@ -1266,7 +1382,7 @@ export default function PlanificateurChocolat() {
                   const ligne = lignes.find((l) => l.id === p.ligne); const pal = ligne ? getPal(ligne) : null; const nonAssigne = !ligne;
                   return (
                     <div key={p.id} className={"flex items-center gap-2 p-2 rounded-lg " + (nonAssigne ? "bg-orange-50 border border-orange-300" : "bg-gray-50")}>
-                      <input className="flex-1 bg-transparent border-b border-transparent focus:border-amber-400 outline-none text-sm" value={p.nom} onChange={(e) => majProduit(p.id, "nom", e.target.value)} />
+                      <input className="flex-1 bg-transparent border-b border-transparent focus:border-violet-400 outline-none text-sm" value={p.nom} onChange={(e) => majProduit(p.id, "nom", e.target.value)} />
                       <select className={"text-xs border rounded p-1 " + (nonAssigne ? "border-orange-400 text-orange-700" : "")} value={p.ligne || ""} onChange={(e) => majProduit(p.id, "ligne", e.target.value || null)}>
                         <option value="">Por asignar...</option>
                         {lignesUsine.map((l) => <option key={l.id} value={l.id}>{l.nom}</option>)}
@@ -1283,8 +1399,8 @@ export default function PlanificateurChocolat() {
 
         {onglet === "import" && (
           <div className="grid gap-4 md:grid-cols-2">
-            <div className="bg-white rounded-xl shadow p-4">
-              <h2 className="font-semibold text-amber-900 mb-2">📥 Importar la pestaña « {usineActive ? usineActive.nom : ""} »</h2>
+            <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-4">
+              <h2 className="font-semibold text-violet-900 mb-2">📥 Importar la pestaña « {usineActive ? usineActive.nom : ""} »</h2>
               <ol className="text-sm text-gray-600 mb-2 list-decimal list-inside space-y-1">
                 <li>Abre la pestaña <strong>{usineActive ? usineActive.nom : ""}</strong> de tu Google Sheets</li>
                 <li>Sélectionnez tout (Ctrl+A) puis copiez (Ctrl+C)</li>
@@ -1293,11 +1409,11 @@ export default function PlanificateurChocolat() {
               </ol>
               <p className="text-xs text-gray-500 mb-2">Valores en <strong>bultos</strong>: nombres, luego Stock máx., Stock mín., y la última línea con fecha = stock del día.</p>
               <textarea className="w-full border rounded-lg p-2 text-sm h-40 font-mono" placeholder="(pega aquí todo el contenido de la pestaña)" value={texteImport} onChange={(e) => setTexteImport(e.target.value)} />
-              <button onClick={importerFeuilleUsine} className="mt-2 px-4 py-2 bg-amber-800 text-white rounded-lg text-sm hover:bg-amber-900">Importar para {usineActive ? usineActive.nom : ""}</button>
+              <button onClick={importerFeuilleUsine} className="mt-2 px-4 py-2 bg-violet-800 text-white rounded-lg text-sm hover:bg-violet-900">Importar para {usineActive ? usineActive.nom : ""}</button>
               {msgImport && <p className="text-sm text-green-700 mt-2">{msgImport}</p>}
             </div>
-            <div className="bg-white rounded-xl shadow p-4">
-              <h2 className="font-semibold text-amber-900 mb-2">📤 Exportar</h2>
+            <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-4">
+              <h2 className="font-semibold text-violet-900 mb-2">📤 Exportar</h2>
               <p className="text-sm text-gray-600 mb-3">Excel con calendario por semana y resumen de stocks.</p>
               <button onClick={exporterExcel} className="px-4 py-2 bg-green-700 text-white rounded-lg text-sm hover:bg-green-800">Descargar Excel</button>
             </div>
@@ -1356,11 +1472,11 @@ export default function PlanificateurChocolat() {
               return b.deficitKg - a.deficitKg;
             });
           return (
-            <div className="bg-white rounded-xl shadow p-4">
-              <h2 className="font-semibold text-amber-900 mb-1">Diagnóstico de capacidad — {usineActive ? usineActive.nom : ""}</h2>
+            <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-4">
+              <h2 className="font-semibold text-violet-900 mb-1">Diagnóstico de capacidad — {usineActive ? usineActive.nom : ""}</h2>
               <p className="text-xs text-gray-500 mb-3">Supuestos: horarios reales por fabrica, produccion lunes a sabado segun calendario, ventas 7 dias/semana. Fatima: un turno completo de lunes a viernes dividido en medio turno manana y medio turno tarde, sabado y domingo sin turno. Esandi: manana y tarde, sabado solo manana. Mitre/VB: 3 turnos base y sabado solo manana. Demanda/sem = suma(demanda/dia x 7 x kg/bulto).</p>
               {totalDem === 0 ? (
-                <div className="p-3 bg-amber-50 rounded-lg text-sm text-amber-800">Primero importa los stocks (mín./máx.) en la pestaña Importar: el diagnóstico se calcula con tus valores reales.</div>
+                <div className="p-3 bg-violet-50 rounded-lg text-sm text-violet-800">Primero importa los stocks (mín./máx.) en la pestaña Importar: el diagnóstico se calcula con tus valores reales.</div>
               ) : goulots.length > 0 ? (
                 <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-800 mb-3">⚠️ {goulots.length} línea(s) en sobrecarga ({goulots.map((d) => d.ligne.nom).join(", ")}): la demanda supera la capacidad; esos productos no podrán mantenerse todos en verde sin turnos adicionales.</div>
               ) : (
@@ -1369,7 +1485,7 @@ export default function PlanificateurChocolat() {
 
               {totalDem > 0 && (
                 <div className="mb-5">
-                  <h3 className="font-semibold text-amber-900 mb-2">Productos mas criticos</h3>
+                  <h3 className="font-semibold text-violet-900 mb-2">Productos mas criticos</h3>
                   {produitsCritiques.length === 0 ? (
                     <div className="p-3 bg-green-50 border border-green-200 rounded-lg text-sm text-green-800">No hay productos por debajo del nivel verde.</div>
                   ) : (
@@ -1397,7 +1513,7 @@ export default function PlanificateurChocolat() {
                                 ? "text-red-700 font-bold"
                                 : r.tempsSemaines > 2 || r.chargeLigne > 0.85
                                   ? "text-orange-700 font-semibold"
-                                  : "text-amber-800";
+                                  : "text-violet-800";
                             return (
                               <tr key={r.p.id} className="border-b border-gray-100">
                                 <td className="py-2 pr-2 font-medium">{r.p.nom}</td>
@@ -1455,22 +1571,22 @@ export default function PlanificateurChocolat() {
       </div>
       <div className="fixed bottom-4 right-4 z-50">
         {aldoOuvert && (
-          <div className="mb-3 w-[min(360px,calc(100vw-2rem))] bg-white border border-amber-200 rounded-xl shadow-xl overflow-hidden">
-            <div className="bg-amber-800 text-white px-4 py-3 flex items-center justify-between">
+          <div className="mb-3 w-[min(360px,calc(100vw-2rem))] bg-white border border-violet-200 rounded-lg shadow-xl overflow-hidden">
+            <div className="bg-violet-800 text-white px-4 py-3 flex items-center justify-between">
               <div>
                 <div className="font-bold">Aldo</div>
-                <div className="text-xs text-amber-100">Assistant planning local</div>
+                <div className="text-xs text-violet-100">Assistant planning local</div>
               </div>
-              <button className="text-amber-100 hover:text-white text-xl leading-none" onClick={() => setAldoOuvert(false)}>×</button>
+              <button className="text-violet-100 hover:text-white text-xl leading-none" onClick={() => setAldoOuvert(false)}>×</button>
             </div>
-            <div className="p-3 max-h-72 overflow-y-auto space-y-2 bg-amber-50">
+            <div className="p-3 max-h-72 overflow-y-auto space-y-2 bg-violet-50">
               {aldoMessages.map((m, idx) => (
-                <div key={idx} className={"text-sm rounded-lg px-3 py-2 " + (m.role === "user" ? "bg-white border border-amber-200 text-amber-900 ml-8" : "bg-amber-100 text-amber-950 mr-8")}>
+                <div key={idx} className={"text-sm rounded-lg px-3 py-2 " + (m.role === "user" ? "bg-white border border-violet-200 text-violet-900 ml-8" : "bg-violet-100 text-violet-950 mr-8")}>
                   {m.texte}
                 </div>
               ))}
             </div>
-            <div className="p-3 border-t border-amber-100 bg-white">
+            <div className="p-3 border-t border-violet-100 bg-white">
               <div className="flex gap-2">
                 <input
                   className="flex-1 border rounded-lg px-3 py-2 text-sm"
@@ -1479,17 +1595,17 @@ export default function PlanificateurChocolat() {
                   onChange={(e) => setAldoTexte(e.target.value)}
                   onKeyDown={(e) => { if (e.key === "Enter") repondreAldo(aldoTexte); }}
                 />
-                <button className="px-3 py-2 bg-amber-800 text-white rounded-lg text-sm" onClick={() => repondreAldo(aldoTexte)}>Enviar</button>
+                <button className="px-3 py-2 bg-violet-800 text-white rounded-lg text-sm" onClick={() => repondreAldo(aldoTexte)}>Enviar</button>
               </div>
               <div className="flex flex-wrap gap-1 mt-2">
                 {["Optimizar", "Criticos", "Importar", "Colores"].map((txt) => (
-                  <button key={txt} className="px-2 py-1 rounded-full bg-amber-100 text-amber-800 text-xs hover:bg-amber-200" onClick={() => repondreAldo(txt)}>{txt}</button>
+                  <button key={txt} className="px-2 py-1 rounded-full bg-violet-100 text-violet-800 text-xs hover:bg-violet-200" onClick={() => repondreAldo(txt)}>{txt}</button>
                 ))}
               </div>
             </div>
           </div>
         )}
-        <button onClick={() => setAldoOuvert((v) => !v)} className="rounded-full bg-amber-900 text-white shadow-lg px-4 py-3 font-semibold hover:bg-amber-800">
+        <button onClick={() => setAldoOuvert((v) => !v)} className="rounded-full bg-violet-900 text-white shadow-lg px-4 py-3 font-semibold hover:bg-violet-800">
           Aldo
         </button>
       </div>

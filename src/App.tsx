@@ -1120,26 +1120,90 @@ export default function PlanificateurChocolat() {
 
   if (!usine) {
     return (
-      <div className="min-h-screen bg-violet-50 flex items-center justify-center p-4 font-sans text-slate-800">
-        <div className="max-w-4xl w-full">
-          <div className="mb-6 bg-white/95 border border-violet-100 rounded-xl shadow-sm p-6 text-center">
-            <h1 className="text-3xl font-bold text-violet-950 mb-2">Planificador de Producción</h1>
-            <p className="text-violet-700">Elige una fábrica para revisar stocks, capacidad y planning.</p>
-          </div>
+      <div className="min-h-screen bg-violet-50 p-4 md:p-6 font-sans text-slate-800 overflow-hidden">
+        <style>{`
+          @keyframes glossMove {
+            0% { transform: translateX(-150%) rotate(-12deg); opacity: .04; }
+            45% { opacity: .38; }
+            100% { transform: translateX(170%) rotate(-12deg); opacity: .06; }
+          }
+          @keyframes beltMove {
+            0% { background-position: 0 0; }
+            100% { background-position: 92px 0; }
+          }
+          @keyframes barMove {
+            0% { transform: translateX(-42px); }
+            100% { transform: translateX(42px); }
+          }
+          .home-gloss { animation: glossMove 3.8s ease-in-out infinite; }
+          .home-belt { background-image: repeating-linear-gradient(90deg, rgba(49,46,129,.20) 0 12px, rgba(255,255,255,.68) 12px 22px, rgba(49,46,129,.12) 22px 46px); animation: beltMove 2.2s linear infinite; }
+          .home-bars { animation: barMove 3.4s ease-in-out infinite alternate; }
+        `}</style>
+        <div className="max-w-6xl mx-auto">
+          <section className="relative mb-5 overflow-hidden rounded-2xl border border-violet-200 bg-white shadow-sm">
+            <div className="absolute inset-0 bg-violet-100/45"></div>
+            <div className="relative grid gap-5 lg:grid-cols-[1.1fr_.9fr] items-center p-5 md:p-8">
+              <div>
+                <div className="inline-flex items-center gap-2 rounded-full bg-white/85 border border-violet-200 px-3 py-1 text-xs font-semibold text-violet-800 shadow-sm">
+                  <span className="h-2 w-2 rounded-full bg-emerald-500"></span>
+                  Choco Planner
+                </div>
+                <h1 className="mt-4 text-4xl md:text-5xl font-extrabold text-violet-950 leading-tight">Planificador de Producción</h1>
+                <p className="mt-3 text-base md:text-lg text-violet-800 max-w-xl">Elige una fábrica para revisar stocks, capacidad y planning con una vista clara de prioridades.</p>
+                <div className="mt-5 flex flex-wrap gap-2 text-sm">
+                  <span className="rounded-full bg-white/85 border border-violet-200 px-3 py-1 text-violet-900">{lignes.length} líneas</span>
+                  <span className="rounded-full bg-white/85 border border-emerald-200 px-3 py-1 text-emerald-800">{produits.filter(estConfigure).length} productos configurados</span>
+                  <span className="rounded-full bg-white/85 border border-sky-200 px-3 py-1 text-sky-800">Stocks en bultos</span>
+                </div>
+              </div>
+              <div className="relative h-64 md:h-72 flex items-center justify-center">
+                <div className="absolute left-8 right-8 bottom-20 h-12 rounded-full bg-slate-900/10 blur-xl"></div>
+                <div className="relative w-full max-w-xl rounded-[2rem] border border-violet-300 bg-white/70 p-5 shadow-xl">
+                  <div className="absolute -top-4 left-10 right-10 h-4 rounded-t-2xl bg-violet-200 border border-violet-300"></div>
+                  <div className="relative h-24 rounded-2xl border border-violet-300/80 bg-violet-100 shadow-inner overflow-hidden">
+                    <div className="absolute inset-2 rounded-xl home-belt"></div>
+                    <div className="absolute left-0 right-0 top-1/2 h-px bg-white/70"></div>
+                    <div className="absolute left-4 right-4 bottom-3 h-2 rounded-full bg-violet-900/15 blur-sm"></div>
+                    <div className="home-bars absolute inset-y-0 -left-8 -right-8 flex items-center justify-around gap-5">
+                      {[0, 1, 2, 3, 4].map((n) => (
+                        <span key={n} className="relative h-12 w-16 rounded-lg bg-gradient-to-br from-[#8a4a28] via-[#663017] to-[#3b1c10] border border-[#4a2412] shadow-lg overflow-hidden">
+                          <span className="home-gloss absolute -left-8 top-0 h-16 w-8 bg-white/35 blur-sm"></span>
+                          <span className="absolute inset-x-2 top-2 h-1.5 rounded-full bg-white/25"></span>
+                          <span className="absolute inset-2 top-4 grid grid-cols-3 gap-1.5 opacity-45">
+                            <i className="rounded-sm bg-[#4b2211]"></i><i className="rounded-sm bg-[#4b2211]"></i><i className="rounded-sm bg-[#4b2211]"></i>
+                            <i className="rounded-sm bg-[#4b2211]"></i><i className="rounded-sm bg-[#4b2211]"></i><i className="rounded-sm bg-[#4b2211]"></i>
+                          </span>
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="mt-4 grid grid-cols-3 gap-3">
+                    <span className="h-2 rounded-full bg-violet-200"></span>
+                    <span className="h-2 rounded-full bg-emerald-300"></span>
+                    <span className="h-2 rounded-full bg-violet-200"></span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
           <div className="grid gap-4 md:grid-cols-2">
             {USINES.map((u) => {
               const nbL = lignes.filter((l) => l.usine === u.id).length;
               const nbP = produits.filter((p) => p.usine === u.id).length;
+              const nbConfig = produits.filter((p) => p.usine === u.id && estConfigure(p)).length;
               return (
-                <button key={u.id} onClick={() => { setUsine(u.id); setOnglet("calendrier"); }} className="bg-white rounded-lg shadow-sm border border-violet-100 hover:shadow-md p-5 transition transform hover:-translate-y-0.5 hover:border-violet-300 text-left">
-                  <div className="flex items-start justify-between gap-3">
+                <button key={u.id} onClick={() => { setUsine(u.id); setOnglet("calendrier"); }} className="group bg-white rounded-xl shadow-sm border border-violet-100 hover:shadow-lg p-5 transition transform hover:-translate-y-1 hover:border-violet-300 text-left overflow-hidden">
+                  <div className="flex items-start justify-between gap-4">
                     <div>
-                      <div className="text-xl font-bold text-violet-950">{u.nom}</div>
-                      <div className="text-sm text-slate-500 mt-1">{nbL} línea(s) · {nbP} producto(s)</div>
+                      <div className="text-2xl font-bold text-violet-950">{u.nom}</div>
+                      <div className="text-sm text-slate-500 mt-1">{nbL} línea(s) · {nbP} producto(s) · {nbConfig} configurado(s)</div>
                     </div>
-                    <div className="text-3xl">{u.icone}</div>
+                    <div className="text-6xl leading-none transition group-hover:scale-110 group-hover:-rotate-3">{u.icone}</div>
                   </div>
-                  <div className="text-xs text-violet-700 mt-4 flex flex-wrap gap-1">
+                  <div className="mt-4 h-2 rounded-full bg-violet-50 overflow-hidden">
+                    <div className="h-full rounded-full bg-violet-700" style={{ width: Math.max(8, Math.min(100, nbP ? (nbConfig / nbP) * 100 : 0)) + "%" }}></div>
+                  </div>
+                  <div className="text-xs text-violet-700 mt-4 flex flex-wrap gap-1.5">
                     {lignes.filter((l) => l.usine === u.id).map((l) => <span key={l.id} className="bg-violet-50 border border-violet-100 px-2 py-0.5 rounded-full">{l.nom}</span>)}
                   </div>
                 </button>

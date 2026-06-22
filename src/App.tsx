@@ -30,10 +30,13 @@ const LIGNES_INIT = [
   { id: "l4", nom: "Sollich", capacite: 500, pal: 3, usine: "mitre" },
   { id: "l5", nom: "Bulher", capacite: 500, pal: 4, usine: "mitre" },
   { id: "vb_stephan", nom: "Stephan", capacite: 130, pal: 0, usine: "vb" },
+  { id: "f_tabletas", nom: "Tabletas Bs As", capacite: 1600, pal: 1, usine: "fatima" },
+  { id: "f_tabletas_bariloche", nom: "Tabletas Bariloche", capacite: 1600, pal: 2, usine: "fatima" },
 ];
 
 const mkEsandi = (id, nom, ligne, pesoBulto) => ({ id, nom, ligne, usine: "esandi", stock: 0, demande: 0, min: null, max: null, pesoBulto });
 const mkVB = (id, nom, ligne, pesoBulto = null) => ({ id, nom, ligne, usine: "vb", stock: 0, demande: 0, min: null, max: null, pesoBulto });
+const mkFatima = (id, nom, ligne, pesoBulto = null, aliases = []) => ({ id, nom, ligne, usine: "fatima", stock: 0, demande: 0, min: null, max: null, pesoBulto, aliases });
 
 const PESO_BULTO_POR_PRODUCTO = {
   "BARRA AMARGO ALMENDRA": 4.4,
@@ -138,6 +141,14 @@ const PESO_BULTO_POR_PRODUCTO = {
   "TABLETA PISTACHO": 3.8,
   "TABLETA RELLENA DDL 120gr": 5.13,
   "TABLETA XXL LECHE PURA": 5.6,
+  "TABLETA DE PISTACHO, SAL Y CARAMELO": 3.8,
+  "TAB CHOC LECHE PURO 80G": 3.04,
+  "TABLETA CHOC AMARGO 70%": 3.04,
+  "TAB 100GS CHOCO LECHE Y ALM": 3.8,
+  "TABLETA PURA BLANCA": 3.04,
+  "TABLETA CHOC AMARGO 80%": 3.04,
+  "TABLETA CHOC AMARGO 60%": 3.04,
+  "TABLETA CHOC AMARGO 90%": 3.04,
   "TORTUGAS": 1.275,
   "TURRON ALMENDRA": 3.63,
   "TURRON ALMENDRA BANADO": 3.63,
@@ -266,6 +277,22 @@ const PRODUITS_INIT = [
   mkVB(114, "DULCE FRUTOS DEL BOSQUE", "vb_stephan", 4.62),
   mkVB(115, "DULCE MOSQUETA 420gr", "vb_stephan", 4.62),
   mkVB(116, "DULCE SAUCO 420gr", "vb_stephan", 4.62),
+  mkFatima(117, "TABLETA DE PISTACHO, SAL Y CARAMELO", "f_tabletas", 3.8, ["TAB SAL CARAMELO 100gr"]),
+  mkFatima(118, "TAB CHOC LECHE PURO 80G", "f_tabletas", 3.04, ["TABLETA LECHE PURO X80gr solo BsAs stock max p/4 meses min 2"]),
+  mkFatima(119, "TABLETA CHOC AMARGO 70%", "f_tabletas", 3.04, ["TABLETA 70 solo BsAs stock max p/4 meses min 2"]),
+  mkFatima(120, "TAB 100GS CHOCO LECHE Y ALM", "f_tabletas", 3.8, ["TABLETA LECHE ALMENDRA solo BsAs stock max p/4 meses min 2"]),
+  mkFatima(121, "TABLETA PURA BLANCA", "f_tabletas", 3.04, ["TABLETA BLANCO X80gr solo BsAs stock max p/4 meses min 2"]),
+  mkFatima(122, "TABLETA CHOC AMARGO 80%", "f_tabletas", 3.04, ["TABLETA 80 solo BsAs stock max p/4 meses min 2"]),
+  mkFatima(123, "TABLETA CHOC AMARGO 60%", "f_tabletas", 3.04, ["TABLETA 60 solo BsAs stock max p/4 meses min 2"]),
+  mkFatima(124, "TABLETA CHOC AMARGO 90%", "f_tabletas", 3.04, ["TABLETA 90 solo BsAs stock max p/4 meses min 2"]),
+  mkFatima(125, "TABLETA DE PISTACHO, SAL Y CARAMELO", "f_tabletas_bariloche", 3.8, ["TABLETA PISTACHO"]),
+  mkFatima(126, "TAB CHOC LECHE PURO 80G", "f_tabletas_bariloche", 3.04, ["TABLETA LECHE PURO X80gr"]),
+  mkFatima(127, "TABLETA CHOC AMARGO 70%", "f_tabletas_bariloche", 3.04, ["TABLETA 70 VB"]),
+  mkFatima(128, "TAB 100GS CHOCO LECHE Y ALM", "f_tabletas_bariloche", 3.8, ["TABLETA LECHE ALMENDRA"]),
+  mkFatima(129, "TABLETA PURA BLANCA", "f_tabletas_bariloche", 3.04, ["TABLETA BLANCO X80gr"]),
+  mkFatima(130, "TABLETA CHOC AMARGO 80%", "f_tabletas_bariloche", 3.04, ["TABLETA 80 VB"]),
+  mkFatima(131, "TABLETA CHOC AMARGO 60%", "f_tabletas_bariloche", 3.04, ["TABLETA 60 VB"]),
+  mkFatima(132, "TABLETA CHOC AMARGO 90%", "f_tabletas_bariloche", 3.04, ["TABLETA 90 VB"]),
 ];
 
 const JOURS = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
@@ -274,12 +301,13 @@ const JOURS_HORIZON = HORIZON * JOURS.length;
 const JOURS_MOIS = 30;
 const TURNOS_PAR_USINE = {
   esandi: [
-    { id: "m1", nom: "Mañana 1", facteur: 0.5 },
-    { id: "m2", nom: "Mañana 2", facteur: 0.5 },
-    { id: "t1", nom: "Tarde 1", facteur: 0.5 },
-    { id: "t2", nom: "Tarde 2", facteur: 0.5 },
+    { id: "m", nom: "Mañana", facteur: 1 },
+    { id: "t", nom: "Tarde", facteur: 1 },
   ],
-  fatima: [{ id: "m", nom: "Mañana", facteur: 1 }],
+  fatima: [
+    { id: "m", nom: "Mañana 1/2", facteur: 0.5 },
+    { id: "t", nom: "Tarde 1/2", facteur: 0.5 },
+  ],
   mitre: [
     { id: "m", nom: "Mañana", facteur: 1 },
     { id: "t", nom: "Tarde", facteur: 1 },
@@ -305,11 +333,23 @@ function statutStock(stock, min, max) {
 function getPal(ligne) { return PALETTE[((ligne && ligne.pal) || 0) % PALETTE.length]; }
 function turnosUsine(usineId) { return TURNOS_PAR_USINE[usineId] || TURNOS_PAR_USINE.fatima; }
 function turnosLigne(ligne) { return turnosUsine(ligne && ligne.usine); }
+function turnosUsinePourDate(usineId, date) {
+  const turnos = turnosUsine(usineId);
+  const jour = date instanceof Date ? date.getDay() : null;
+  if (usineId === "fatima") {
+    if (jour === 6) return [];
+  }
+  if (usineId === "esandi" && jour === 6) return turnos.filter((t) => t.id === "m");
+  if ((usineId === "mitre" || usineId === "vb") && jour === 6) return turnos.filter((t) => t.id === "m");
+  return turnos;
+}
+function turnosLignePourDate(ligne, date) { return turnosUsinePourDate(ligne && ligne.usine, date); }
 function turnoDepuisCle(cle, ligne) {
   const turnoId = String(cle || "").split("|")[2];
   return turnosLigne(ligne).find((t) => String(t.id) === turnoId) || turnosLigne(ligne)[0];
 }
 function kgBloc(l, turno = null) { return (l && l.capacite ? l.capacite : 0) * ((turno && turno.facteur) || 1); }
+function capaciteJour(ligne, date) { return turnosLignePourDate(ligne, date).reduce((s, t) => s + kgBloc(ligne, t), 0); }
 function kgParBulto(p) {
   if (!p) return null;
   if (p.pesoBulto > 0) return p.pesoBulto;
@@ -336,6 +376,58 @@ function parseTSV(text) {
   return rows;
 }
 const normaliser = (s) => String(s || "").replace(/\s+/g, " ").trim();
+const MOTS_IMPORT_IGNORES = new Set([
+  "SOLO", "BSAS", "BUENOS", "AIRES", "STOCK", "MAX", "MIN", "MAXIMO", "MINIMO",
+  "P", "POR", "PARA", "MESES", "MES", "OBJETIVO", "BASE", "VB", "BARILOCHE", "DE", "DEL", "LA", "EL",
+]);
+function tokensProduit(s) {
+  return String(s || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toUpperCase()
+    .replace(/P\/\d+/g, " ")
+    .replace(/(\d+)\s*(GR|G|GS|GRAMOS|%)\b/g, "$1 ")
+    .replace(/[^A-Z0-9]+/g, " ")
+    .split(/\s+/)
+    .map((t) => t.trim())
+    .map((t) => (t === "TAB" ? "TABLETA" : t))
+    .filter((t) => t && !MOTS_IMPORT_IGNORES.has(t));
+}
+function trouverProduitExistant(produitsListe, usineId, nomImporte) {
+  const importTokens = tokensProduit(nomImporte);
+  const importKey = importTokens.join(" ");
+  if (!importKey) return null;
+  let meilleur = null;
+  produitsListe.filter((p) => p.usine === usineId).forEach((p) => {
+    const nomsCandidats = [p.nom, ...((Array.isArray(p.aliases) ? p.aliases : []))];
+    let score = 0;
+    nomsCandidats.forEach((nomCandidat, idx) => {
+      const baseTokens = tokensProduit(nomCandidat);
+      const baseKey = baseTokens.join(" ");
+      if (!baseKey) return;
+      let scoreCandidat = 0;
+      if (baseKey === importKey) scoreCandidat = idx === 0 ? 100 : 120;
+      else if ((" " + importKey + " ").includes(" " + baseKey + " ")) scoreCandidat = idx === 0 ? 95 : 115;
+      else if ((" " + baseKey + " ").includes(" " + importKey + " ") && importTokens.length >= 2) scoreCandidat = idx === 0 ? 85 : 110;
+      else {
+        const importSet = new Set(importTokens);
+        const baseSet = new Set(baseTokens);
+        const communs = baseTokens.filter((t) => importSet.has(t)).length;
+        const importInclusDansBase = importTokens.every((t) => baseSet.has(t));
+        const baseInclusDansImport = baseTokens.every((t) => importSet.has(t));
+        const couvertureBase = communs / Math.max(1, baseTokens.length);
+        const couvertureImport = communs / Math.max(1, importTokens.length);
+        if (importInclusDansBase && importTokens.length >= 2) scoreCandidat = 92 + Math.min(5, importTokens.length);
+        else if (baseInclusDansImport && baseTokens.length >= 2) scoreCandidat = 90;
+        else scoreCandidat = Math.round(couvertureBase * 70 + couvertureImport * 20);
+        if (idx > 0 && scoreCandidat >= 78) scoreCandidat += 15;
+      }
+      score = Math.max(score, scoreCandidat);
+    });
+    if (score >= 78 && (!meilleur || score > meilleur.score)) meilleur = { produit: p, score };
+  });
+  return meilleur ? meilleur.produit : null;
+}
 // Lecture d'une cellule de planning -> { p, kg } (rétro-compatible)
 function lireBloc(cell, ligne) {
   if (cell == null) return null;
@@ -343,7 +435,7 @@ function lireBloc(cell, ligne) {
   return { p: cell, kg: kgBloc(ligne) };
 }
 
-const STORAGE_KEY = "choco-planner-state-v3";
+const STORAGE_KEY = "choco-planner-state-v4";
 
 function encodePayload(payload) {
   const json = JSON.stringify(payload);
@@ -367,6 +459,16 @@ function htmlEscape(value) {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;");
 }
+function fusionAvecBase(base: any[], sauvegarde: any[]) {
+  const parId = new Map(base.map((item) => [item.id, item]));
+  (Array.isArray(sauvegarde) ? sauvegarde : []).forEach((item) => {
+    const fusionne = { ...(parId.get(item.id) || {}), ...item };
+    if (fusionne.id === "f_tabletas" && fusionne.nom === "Tabletas") fusionne.nom = "Tabletas Bs As";
+    if (fusionne.id === 117 && fusionne.pesoBulto === 3.04) fusionne.pesoBulto = 3.8;
+    parId.set(item.id, fusionne);
+  });
+  return Array.from(parId.values());
+}
 
 export default function PlanificateurChocolat() {
   const [usine, setUsine] = useState(null);
@@ -387,6 +489,11 @@ export default function PlanificateurChocolat() {
   const [selection, setSelection] = useState(null);
   const [dragKey, setDragKey] = useState(null);
   const [masquerNonConfig, setMasquerNonConfig] = useState(false);
+  const [aldoOuvert, setAldoOuvert] = useState(false);
+  const [aldoTexte, setAldoTexte] = useState("");
+  const [aldoMessages, setAldoMessages] = useState([
+    { role: "aldo", texte: "Hola, soy Aldo. Puedo ayudarte a orientar el planning: optimizar, revisar productos criticos, abrir importacion o explicar los colores." },
+  ]);
 
   const lignesUsine = useMemo(() => lignes.filter((l) => l.usine === usine), [lignes, usine]);
   const produitsUsine = useMemo(() => produits.filter((p) => p.usine === usine), [produits, usine]);
@@ -417,6 +524,30 @@ export default function PlanificateurChocolat() {
   const demandeJourCalculee = (p) => (seuils(p).min || 0) / JOURS_MOIS;
   const demandeJour = (p) => (p.demande != null && p.demande !== "" && Number(p.demande) > 0 ? Number(p.demande) : demandeJourCalculee(p));
   const projection = (p) => p.stock + (productionParProduit[p.id] || 0) - demandeJour(p) * (HORIZON * 7);
+  const etatApresBloc = useMemo(() => {
+    const stockSim = {};
+    const resultat = {};
+    produitsUsine.forEach((p) => { stockSim[p.id] = p.stock; });
+    joursSemaine.forEach((j) => {
+      produitsUsine.forEach((p) => { if (estConfigure(p)) stockSim[p.id] -= demandeJour(p); });
+      lignesUsine.forEach((ligne) => {
+        turnosLignePourDate(ligne, j.date).forEach((turno) => {
+          const cle = j.cle + "|" + ligne.id + "|" + turno.id;
+          const b = lireBloc(plan[cle], ligne);
+          if (!b || b.p == null) return;
+          const prod = produits.find((p) => p.id === b.p);
+          const kgpb = kgParBulto(prod);
+          if (kgpb) stockSim[b.p] = (stockSim[b.p] || 0) + b.kg / kgpb;
+          if (prod && estConfigure(prod)) {
+            const s = seuils(prod);
+            const statut = statutStock(stockSim[b.p] || 0, s.min, s.max);
+            resultat[cle] = { badge: statut.badge, label: statut.label, stock: stockSim[b.p] || 0 };
+          }
+        });
+      });
+    });
+    return resultat;
+  }, [joursSemaine, lignesUsine, plan, produits, produitsUsine]);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -450,8 +581,8 @@ export default function PlanificateurChocolat() {
       if (!sauvegarde) return;
       const data = JSON.parse(sauvegarde);
       if (data.usine) setUsine(data.usine);
-      if (Array.isArray(data.lignes)) setLignes(data.lignes);
-      if (Array.isArray(data.produits)) setProduits(data.produits);
+      if (Array.isArray(data.lignes)) setLignes(fusionAvecBase(LIGNES_INIT, data.lignes));
+      if (Array.isArray(data.produits)) setProduits(fusionAvecBase(PRODUITS_INIT, data.produits));
       if (data.plan && typeof data.plan === "object") setPlan(data.plan);
       if (data.lundi) setLundi(new Date(data.lundi));
       setMsgPartage("Planificación guardada cargada.");
@@ -509,12 +640,12 @@ export default function PlanificateurChocolat() {
     setDragKey(null);
   };
 
-  // ====== OPTIMIZADOR: producción DIVISIBLE, 1 producto por medio turno ======
+  // ====== OPTIMIZADOR: producción DIVISIBLE, 1 producto por turno ======
   const optimiser = () => {
     const datesHorizon = [];
     for (let w = 0; w < HORIZON; w++) for (let d = 0; d < 7; d++) {
       const dt = new Date(lundi.getFullYear(), lundi.getMonth(), lundi.getDate() + w * 7 + d);
-      datesHorizon.push({ cle: cleDate(dt), prod: d < JOURS.length });
+      datesHorizon.push({ cle: cleDate(dt), date: dt, prod: d < JOURS.length });
     }
     const datesSet = new Set(datesHorizon.map((d) => d.cle));
     const lignesIds = new Set(lignesUsine.map((l) => l.id));
@@ -531,8 +662,8 @@ export default function PlanificateurChocolat() {
       lignesUsine.forEach((ligne) => {
         const prods = produitsUsine.filter((p) => p.ligne === ligne.id && estConfigure(p) && kgParBulto(p) && seuils(p).max > 0);
         if (prods.length === 0) return;
-        turnosLigne(ligne).forEach((turno) => {
-          const kgb_ligne = kgBloc(ligne, turno); // kg disponibles por turno/bloque
+        turnosLignePourDate(ligne, jour.date).forEach((turno) => {
+          const kgb_ligne = kgBloc(ligne, turno); // kg disponibles por turno
           // Produit le plus en déficit sous le plancher vert (min*1.5)
           let meilleur = null, urgenceMax = 0;
           prods.forEach((p) => {
@@ -560,7 +691,7 @@ export default function PlanificateurChocolat() {
     const sansConv = configures.filter((p) => !kgParBulto(p)).length;
     const enVert = configures.filter((p) => { const s = seuils(p); if (s.max <= 0) return true; return stockSim[p.id] >= s.min * 1.5 && stockSim[p.id] <= s.max; }).length;
     const sousMin = configures.filter((p) => stockSim[p.id] < seuils(p).min).length;
-    setMsgOpti("✓ " + blocsUtilises + " medio(s) turno(s) utilizado(s) en " + HORIZON + " sem. · " + enVert + "/" + configures.length + " en zona verde al final del horizonte" + (sousMin > 0 ? " · ⚠️ " + sousMin + " todavía bajo el mínimo (capacidad insuficiente)" : "") + (sansConv > 0 ? " · " + sansConv + " sin conversión no planificados" : "") + ".");
+    setMsgOpti("✓ " + blocsUtilises + " turno(s) utilizado(s) en " + HORIZON + " sem. · " + enVert + "/" + configures.length + " en zona verde al final del horizonte" + (sousMin > 0 ? " · ⚠️ " + sousMin + " todavía bajo el mínimo (capacidad insuficiente)" : "") + (sansConv > 0 ? " · " + sansConv + " sin conversión no planificados" : "") + ".");
   };
 
   const viderHorizon = () => {
@@ -602,9 +733,13 @@ export default function PlanificateurChocolat() {
     const brut = parseTSV(texteImport).map((r) => r.map((c) => normaliser(c)));
     const rows = brut.filter((r) => r.some((c) => c !== ""));
     if (rows.length < 3) { setMsgImport("⚠️ Collage incomplet (noms, Stock max, Stock min, stock du jour)."); return; }
-    const ligneContient = (r, mots) => r.some((c) => { const t = (c || "").toLowerCase(); return mots.some((m) => t.includes(m)); });
-    let idxMax = rows.findIndex((r) => ligneContient(r, ["stock max", "máximo", "maximo"]));
-    let idxMin = rows.findIndex((r) => ligneContient(r, ["stock min", "mínimo", "minimo"]));
+    const estLigneLibelle = (r, mots) => r.some((c, i) => {
+      if (i > 1) return false;
+      const t = (c || "").toLowerCase();
+      return mots.some((m) => t === m || t.startsWith(m + " "));
+    });
+    let idxMax = rows.findIndex((r) => estLigneLibelle(r, ["stock max", "máximo", "maximo"]));
+    let idxMin = rows.findIndex((r) => estLigneLibelle(r, ["stock min", "mínimo", "minimo"]));
     if (idxMax === -1 && idxMin === -1) { idxMax = 1; idxMin = 2; } else if (idxMax === -1) idxMax = Math.max(0, idxMin - 1); else if (idxMin === -1) idxMin = idxMax + 1;
     const ligneNoms = rows[Math.max(0, Math.min(idxMax, idxMin) - 1)] || [];
     const ligneMax = rows[idxMax] || [], ligneMin = rows[idxMin] || [];
@@ -613,7 +748,7 @@ export default function PlanificateurChocolat() {
     const ligneStock = idxStock !== -1 ? rows[idxStock] : [];
     const dateStock = ligneStock[0] || "";
     const debut = (isNaN(parseNum(ligneMax[0])) && isNaN(parseNum(ligneMin[0]))) ? 1 : 0;
-    let maj = 0, ajoutes = 0, avecMinMax = 0, ignores = 0;
+    let maj = 0, ajoutes = 0, avecMinMax = 0, ignores = 0, reconnus = 0;
     let nouveaux = [...produits];
     const nbCols = Math.max(ligneNoms.length, ligneMax.length, ligneMin.length, ligneStock.length);
     for (let c = debut; c < nbCols; c++) {
@@ -622,13 +757,18 @@ export default function PlanificateurChocolat() {
       if (isNaN(vStock) && isNaN(vMin) && isNaN(vMax)) { ignores++; continue; }
       if (!isNaN(vMin) || !isNaN(vMax)) avecMinMax++;
       const champs = { ...(isNaN(vStock) ? {} : { stock: vStock }), ...(isNaN(vMin) ? {} : { min: vMin }), ...(isNaN(vMax) ? {} : { max: vMax }) };
-      const existant = nouveaux.find((p) => p.usine === usine && p.nom.toLowerCase() === nom.toLowerCase());
-      if (existant) { nouveaux = nouveaux.map((p) => (p.id === existant.id ? { ...p, ...champs } : p)); maj++; }
+      const exact = nouveaux.find((p) => p.usine === usine && p.nom.toLowerCase() === nom.toLowerCase());
+      const existant = exact || trouverProduitExistant(nouveaux, usine, nom);
+      if (existant) {
+        nouveaux = nouveaux.map((p) => (p.id === existant.id ? { ...p, ...champs } : p));
+        maj++;
+        if (!exact) reconnus++;
+      }
       else { const id = nouveaux.reduce((m, p) => Math.max(m, p.id), 0) + 1; nouveaux.push({ id, nom, ligne: null, usine, stock: isNaN(vStock) ? 0 : vStock, demande: 0, min: isNaN(vMin) ? null : vMin, max: isNaN(vMax) ? null : vMax, pesoBulto: PESO_BULTO_POR_PRODUCTO[nom] ?? null }); ajoutes++; }
     }
     if (maj === 0 && ajoutes === 0) { setMsgImport("⚠️ No se detectó ningún producto. Verifica el pegado."); return; }
     setProduits(nouveaux);
-    setMsgImport("Importacion (stock del " + (dateStock || "?") + "): " + maj + " actualizado(s), " + ajoutes + " nuevo(s), " + avecMinMax + " con min./max. " + ignores + " producto(s) ignorado(s) por celdas vacias." + (avecMinMax === 0 ? " No se leyo ningun min./max." : ""));
+    setMsgImport("Importacion (stock del " + (dateStock || "?") + "): " + maj + " actualizado(s), " + ajoutes + " nuevo(s), " + reconnus + " reconocido(s) por nombre similar, " + avecMinMax + " con min./max. " + ignores + " producto(s) ignorado(s) por celdas vacias." + (avecMinMax === 0 ? " No se leyo ningun min./max." : ""));
     setTexteImport("");
   };
 
@@ -671,7 +811,7 @@ export default function PlanificateurChocolat() {
               <td class="linea">${htmlEscape(ligne.nom)}<br><small>${htmlEscape(ligne.capacite)} kg/turno</small></td>
               ${dias.map((j) => `
                 <td>
-                  ${turnosLigne(ligne).map((turno) => {
+                  ${turnosLignePourDate(ligne, j.date).map((turno) => {
                     const b = lireBloc(plan[j.cle + "|" + ligne.id + "|" + turno.id], ligne);
                     const prod = b ? produits.find((p) => p.id === b.p) : null;
                     const kgb = prod ? kgParBulto(prod) : null;
@@ -680,10 +820,10 @@ export default function PlanificateurChocolat() {
                       <div class="turno">${htmlEscape(turno.nom)}</div>
                       ${prod ? `<div class="producto">${htmlEscape(prod.nom)}</div><div class="cantidad">${htmlEscape(fmtNb(b.kg))} kg${bultos != null ? " · " + htmlEscape(fmtNb(bultos)) + " blt" : ""}</div>` : `<div class="vacio">Sin asignar</div>`}
                     </div>`;
-                  }).join("")}
+                  }).join("") || `<div class="vacio">Sin turno</div>`}
                 </td>
               `).join("")}
-              <td>${htmlEscape(fmtNb(dias.reduce((total, j) => total + turnosLigne(ligne).reduce((sum, turno) => {
+              <td>${htmlEscape(fmtNb(dias.reduce((total, j) => total + turnosLignePourDate(ligne, j.date).reduce((sum, turno) => {
                 const b = lireBloc(plan[j.cle + "|" + ligne.id + "|" + turno.id], ligne);
                 return sum + (b ? b.kg : 0);
               }, 0), 0)))} kg</td>
@@ -719,8 +859,55 @@ export default function PlanificateurChocolat() {
   const totalSemaineLigne = (ligneId) => {
     const ligne = lignes.find((l) => l.id === ligneId); if (!ligne) return 0;
     let total = 0;
-    joursSemaine.forEach((j) => { turnosLigne(ligne).forEach((turno) => { const b = lireBloc(plan[j.cle + "|" + ligneId + "|" + turno.id], ligne); if (b) total += b.kg; }); });
+    joursSemaine.forEach((j) => { turnosLignePourDate(ligne, j.date).forEach((turno) => { const b = lireBloc(plan[j.cle + "|" + ligneId + "|" + turno.id], ligne); if (b) total += b.kg; }); });
     return total;
+  };
+
+  const produitsCritiquesAldo = () => produitsUsine
+    .filter((p) => estConfigure(p) && kgParBulto(p))
+    .map((p) => {
+      const s = seuils(p);
+      const objectif = s.min * 1.5;
+      const manque = Math.max(0, objectif - p.stock);
+      const proj = projection(p);
+      return { p, manque, proj, statut: statutStock(proj, s.min, s.max).label };
+    })
+    .filter((r) => r.manque > 0 || r.proj < seuils(r.p).min * 1.5)
+    .sort((a, b) => b.manque - a.manque)
+    .slice(0, 6);
+
+  const repondreAldo = (questionBrute = "") => {
+    const question = questionBrute.trim();
+    if (!question) return;
+    const q = question.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+    let reponse = "";
+    if (q.includes("optim") || q.includes("planif") || q.includes("planning")) {
+      optimiser();
+      setOnglet("calendrier");
+      reponse = "He relanzado la optimizacion del planning para esta fabrica. Revisa el calendario: prioriza productos bajo zona verde y respeta capacidades/turnos.";
+    } else if (q.includes("critique") || q.includes("critico") || q.includes("urgent") || q.includes("diagnostic")) {
+      const critiques = produitsCritiquesAldo();
+      setOnglet("diagnostic");
+      reponse = critiques.length
+        ? "Productos mas criticos ahora: " + critiques.map((r) => r.p.nom + " (faltan aprox. " + fmtNb(r.manque) + " blt)").join("; ") + ". Abrí Diagnostico para ver capacidad y tiempos."
+        : "No veo productos claramente bajo la zona verde con los datos actuales. Abrí Diagnostico para confirmar carga por linea.";
+    } else if (q.includes("import") || q.includes("charger") || q.includes("cargar") || q.includes("stock")) {
+      setOnglet("import");
+      reponse = "Te llevo a Importar. Pega la hoja de stock: si el nombre trae textos extra o equivalentes, intento asociarlo al producto correcto.";
+    } else if (q.includes("vide") || q.includes("borrar") || q.includes("limpiar") || q.includes("efface")) {
+      viderHorizon();
+      setOnglet("calendrier");
+      reponse = "He borrado el planning del horizonte visible para esta fabrica. Los productos, stocks y min/max se conservan.";
+    } else if (q.includes("couleur") || q.includes("color") || q.includes("gom") || q.includes("pastilla")) {
+      reponse = "Las gomitas son cronologicas: muestran el estado del stock justo despues de ese bloque. Rojo bajo minimo, amarillo alerta, verde correcto, violeta sobrestock.";
+    } else if (q.includes("fatima") || q.includes("esandi") || q.includes("mitre") || q.includes("vb")) {
+      reponse = "Puedo ayudarte por fabrica. Primero selecciona la fabrica correcta; luego puedo optimizar, revisar criticos, abrir importacion o explicar el planning.";
+    } else {
+      reponse = "Puedo ayudarte con: 'optimiza el planning', 'cuales son los productos criticos', 'abre importacion', 'borra el planning', o 'explica los colores'.";
+    }
+    setAldoMessages((m) => [...m, { role: "user", texte: question }, { role: "aldo", texte: reponse }].slice(-10));
+    setAldoTexte("");
+    setAldoOuvert(true);
   };
 
   const Jauge = ({ stock, min, max }) => {
@@ -825,16 +1012,20 @@ export default function PlanificateurChocolat() {
                       const pal = getPal(ligne);
                       return (
                         <tr key={ligne.id}>
-                          <td className={"p-2 font-semibold align-top " + pal.texte}>{ligne.nom}<div className="text-xs font-normal text-gray-500">{ligne.capacite} kg/turno<br />{turnosLigne(ligne).length} bloque(s)/dia</div></td>
-                          {joursSemaine.map((j) => (
+                          <td className={"p-2 font-semibold align-top " + pal.texte}>{ligne.nom}<div className="text-xs font-normal text-gray-500">{ligne.capacite} kg/turno<br />{turnosLigne(ligne).length} turno(s)/dia base</div></td>
+                          {joursSemaine.map((j) => {
+                            const turnosJour = turnosLignePourDate(ligne, j.date);
+                            return (
                             <td key={j.cle} className="p-1 align-top">
-                              {turnosLigne(ligne).map((turno) => {
+                              {turnosJour.length === 0 ? (
+                                <div className="w-full text-xs rounded p-1.5 border-2 border-dashed border-gray-200 bg-gray-50 text-gray-400 text-center min-h-10">Sin turno</div>
+                              ) : turnosJour.map((turno) => {
                                 const cle = j.cle + "|" + ligne.id + "|" + turno.id;
                                 const b = lireBloc(plan[cle], ligne);
                                 const prod = b ? produits.find((p) => p.id === b.p) : null;
                                 const enEdition = selection === cle;
-                                let pastille = null;
-                                if (prod && estConfigure(prod)) { const s = seuils(prod); pastille = statutStock(projection(prod), s.min, s.max).badge; }
+                                const etatBloc = etatApresBloc[cle] || null;
+                                const pastille = etatBloc ? etatBloc.badge : null;
                                 const kgpb = prod ? kgParBulto(prod) : null;
                                 const bultos = (b && kgpb) ? b.kg / kgpb : 0;
                                 return (
@@ -845,7 +1036,7 @@ export default function PlanificateurChocolat() {
                                         {produits.filter((p) => p.ligne === ligne.id).map((p) => <option key={p.id} value={p.id}>{p.nom}</option>)}
                                       </select>
                                     ) : (
-                                      <div draggable={!!prod} onDragStart={() => setDragKey(cle)} onClick={() => setSelection(cle)} title={b ? fmtNb(b.kg) + " kg" + (kgpb ? " · ≈ " + fmtNb(bultos) + " bultos" : " · conversión faltante") : ""}
+                                      <div draggable={!!prod} onDragStart={() => setDragKey(cle)} onClick={() => setSelection(cle)} title={b ? fmtNb(b.kg) + " kg" + (kgpb ? " · ≈ " + fmtNb(bultos) + " bultos" : " · conversión faltante") + (etatBloc ? " · stock despues del bloque: " + fmtNb(etatBloc.stock) + " (" + etatBloc.label + ")" : "") : ""}
                                         className={"w-full text-xs rounded p-1.5 border-2 text-left min-h-10 transition cursor-pointer " + (prod ? pal.clair + " " + pal.bordure + " " + pal.texte + " font-medium" : "bg-gray-50 border-dashed border-gray-300 text-gray-400 hover:bg-gray-100") + (dragKey === cle ? " opacity-40" : "")}>
                                         <span className="flex items-center justify-between">
                                           <span className="text-[10px] opacity-60">{turno.nom}</span>
@@ -859,7 +1050,7 @@ export default function PlanificateurChocolat() {
                                 );
                               })}
                             </td>
-                          ))}
+                          );})}
                           <td className="p-2 text-center align-middle"><span className={"font-bold " + pal.texte}>{fmtNb(totalSemaineLigne(ligne.id))} kg</span></td>
                         </tr>
                       );
@@ -868,7 +1059,7 @@ export default function PlanificateurChocolat() {
                 </table>
               </div>
             )}
-            <p className="text-xs text-gray-500 mt-2">Cada bloque produce segun los turnos de la fabrica: Esandi usa bloques de 4 h, Fatima 1 turno, Mitre/VB 3 turnos. La cantidad es <strong>divisible</strong>: el optimizador fabrica solo lo necesario para llegar al stock maximo sin superarlo. Cada bloque muestra los kg y los bultos realmente producidos.</p>
+            <p className="text-xs text-gray-500 mt-2">Cada turno produce segun los horarios de la fabrica: Fatima trabaja de lunes a viernes un turno completo dividido en medio turno manana y medio turno tarde, y no trabaja sabado ni domingo; Esandi trabaja manana y tarde, con solo manana el sabado; Mitre/VB trabajan 3 turnos base, con solo manana el sabado. La cantidad es <strong>divisible</strong>. La gomita de color muestra el estado del stock justo despues de ese bloque, simulando la demanda dia por dia.</p>
             <Legende />
           </div>
         )}
@@ -939,7 +1130,7 @@ export default function PlanificateurChocolat() {
                   </div>
                 );
               })}
-            <p className="text-xs text-gray-500 mt-3">Todo esta en <strong>bultos</strong>. Demanda/dia = Stock min. / {JOURS_MOIS}. El campo kg/bulto convierte los bultos a kg para planificar turnos y medios turnos.</p>
+            <p className="text-xs text-gray-500 mt-3">Todo esta en <strong>bultos</strong>. Demanda/dia = Stock min. / {JOURS_MOIS}. El campo kg/bulto convierte los bultos a kg para planificar turnos.</p>
           </div>
         )}
 
@@ -961,7 +1152,7 @@ export default function PlanificateurChocolat() {
                       <span className={"w-3 h-3 rounded-full " + pal.couleur}></span>
                       <input className="flex-1 bg-transparent border-b border-transparent focus:border-amber-400 outline-none text-sm font-medium" value={l.nom} onChange={(e) => majLigne(l.id, "nom", e.target.value)} />
                       <input type="number" className="w-20 border rounded p-1 text-sm text-right" value={l.capacite} onChange={(e) => majLigne(l.id, "capacite", parseFloat(e.target.value) || 0)} />
-                      <span className="text-xs text-gray-500">kg/turno - {turnosLigne(l).length} bloque(s)/dia</span>
+                      <span className="text-xs text-gray-500">kg/turno - {turnosLigne(l).length} turno(s)/dia base</span>
                       <button onClick={() => supprimerLigne(l.id)} className="text-red-500 hover:text-red-700 text-sm px-1">✕</button>
                     </div>
                   );
@@ -1007,6 +1198,7 @@ export default function PlanificateurChocolat() {
                 <li>Abre la pestaña <strong>{usineActive ? usineActive.nom : ""}</strong> de tu Google Sheets</li>
                 <li>Sélectionnez tout (Ctrl+A) puis copiez (Ctrl+C)</li>
                 <li>Pega aquí (Ctrl+V) y haz clic en Importar</li>
+                <li>Si el nombre trae textos extra como solo BsAs, stock max o min, la app intenta reconocer el producto de la base.</li>
               </ol>
               <p className="text-xs text-gray-500 mb-2">Valores en <strong>bultos</strong>: nombres, luego Stock máx., Stock mín., y la última línea con fecha = stock del día.</p>
               <textarea className="w-full border rounded-lg p-2 text-sm h-40 font-mono" placeholder="(pega aquí todo el contenido de la pestaña)" value={texteImport} onChange={(e) => setTexteImport(e.target.value)} />
@@ -1024,7 +1216,10 @@ export default function PlanificateurChocolat() {
         {onglet === "diagnostic" && (() => {
           const diag = lignesUsine.map((ligne) => {
             const prods = produitsUsine.filter((p) => p.ligne === ligne.id && estConfigure(p) && kgParBulto(p));
-            const capH = turnosLigne(ligne).reduce((s, t) => s + kgBloc(ligne, t), 0) * 6;
+            const capH = JOURS.reduce((s, _jour, idx) => {
+              const date = new Date(lundi.getFullYear(), lundi.getMonth(), lundi.getDate() + idx);
+              return s + capaciteJour(ligne, date);
+            }, 0);
             const demH = prods.reduce((s, p) => s + demandeJour(p) * 7 * kgParBulto(p), 0);
             const defi = prods.reduce((s, p) => s + Math.max(0, (seuils(p).min * 1.5 - p.stock)) * kgParBulto(p), 0);
             const marge = capH - demH;
@@ -1072,7 +1267,7 @@ export default function PlanificateurChocolat() {
           return (
             <div className="bg-white rounded-xl shadow p-4">
               <h2 className="font-semibold text-amber-900 mb-1">Diagnóstico de capacidad — {usineActive ? usineActive.nom : ""}</h2>
-              <p className="text-xs text-gray-500 mb-3">Supuestos: turnos por fabrica, 6 dias de produccion/semana, ventas 7 dias/semana. Capacidad/sem = suma de turnos diarios x 6; Demanda/sem = suma(demanda/dia x 7 x kg/bulto).</p>
+              <p className="text-xs text-gray-500 mb-3">Supuestos: horarios reales por fabrica, produccion lunes a sabado segun calendario, ventas 7 dias/semana. Fatima: un turno completo de lunes a viernes dividido en medio turno manana y medio turno tarde, sabado y domingo sin turno. Esandi: manana y tarde, sabado solo manana. Mitre/VB: 3 turnos base y sabado solo manana. Demanda/sem = suma(demanda/dia x 7 x kg/bulto).</p>
               {totalDem === 0 ? (
                 <div className="p-3 bg-amber-50 rounded-lg text-sm text-amber-800">Primero importa los stocks (mín./máx.) en la pestaña Importar: el diagnóstico se calcula con tus valores reales.</div>
               ) : goulots.length > 0 ? (
@@ -1166,6 +1361,46 @@ export default function PlanificateurChocolat() {
             </div>
           );
         })()}
+      </div>
+      <div className="fixed bottom-4 right-4 z-50">
+        {aldoOuvert && (
+          <div className="mb-3 w-[min(360px,calc(100vw-2rem))] bg-white border border-amber-200 rounded-xl shadow-xl overflow-hidden">
+            <div className="bg-amber-800 text-white px-4 py-3 flex items-center justify-between">
+              <div>
+                <div className="font-bold">Aldo</div>
+                <div className="text-xs text-amber-100">Assistant planning local</div>
+              </div>
+              <button className="text-amber-100 hover:text-white text-xl leading-none" onClick={() => setAldoOuvert(false)}>×</button>
+            </div>
+            <div className="p-3 max-h-72 overflow-y-auto space-y-2 bg-amber-50">
+              {aldoMessages.map((m, idx) => (
+                <div key={idx} className={"text-sm rounded-lg px-3 py-2 " + (m.role === "user" ? "bg-white border border-amber-200 text-amber-900 ml-8" : "bg-amber-100 text-amber-950 mr-8")}>
+                  {m.texte}
+                </div>
+              ))}
+            </div>
+            <div className="p-3 border-t border-amber-100 bg-white">
+              <div className="flex gap-2">
+                <input
+                  className="flex-1 border rounded-lg px-3 py-2 text-sm"
+                  placeholder="Pregunta a Aldo..."
+                  value={aldoTexte}
+                  onChange={(e) => setAldoTexte(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter") repondreAldo(aldoTexte); }}
+                />
+                <button className="px-3 py-2 bg-amber-800 text-white rounded-lg text-sm" onClick={() => repondreAldo(aldoTexte)}>Enviar</button>
+              </div>
+              <div className="flex flex-wrap gap-1 mt-2">
+                {["Optimizar", "Criticos", "Importar", "Colores"].map((txt) => (
+                  <button key={txt} className="px-2 py-1 rounded-full bg-amber-100 text-amber-800 text-xs hover:bg-amber-200" onClick={() => repondreAldo(txt)}>{txt}</button>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+        <button onClick={() => setAldoOuvert((v) => !v)} className="rounded-full bg-amber-900 text-white shadow-lg px-4 py-3 font-semibold hover:bg-amber-800">
+          Aldo
+        </button>
       </div>
     </div>
   );

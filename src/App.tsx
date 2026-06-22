@@ -1159,7 +1159,6 @@ export default function PlanificateurChocolat() {
               <div className="relative h-64 md:h-72 flex items-center justify-center">
                 <div className="absolute left-8 right-8 bottom-20 h-12 rounded-full bg-slate-900/10 blur-xl"></div>
                 <div className="relative w-full max-w-xl rounded-[2rem] border border-violet-300 bg-white/70 p-5 shadow-xl">
-                  <div className="absolute -top-4 left-10 right-10 h-4 rounded-t-2xl bg-violet-200 border border-violet-300"></div>
                   <div className="relative h-24 rounded-2xl border border-violet-300/80 bg-violet-100 shadow-inner overflow-hidden">
                     <div className="absolute inset-2 rounded-xl home-belt"></div>
                     <div className="absolute left-0 right-0 top-1/2 h-px bg-white/70"></div>

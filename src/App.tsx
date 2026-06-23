@@ -388,7 +388,7 @@ const NOMS_TRUFAS_MITRE = [
   "TRUFA WHISKY",
   "TRUFA CAPPUCCINO",
   "NIBS CACAO",
-].map((nom) => tokensProduit(nom).join(" "));
+];
 const TURNOS_PAR_USINE = {
   esandi: [
     { id: "m", nom: "Mañana", facteur: 1 },
@@ -639,6 +639,13 @@ function fusionAvecBase(base: any[], sauvegarde: any[]) {
       fusionne.ligne = "f_tabletas";
       fusionne.aliases = baseItem.aliases;
     }
+    if (baseItem && fusionne.usine === "mitre" && fusionne.id >= 3001 && fusionne.id <= 3049) {
+      fusionne.nom = baseItem.nom;
+      fusionne.ligne = baseItem.ligne;
+      fusionne.stock = baseItem.stock;
+      fusionne.min = baseItem.min;
+      fusionne.max = baseItem.max;
+    }
     if (fusionne.id === 117 && fusionne.pesoBulto === 3.04) fusionne.pesoBulto = 3.8;
     parId.set(item.id, fusionne);
   });
@@ -697,7 +704,11 @@ export default function PlanificateurChocolat() {
   const seuils = (p) => ({ min: p.min != null ? p.min : 0, max: p.max != null ? p.max : 0 });
   const estConfigure = (p) => p.min != null || p.max != null;
   const estTabletaFatima = (p) => p && p.usine === "fatima" && p.id >= 117 && p.id <= 132;
-  const estTrufaMitre = (p) => p && p.usine === "mitre" && NOMS_TRUFAS_MITRE.includes(tokensProduit(p.nom).join(" "));
+  const estTrufaMitre = (p) => {
+    if (!p || p.usine !== "mitre") return false;
+    const cleProduit = tokensProduit(p.nom).join(" ");
+    return NOMS_TRUFAS_MITRE.some((nom) => tokensProduit(nom).join(" ") === cleProduit);
+  };
   const joursMinCouverture = (p) => (estTabletaFatima(p) ? JOURS_MIN_TABLETAS_FATIMA : estTrufaMitre(p) ? JOURS_MIN_TRUFAS_MITRE : JOURS_MOIS);
   const joursMaxCouverture = (p) => (estTabletaFatima(p) ? JOURS_MAX_TABLETAS_FATIMA : estTrufaMitre(p) ? JOURS_MAX_TRUFAS_MITRE : JOURS_MOIS * 2);
   const demandeJourCalculee = (p) => {

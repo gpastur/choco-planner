@@ -36,6 +36,7 @@ const LIGNES_INIT = [
 const mkEsandi = (id, nom, ligne, pesoBulto) => ({ id, nom, ligne, usine: "esandi", stock: 0, demande: 0, min: null, max: null, pesoBulto });
 const mkVB = (id, nom, ligne, pesoBulto = null) => ({ id, nom, ligne, usine: "vb", stock: 0, demande: 0, min: null, max: null, pesoBulto });
 const mkFatima = (id, nom, ligne, pesoBulto = null, aliases = []) => ({ id, nom, ligne, usine: "fatima", stock: 0, demande: 0, min: null, max: null, pesoBulto, aliases });
+const mkMitre = (id, nom, ligne = null, stock = 0, min = null, max = null, pesoBulto = null) => ({ id, nom, ligne, usine: "mitre", stock, demande: 0, min, max, pesoBulto });
 
 const PESO_BULTO_POR_PRODUCTO = {
   "BARRA AMARGO ALMENDRA": 4.4,
@@ -292,6 +293,55 @@ const PRODUITS_INIT = [
   mkFatima(130, "TABLETA CHOC AMARGO 80% VB", "f_tabletas", 3.04, ["TABLETA 80 VB", "TABLETA CHOC AMARGO 80% VB"]),
   mkFatima(131, "TABLETA CHOC AMARGO 60% VB", "f_tabletas", 3.04, ["TABLETA 60 VB", "TABLETA CHOC AMARGO 60% VB"]),
   mkFatima(132, "TABLETA CHOC AMARGO 90% VB", "f_tabletas", 3.04, ["TABLETA 90 VB", "TABLETA CHOC AMARGO 90% VB"]),
+  mkMitre(3001, "ALFAJOR ALMENDRA AVELLANA", "l3", 72, 241, 482),
+  mkMitre(3002, "ALFAJOR DDL CHOCOLATE", "l3", 352, 310, 619),
+  mkMitre(3003, "ALFAJOR DDL GLASE", "l3", 165, 119, 237),
+  mkMitre(3004, "ALFAJOR FRAMBUESA CHOCO", "l3", 389, 247, 494),
+  mkMitre(3005, "ALFAJOR FRAMBUESA GLASE", "l3", 0, 96, 193),
+  mkMitre(3006, "ALFAJOR MOUSSE", "l3", 132, 229, 459),
+  mkMitre(3007, "ALFAJOR BLANCO ALMENDRA", "l3", 76, 109, 218),
+  mkMitre(3008, "CROCANTE ALMENDRA LECHE", null, 0, 66, 264),
+  mkMitre(3009, "CROCANTE ALMENDRA AMARGO", null, 0, 44, 175),
+  mkMitre(3010, "TORTA GALESA 300gr", null, 22, 12, 47),
+  mkMitre(3011, "CEREZA CON CABITO", null, 0, 12, 46),
+  mkMitre(3012, "BUDIN DE LIMON sintacc viene de MC", null, 18, 12, 24),
+  mkMitre(3013, "BUDIN DE CHOCOLATE viene de mitre", null, 0, 4, 8),
+  mkMitre(3014, "RAPANUINOS x2 AMARGO", null, 28, 38, 76),
+  mkMitre(3015, "RAPANUINOS x2 BLANCO", null, 6, 45, 90),
+  mkMitre(3016, "CAPRICHO AL RUHM", null, 21, 14, 54),
+  mkMitre(3017, "TRUFA PATAGONIA", null, 39, 36, 142),
+  mkMitre(3018, "HABANOS", null, 31, 45, 181),
+  mkMitre(3019, "CRIOLLA", null, 23, 38, 150),
+  mkMitre(3020, "MOUSSE AMARGO", null, 3, 12, 47),
+  mkMitre(3021, "MOUSSE FRAMBUESA", null, 1, 15, 61),
+  mkMitre(3022, "GOLOSA", null, 21, 12, 46),
+  mkMitre(3023, "70 CACAO", null, 35, 16, 65),
+  mkMitre(3024, "NARANJITAS", null, 0, 4, 16),
+  mkMitre(3025, "MENTITAS", null, 0, 6, 23),
+  mkMitre(3026, "MARACUYA AMARGA", null, 15, 25, 101),
+  mkMitre(3027, "RAMA BANADA", null, 0, 9, 36),
+  mkMitre(3028, "VOLCAN DDL", null, 0, 16, 65),
+  mkMitre(3029, "ECLIPSE DE NOGAL", null, 1, 10, 40),
+  mkMitre(3030, "TRUFA KARI AMARGA", null, 0, 6, 23),
+  mkMitre(3031, "TRUFA NEVADA (COCO)", null, 22, 34, 136),
+  mkMitre(3032, "CIRUELAS", null, 0, 6, 25),
+  mkMitre(3033, "HIGOS", null, 0, 3, 10),
+  mkMitre(3034, "TRUFA BANANA", null, 2, 25, 101),
+  mkMitre(3035, "TENTACION RAMA", null, 0, 10, 40),
+  mkMitre(3036, "BROWNIE DDL", null, 0, 19, 75),
+  mkMitre(3037, "BROWNIE MOUSSE AMARGO", null, 0, 14, 57),
+  mkMitre(3038, "PASION DE ALMENDRA", null, 20, 17, 67),
+  mkMitre(3039, "NUEZ AL COGNAC", null, 36, 14, 57),
+  mkMitre(3040, "TRINIDAD DE ALMENDRA", null, 0, 28, 111),
+  mkMitre(3041, "TRINIDAD DE AVELLANA", null, 15, 43, 172),
+  mkMitre(3042, "TR SAMBAYON", null, 0, 16, 64),
+  mkMitre(3043, "TR TIRAMISU", null, 0, 17, 66),
+  mkMitre(3044, "ESTAMBUL", null, 4, 29, 117),
+  mkMitre(3045, "TRUFA KARI LECHE", null, 0, 26, 102),
+  mkMitre(3046, "TRUFA EUFORIA", null, 1, 16, 63),
+  mkMitre(3047, "TRUFA WHISKY", null, 44, 12, 49),
+  mkMitre(3048, "TRUFA CAPPUCCINO", null, 76, 9, 35),
+  mkMitre(3049, "NIBS CACAO", null, 62, 10, 40),
 ];
 
 const JOURS = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
@@ -300,6 +350,45 @@ const JOURS_HORIZON = HORIZON * JOURS.length;
 const JOURS_MOIS = 30;
 const JOURS_MIN_TABLETAS_FATIMA = 60;
 const JOURS_MAX_TABLETAS_FATIMA = 120;
+const JOURS_MIN_TRUFAS_MITRE = 15;
+const JOURS_MAX_TRUFAS_MITRE = 30;
+const NOMS_TRUFAS_MITRE = [
+  "TRUFA PATAGONIA",
+  "HABANOS",
+  "CRIOLLA",
+  "MOUSSE AMARGO",
+  "MOUSSE FRAMBUESA",
+  "GOLOSA",
+  "70 CACAO",
+  "NARANJITAS",
+  "MENTITAS",
+  "MARACUYA AMARGA",
+  "RAMA BANADA",
+  "VOLCAN DDL",
+  "ECLIPSE DE NOGAL",
+  "TRUFA KARI AMARGA",
+  "TRUFA NEVADA COCO",
+  "CEREZA CON CABITO",
+  "CEREZA SIN CABITO AMARGO",
+  "CIRUELAS",
+  "HIGOS",
+  "TRUFA BANANA",
+  "TENTACION RAMA",
+  "BROWNIE DDL",
+  "BROWNIE MOUSSE AMARGO",
+  "PASION DE ALMENDRA",
+  "NUEZ AL COGNAC",
+  "TRINIDAD DE ALMENDRA",
+  "TRINIDAD DE AVELLANA",
+  "TR SAMBAYON",
+  "TR TIRAMISU",
+  "ESTAMBUL",
+  "TRUFA KARI LECHE",
+  "TRUFA EUFORIA",
+  "TRUFA WHISKY",
+  "TRUFA CAPPUCCINO",
+  "NIBS CACAO",
+].map((nom) => tokensProduit(nom).join(" "));
 const TURNOS_PAR_USINE = {
   esandi: [
     { id: "m", nom: "Mañana", facteur: 1 },
@@ -501,11 +590,14 @@ function etiquetaZonaProducto(p) {
   if (toks.includes("VB")) return "VB";
   return "";
 }
-// Lecture d'une cellule de planning -> { p, kg } (rétro-compatible)
+// Lecture d'une cellule de planning -> { p, kg, realKg } (rétro-compatible)
 function lireBloc(cell, ligne) {
   if (cell == null) return null;
-  if (typeof cell === "object") return { p: cell.p, kg: cell.kg };
+  if (typeof cell === "object") return { p: cell.p, kg: cell.kg, realKg: cell.realKg };
   return { p: cell, kg: kgBloc(ligne) };
+}
+function kgEffectifBloc(b) {
+  return b && b.realKg != null && b.realKg !== "" && Number(b.realKg) >= 0 ? Number(b.realKg) : (b ? b.kg : 0);
 }
 
 const STORAGE_KEY = "choco-planner-state-v4";
@@ -597,7 +689,7 @@ export default function PlanificateurChocolat() {
       const p = produits.find((x) => memeId(x.id, b.p));
       const kgb = kgParBulto(p);
       if (!kgb) return;
-      prod[b.p] = (prod[b.p] || 0) + b.kg / kgb;
+      prod[b.p] = (prod[b.p] || 0) + kgEffectifBloc(b) / kgb;
     });
     return prod;
   }, [plan, lignes, produits]);
@@ -605,8 +697,9 @@ export default function PlanificateurChocolat() {
   const seuils = (p) => ({ min: p.min != null ? p.min : 0, max: p.max != null ? p.max : 0 });
   const estConfigure = (p) => p.min != null || p.max != null;
   const estTabletaFatima = (p) => p && p.usine === "fatima" && p.id >= 117 && p.id <= 132;
-  const joursMinCouverture = (p) => (estTabletaFatima(p) ? JOURS_MIN_TABLETAS_FATIMA : JOURS_MOIS);
-  const joursMaxCouverture = (p) => (estTabletaFatima(p) ? JOURS_MAX_TABLETAS_FATIMA : JOURS_MOIS * 2);
+  const estTrufaMitre = (p) => p && p.usine === "mitre" && NOMS_TRUFAS_MITRE.includes(tokensProduit(p.nom).join(" "));
+  const joursMinCouverture = (p) => (estTabletaFatima(p) ? JOURS_MIN_TABLETAS_FATIMA : estTrufaMitre(p) ? JOURS_MIN_TRUFAS_MITRE : JOURS_MOIS);
+  const joursMaxCouverture = (p) => (estTabletaFatima(p) ? JOURS_MAX_TABLETAS_FATIMA : estTrufaMitre(p) ? JOURS_MAX_TRUFAS_MITRE : JOURS_MOIS * 2);
   const demandeJourCalculee = (p) => {
     const s = seuils(p);
     if (s.min > 0) return s.min / joursMinCouverture(p);
@@ -635,7 +728,7 @@ export default function PlanificateurChocolat() {
           if (!b || b.p == null) return;
           const prod = produits.find((p) => memeId(p.id, b.p));
           const kgpb = kgParBulto(prod);
-          if (kgpb) stockSim[b.p] = (stockSim[b.p] || 0) + b.kg / kgpb;
+          if (kgpb) stockSim[b.p] = (stockSim[b.p] || 0) + kgEffectifBloc(b) / kgpb;
           if (prod && estConfigure(prod)) {
             const s = seuils(prod);
             const statut = statutStock(stockSim[b.p] || 0, s.min, s.max);
@@ -728,7 +821,20 @@ export default function PlanificateurChocolat() {
     const ligne = lignes.find((l) => l.id === cle.split("|")[1]);
     const turno = turnoDepuisCle(cle, ligne);
     setPlan((p) => { const np = { ...p }; if (pid === "") delete np[cle]; else np[cle] = { p: Number(pid), kg: kgBloc(ligne, turno) }; return np; });
-    setSelection(null);
+  };
+
+  const majRealKg = (cle, valeur) => {
+    const ligne = lignes.find((l) => l.id === cle.split("|")[1]);
+    const b = lireBloc(plan[cle], ligne);
+    if (!b) return;
+    setPlan((p) => {
+      const np = { ...p };
+      const actuel = lireBloc(np[cle], ligne);
+      if (!actuel) return np;
+      if (valeur === "") np[cle] = { ...(np[cle] as any), p: actuel.p, kg: actuel.kg, realKg: null };
+      else np[cle] = { ...(np[cle] as any), p: actuel.p, kg: actuel.kg, realKg: Math.max(0, Number(valeur) || 0) };
+      return np;
+    });
   };
 
   const onDrop = (cleDest) => {
@@ -748,7 +854,13 @@ export default function PlanificateurChocolat() {
     const datesSet = new Set(datesHorizon.map((d) => d.cle));
     const lignesIds = new Set(lignesUsine.map((l) => l.id));
     const nouveauPlan = {};
-    Object.entries(plan).forEach(([k, v]) => { const [dt, lid] = k.split("|"); if (datesSet.has(dt) && lignesIds.has(lid)) return; nouveauPlan[k] = v; });
+    Object.entries(plan).forEach(([k, v]) => {
+      const [dt, lid] = k.split("|");
+      const ligne = lignes.find((l) => l.id === lid);
+      const b = lireBloc(v, ligne);
+      if (datesSet.has(dt) && lignesIds.has(lid) && !(b && b.realKg != null && b.realKg !== "")) return;
+      nouveauPlan[k] = v;
+    });
 
     const stockSim = {};
     produitsUsine.forEach((p) => { stockSim[p.id] = p.stock; });
@@ -762,6 +874,14 @@ export default function PlanificateurChocolat() {
         const prods = produitsUsine.filter((p) => p.ligne === ligne.id && estConfigure(p) && kgParBulto(p) && seuils(p).max > 0);
         if (prods.length === 0) return;
         turnosLignePourDate(ligne, jour.date).forEach((turno) => {
+          const cleExistante = jour.cle + "|" + ligne.id + "|" + turno.id;
+          const blocReel = lireBloc(nouveauPlan[cleExistante], ligne);
+          if (blocReel && blocReel.p != null && blocReel.realKg != null && blocReel.realKg !== "") {
+            const prodReel = produits.find((p) => memeId(p.id, blocReel.p));
+            const kgpbReel = kgParBulto(prodReel);
+            if (kgpbReel) stockSim[blocReel.p] = (stockSim[blocReel.p] || 0) + kgEffectifBloc(blocReel) / kgpbReel;
+            return;
+          }
           const kgb_ligne = kgBloc(ligne, turno); // kg disponibles por turno
           // Produit le plus en déficit sous le plancher vert (min*1.5)
           let meilleur = null, meilleurScore = -Infinity;
@@ -926,17 +1046,18 @@ export default function PlanificateurChocolat() {
                     const b = lireBloc(plan[j.cle + "|" + ligne.id + "|" + turno.id], ligne);
                     const prod = b ? produits.find((p) => memeId(p.id, b.p)) : null;
                     const kgb = prod ? kgParBulto(prod) : null;
-                    const bultos = b && kgb ? b.kg / kgb : null;
+                    const kgEff = b ? kgEffectifBloc(b) : 0;
+                    const bultos = b && kgb ? kgEff / kgb : null;
                     return `<div class="bloque">
                       <div class="turno">${htmlEscape(turno.nom)}</div>
-                      ${prod ? `<div class="producto">${htmlEscape(prod.nom)}</div><div class="cantidad">${htmlEscape(fmtNb(b.kg))} kg${bultos != null ? " · " + htmlEscape(fmtNb(bultos)) + " blt" : ""}</div>` : `<div class="vacio">Sin asignar</div>`}
+                      ${prod ? `<div class="producto">${htmlEscape(prod.nom)}</div><div class="cantidad">Plan ${htmlEscape(fmtNb(b.kg))} kg${b.realKg != null && b.realKg !== "" ? " · Real " + htmlEscape(fmtNb(kgEff)) + " kg" : ""}${bultos != null ? " · " + htmlEscape(fmtNb(bultos)) + " blt" : ""}</div>` : `<div class="vacio">Sin asignar</div>`}
                     </div>`;
                   }).join("") || `<div class="vacio">Sin turno</div>`}
                 </td>
               `).join("")}
               <td>${htmlEscape(fmtNb(dias.reduce((total, j) => total + turnosLignePourDate(ligne, j.date).reduce((sum, turno) => {
                 const b = lireBloc(plan[j.cle + "|" + ligne.id + "|" + turno.id], ligne);
-                return sum + (b ? b.kg : 0);
+                return sum + (b ? kgEffectifBloc(b) : 0);
               }, 0), 0)))} kg</td>
             </tr>
           `).join("")}
@@ -970,12 +1091,12 @@ export default function PlanificateurChocolat() {
   const totalSemaineLigne = (ligneId) => {
     const ligne = lignes.find((l) => l.id === ligneId); if (!ligne) return 0;
     let total = 0;
-    joursSemaine.forEach((j) => { turnosLignePourDate(ligne, j.date).forEach((turno) => { const b = lireBloc(plan[j.cle + "|" + ligneId + "|" + turno.id], ligne); if (b) total += b.kg; }); });
+    joursSemaine.forEach((j) => { turnosLignePourDate(ligne, j.date).forEach((turno) => { const b = lireBloc(plan[j.cle + "|" + ligneId + "|" + turno.id], ligne); if (b) total += kgEffectifBloc(b); }); });
     return total;
   };
   const totalJourLigne = (ligne, jour) => turnosLignePourDate(ligne, jour.date).reduce((total, turno) => {
     const b = lireBloc(plan[jour.cle + "|" + ligne.id + "|" + turno.id], ligne);
-    return total + (b ? b.kg : 0);
+    return total + (b ? kgEffectifBloc(b) : 0);
   }, 0);
 
   const produitsCritiquesAldo = () => produitsUsine
@@ -1045,7 +1166,7 @@ export default function PlanificateurChocolat() {
     } else if (q.includes("demande") || q.includes("demanda") || q.includes("couverture") || q.includes("cobertura") || q.includes("jours") || q.includes("dias")) {
       const a = analyseAldo();
       setOnglet("stocks");
-      reponse = "Demanda/cobertura: en general uso min/30. Para tabletas Fatima uso min/60 porque el minimo equivale a 2 meses; si solo hay max, uso max/120. " +
+      reponse = "Demanda/cobertura: en general uso min/30. Para tabletas Fatima uso min/60 porque el minimo equivale a 2 meses; para trufas Mitre uso min/15 y max/30. Si solo hay max, uso el max segun la cobertura de su categoria. " +
         (a.faiblesCouvertures.length ? "Coberturas mas bajas: " + a.faiblesCouvertures.map((r) => r.p.nom + " " + Math.round(r.jours) + "d vs min " + r.cibleMin + "d").join("; ") + "." : "No veo coberturas bajo el minimo con los datos actuales.") +
         (a.excesCouvertures.length ? " Sobrecobertura: " + a.excesCouvertures.map((r) => r.p.nom + " " + Math.round(r.jours) + "d").join("; ") + "." : "");
     } else if (q.includes("capac") || q.includes("charge") || q.includes("carga") || q.includes("goulot") || q.includes("cuello")) {
@@ -1132,12 +1253,32 @@ export default function PlanificateurChocolat() {
             100% { background-position: 92px 0; }
           }
           @keyframes barMove {
-            0% { transform: translateX(-42px); }
-            100% { transform: translateX(42px); }
+            0% { transform: translateX(0); }
+            100% { transform: translateX(-50%); }
+          }
+          @keyframes statusPulse {
+            0%, 18% { opacity: .35; transform: scale(.82); box-shadow: none; }
+            28%, 48% { opacity: 1; transform: scale(1.08); box-shadow: 0 0 14px currentColor; }
+            62%, 100% { opacity: .35; transform: scale(.82); box-shadow: none; }
           }
           .home-gloss { animation: glossMove 3.8s ease-in-out infinite; }
           .home-belt { background-image: repeating-linear-gradient(90deg, rgba(49,46,129,.20) 0 12px, rgba(255,255,255,.68) 12px 22px, rgba(49,46,129,.12) 22px 46px); animation: beltMove 2.2s linear infinite; }
-          .home-bars { animation: barMove 3.4s ease-in-out infinite alternate; }
+          .home-bars { animation: barMove 7.2s linear infinite; }
+          .home-choco { position: relative; width: 4rem; height: 3rem; flex: 0 0 auto; filter: drop-shadow(0 7px 7px rgba(68,32,14,.28)); }
+          .home-tablet { border-radius: .5rem; background: linear-gradient(135deg, #8a4a28, #663017 55%, #3b1c10); border: 1px solid #4a2412; overflow: hidden; box-shadow: inset 0 1px 0 rgba(255,255,255,.22); }
+          .home-tablet:before { content: ""; position: absolute; left: .55rem; right: .55rem; top: .45rem; height: .34rem; border-radius: 99px; background: rgba(255,255,255,.24); }
+          .home-tablet:after { content: ""; position: absolute; inset: 1rem .55rem .55rem; background: repeating-linear-gradient(90deg, rgba(75,34,17,.58) 0 .55rem, transparent .55rem .82rem), repeating-linear-gradient(0deg, rgba(75,34,17,.58) 0 .55rem, transparent .55rem .82rem); border-radius: .25rem; opacity: .55; }
+          .home-bear:before { content: ""; position: absolute; left: .55rem; top: .6rem; width: 2.9rem; height: 2.05rem; border-radius: 48% 48% 44% 44%; background: linear-gradient(135deg, #8a4a28, #5b2d18); border: 1px solid #4a2412; box-shadow: inset .25rem .25rem 0 rgba(255,255,255,.12); }
+          .home-bear:after { content: ""; position: absolute; left: .88rem; top: .25rem; width: .75rem; height: .75rem; border-radius: 50%; background: #6b341b; box-shadow: 1.55rem 0 0 #6b341b, .78rem 1.58rem 0 -.18rem rgba(255,255,255,.22), 1.02rem .85rem 0 -.24rem #2d140a, 1.42rem .85rem 0 -.24rem #2d140a; border: 1px solid #4a2412; }
+          .home-status-dot { animation: statusPulse 2.4s ease-in-out infinite; }
+          .home-status-dot:nth-child(2) { animation-delay: .18s; }
+          .home-status-dot:nth-child(3) { animation-delay: .36s; }
+          .home-status-dot:nth-child(4) { animation-delay: .54s; }
+          .home-status-dot:nth-child(5) { animation-delay: .72s; }
+          .home-status-dot:nth-child(6) { animation-delay: .9s; }
+          .home-status-dot:nth-child(7) { animation-delay: 1.08s; }
+          .home-status-dot:nth-child(8) { animation-delay: 1.26s; }
+          .home-status-dot:nth-child(9) { animation-delay: 1.44s; }
         `}</style>
         <div className="max-w-6xl mx-auto">
           <section className="relative mb-5 overflow-hidden rounded-2xl border border-violet-200 bg-white shadow-sm">
@@ -1163,23 +1304,18 @@ export default function PlanificateurChocolat() {
                     <div className="absolute inset-2 rounded-xl home-belt"></div>
                     <div className="absolute left-0 right-0 top-1/2 h-px bg-white/70"></div>
                     <div className="absolute left-4 right-4 bottom-3 h-2 rounded-full bg-violet-900/15 blur-sm"></div>
-                    <div className="home-bars absolute inset-y-0 -left-8 -right-8 flex items-center justify-around gap-5">
-                      {[0, 1, 2, 3, 4].map((n) => (
-                        <span key={n} className="relative h-12 w-16 rounded-lg bg-gradient-to-br from-[#8a4a28] via-[#663017] to-[#3b1c10] border border-[#4a2412] shadow-lg overflow-hidden">
+                    <div className="home-bars absolute inset-y-0 left-0 flex w-[200%] items-center gap-3 px-3">
+                      {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13].map((n) => (
+                        <span key={n} className={"home-choco " + (n % 2 === 0 ? "home-tablet" : "home-bear")}>
                           <span className="home-gloss absolute -left-8 top-0 h-16 w-8 bg-white/35 blur-sm"></span>
-                          <span className="absolute inset-x-2 top-2 h-1.5 rounded-full bg-white/25"></span>
-                          <span className="absolute inset-2 top-4 grid grid-cols-3 gap-1.5 opacity-45">
-                            <i className="rounded-sm bg-[#4b2211]"></i><i className="rounded-sm bg-[#4b2211]"></i><i className="rounded-sm bg-[#4b2211]"></i>
-                            <i className="rounded-sm bg-[#4b2211]"></i><i className="rounded-sm bg-[#4b2211]"></i><i className="rounded-sm bg-[#4b2211]"></i>
-                          </span>
                         </span>
                       ))}
                     </div>
                   </div>
-                  <div className="mt-4 grid grid-cols-3 gap-3">
-                    <span className="h-2 rounded-full bg-violet-200"></span>
-                    <span className="h-2 rounded-full bg-emerald-300"></span>
-                    <span className="h-2 rounded-full bg-violet-200"></span>
+                  <div className="mt-4 flex items-center justify-center gap-2">
+                    {[0, 1, 2].map((n) => <span key={"r" + n} className="home-status-dot h-2.5 w-2.5 rounded-full bg-red-500 text-red-500"></span>)}
+                    {[0, 1, 2].map((n) => <span key={"o" + n} className="home-status-dot h-2.5 w-2.5 rounded-full bg-orange-400 text-orange-400"></span>)}
+                    {[0, 1, 2].map((n) => <span key={"g" + n} className="home-status-dot h-2.5 w-2.5 rounded-full bg-emerald-500 text-emerald-500"></span>)}
                   </div>
                 </div>
               </div>
@@ -1295,24 +1431,37 @@ export default function PlanificateurChocolat() {
                                 })() : null);
                                 const pastille = etatBloc ? etatBloc.badge : null;
                                 const kgpb = prod ? kgParBulto(prod) : null;
-                                const bultos = (b && kgpb) ? b.kg / kgpb : 0;
+                                const kgEff = b ? kgEffectifBloc(b) : 0;
+                                const bultos = (b && kgpb) ? kgEff / kgpb : 0;
+                                const ecartKg = b && b.realKg != null && b.realKg !== "" ? kgEff - b.kg : null;
                                 const zone = prod ? etiquetaZonaProducto(prod) : "";
                                 return (
                                   <div key={turno.id} className="mb-1" onDragOver={(e) => e.preventDefault()} onDrop={() => onDrop(cle)}>
                                     {enEdition ? (
-                                      <select autoFocus className="w-full text-xs border rounded p-1" value={b ? b.p : ""} onChange={(e) => assigner(cle, e.target.value)} onBlur={() => setSelection(null)}>
-                                        <option value="">— vacío —</option>
-                                        {produits.filter((p) => p.ligne === ligne.id && estConfigure(p)).map((p) => <option key={p.id} value={p.id}>{optionProduitPlanning(p)}</option>)}
-                                      </select>
+                                      <div className="rounded-lg border border-violet-300 bg-white p-1.5 shadow-sm">
+                                        <select autoFocus className="w-full text-xs border rounded p-1" value={b ? b.p : ""} onChange={(e) => assigner(cle, e.target.value)}>
+                                          <option value="">— vacío —</option>
+                                          {produits.filter((p) => p.ligne === ligne.id && estConfigure(p)).map((p) => <option key={p.id} value={p.id}>{optionProduitPlanning(p)}</option>)}
+                                        </select>
+                                        {b && prod && (
+                                          <div className="mt-1 grid grid-cols-[1fr_auto] gap-1 items-center">
+                                            <label className="text-[10px] text-slate-500">
+                                              Real kg
+                                              <input className="mt-0.5 w-full text-xs border rounded p-1" type="number" min="0" step="1" placeholder={fmtNb(b.kg)} value={b.realKg ?? ""} onChange={(e) => majRealKg(cle, e.target.value)} />
+                                            </label>
+                                            <button type="button" onClick={() => setSelection(null)} className="self-end px-2 py-1 rounded bg-violet-800 text-white text-xs">OK</button>
+                                          </div>
+                                        )}
+                                      </div>
                                     ) : (
-                                      <div draggable={!!prod} onDragStart={() => setDragKey(cle)} onClick={() => setSelection(cle)} title={b ? fmtNb(b.kg) + " kg" + (kgpb ? " · ≈ " + fmtNb(bultos) + " bultos" : " · conversión faltante") + (etatBloc ? " · " + (etatBloc.actuel ? "stock actual: " : "stock despues del bloque: ") + fmtNb(etatBloc.stock) + " (" + etatBloc.label + ")" : "") + ((b as any).raison ? " · " + (b as any).raison : "") : ""}
+                                      <div draggable={!!prod} onDragStart={() => setDragKey(cle)} onClick={() => setSelection(cle)} title={b ? "Plan: " + fmtNb(b.kg) + " kg" + (b.realKg != null && b.realKg !== "" ? " · Real: " + fmtNb(kgEff) + " kg" : "") + (kgpb ? " · ≈ " + fmtNb(bultos) + " bultos" : " · conversión faltante") + (etatBloc ? " · " + (etatBloc.actuel ? "stock actual: " : "stock despues del bloque: ") + fmtNb(etatBloc.stock) + " (" + etatBloc.label + ")" : "") + ((b as any).raison ? " · " + (b as any).raison : "") : ""}
                                         className={"w-full text-xs rounded p-1.5 border-2 text-left min-h-10 transition cursor-pointer " + (prod ? pal.clair + " " + pal.bordure + " " + pal.texte + " font-medium" : "bg-gray-50 border-dashed border-gray-300 text-gray-400 hover:bg-gray-100") + (dragKey === cle ? " opacity-40" : "")}>
                                         <span className="flex items-center justify-between">
                                           <span className="text-[10px] opacity-60">{turno.nom}</span>
                                           {pastille && <span className={"w-2.5 h-2.5 rounded-full " + pastille}></span>}
                                         </span>
                                         {prod ? <><span>{prod.nom}</span>{zone && <span className="ml-1 px-1 rounded bg-white/70 text-[10px]">{zone}</span>}</> : "+ asignar"}
-                                        {prod && <span className="block text-[10px] opacity-60">{fmtNb(b.kg)} kg{kgpb ? " · " + fmtNb(bultos) + " blt" : ""}</span>}
+                                        {prod && <span className="block text-[10px] opacity-60">Plan {fmtNb(b.kg)} kg{b.realKg != null && b.realKg !== "" ? " · Real " + fmtNb(kgEff) + " kg" + (ecartKg ? " (" + (ecartKg > 0 ? "+" : "") + fmtNb(ecartKg) + ")" : "") : ""}{kgpb ? " · " + fmtNb(bultos) + " blt" : ""}</span>}
                                       </div>
                                     )}
                                   </div>
@@ -1400,7 +1549,7 @@ export default function PlanificateurChocolat() {
                   </div>
                 );
               })}
-            <p className="text-xs text-gray-500 mt-3">Todo esta en <strong>bultos</strong>. Demanda/dia = Stock min. / {JOURS_MOIS}; para las tabletas Fatima, min = 2 meses y max = 4 meses, entonces Dem/d = min / {JOURS_MIN_TABLETAS_FATIMA}. El campo kg/bulto convierte los bultos a kg para planificar turnos.</p>
+            <p className="text-xs text-gray-500 mt-3">Todo esta en <strong>bultos</strong>. Demanda/dia = Stock min. / cobertura: general {JOURS_MOIS} dias; tabletas Fatima {JOURS_MIN_TABLETAS_FATIMA} dias; trufas Mitre {JOURS_MIN_TRUFAS_MITRE} dias. Si solo hay max, se usa la cobertura maxima de la categoria. El campo kg/bulto convierte los bultos a kg para planificar turnos.</p>
           </div>
         )}
 

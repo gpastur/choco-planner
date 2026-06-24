@@ -702,7 +702,6 @@ export default function PlanificateurChocolat() {
     return cleDate(d);
   });
   const [msgPartage, setMsgPartage] = useState("");
-  const [optimiserApresMajStock, setOptimiserApresMajStock] = useState(false);
   const [reglesCapaciteAldo, setReglesCapaciteAldo] = useState([]);
   const [regleDulceUneSemaineSurDeux, setRegleDulceUneSemaineSurDeux] = useState(false);
   const [regleFramboisePuisFraise, setRegleFramboisePuisFraise] = useState(false);
@@ -1061,12 +1060,6 @@ export default function PlanificateurChocolat() {
     setMsgOpti("✓ " + blocsUtilises + " turno(s) completo(s) utilizado(s) del " + fmtDate(lundiDepart) + (dateFin ? " al " + fmtDate(dateFin) : " en " + horizonOpti + " sem.") + " · " + blocsSansBesoin + " turno(s) libres porque el stock ya estaba en verde · " + blocsEvitesMax + " turno(s) evitado(s) porque producir completo superaba el max. · familias similares agrupadas cuando la urgencia lo permite · " + enVert + "/" + configures.length + " en zona verde al final del horizonte" + (sousMin > 0 ? " · ⚠️ " + sousMin + " todavía bajo el mínimo (capacidad insuficiente o turno completo demasiado grande)" : "") + (sansConv > 0 ? " · " + sansConv + " sin conversión no planificados" : "") + ".");
   };
 
-  useEffect(() => {
-    if (!optimiserApresMajStock) return;
-    setOptimiserApresMajStock(false);
-    optimiser();
-  }, [optimiserApresMajStock, produits]);
-
   const viderHorizon = () => {
     const datesSet = new Set();
     for (let dt = new Date(periodeOpti.debut); dt <= periodeOpti.fin; dt.setDate(dt.getDate() + 1)) datesSet.add(cleDate(dt));
@@ -1146,8 +1139,7 @@ export default function PlanificateurChocolat() {
     }
     if (maj === 0 && ajoutes === 0) { setMsgImport("⚠️ No se detectó ningún producto. Verifica el pegado."); return; }
     setProduits(nouveaux);
-    if (modeActualisation) setOptimiserApresMajStock(true);
-    setMsgImport((modeActualisation ? "Actualizacion" : "Importacion") + " (stock del " + (dateStock || "?") + "): " + maj + " actualizado(s), " + (modeActualisation ? "planning conservado" : ajoutes + " nuevo(s)") + ", " + reconnus + " reconocido(s) por nombre similar, " + redirigesFatima + " redirigido(s) a Fatima, " + avecMinMax + " con min./max. " + ignores + (usine === "fatima" ? " producto(s) ignorado(s) por estar fuera de la lista autorizada o por celdas vacias." : modeActualisation ? " producto(s) ignorado(s) porque no existian en la base o por celdas vacias." : " producto(s) ignorado(s) por celdas vacias.") + (avecMinMax === 0 ? " No se leyo ningun min./max." : "") + (modeActualisation ? " Gomitas, proyeccion y diagnostico recalculados." : ""));
+    setMsgImport((modeActualisation ? "Actualizacion" : "Importacion") + " (stock del " + (dateStock || "?") + "): " + maj + " actualizado(s), " + (modeActualisation ? "planning conservado sin recalcular" : ajoutes + " nuevo(s)") + ", " + reconnus + " reconocido(s) por nombre similar, " + redirigesFatima + " redirigido(s) a Fatima, " + avecMinMax + " con min./max. " + ignores + (usine === "fatima" ? " producto(s) ignorado(s) por estar fuera de la lista autorizada o por celdas vacias." : modeActualisation ? " producto(s) ignorado(s) porque no existian en la base o por celdas vacias." : " producto(s) ignorado(s) por celdas vacias.") + (avecMinMax === 0 ? " No se leyo ningun min./max." : "") + (modeActualisation ? " Para recalcular el calendario, elige Desde/Hasta y pulsa Optimizar la planificacion." : ""));
     setTexteImport("");
   };
   const importerFeuilleUsine = () => appliquerCollageStocks({ modeActualisation: false });

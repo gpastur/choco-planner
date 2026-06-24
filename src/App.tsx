@@ -806,6 +806,23 @@ export default function PlanificateurChocolat() {
     return resultat;
   }, [joursSemaine, lignesUsine, plan, produits, produitsUsine]);
 
+  const restaurerPeriode = (data) => {
+    const debutSauve = data && data.dateDebutOpti ? String(data.dateDebutOpti) : (data && data.lundi ? cleDate(lundiDeLaSemaine(new Date(data.lundi))) : null);
+    const finSauvee = data && data.dateFinOpti ? String(data.dateFinOpti) : null;
+    if (debutSauve) {
+      setDateDebutOpti(debutSauve);
+      setLundi(lundiDeLaSemaine(dateDepuisCle(debutSauve)));
+    } else if (data && data.lundi) {
+      setLundi(lundiDeLaSemaine(new Date(data.lundi)));
+    }
+    if (finSauvee) setDateFinOpti(finSauvee < debutSauve ? debutSauve : finSauvee);
+    else if (debutSauve) {
+      const fin = dateDepuisCle(debutSauve);
+      fin.setDate(fin.getDate() + HORIZON * 7 - 1);
+      setDateFinOpti(cleDate(fin));
+    }
+  };
+
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const partage = params.get("plan");
@@ -813,7 +830,7 @@ export default function PlanificateurChocolat() {
       try {
         const data = decodePayload(partage);
         if (data.usine) setUsine(data.usine);
-        if (data.lundi) setLundi(lundiDeLaSemaine(new Date(data.lundi)));
+        restaurerPeriode(data);
         if (data.plan && typeof data.plan === "object") setPlan(data.plan);
         if (Array.isArray(data.lignes)) {
           setLignes((actuelles) => {
@@ -841,7 +858,7 @@ export default function PlanificateurChocolat() {
       if (Array.isArray(data.lignes)) setLignes(fusionAvecBase(LIGNES_INIT, data.lignes));
       if (Array.isArray(data.produits)) setProduits(fusionAvecBase(PRODUITS_INIT, data.produits));
       if (data.plan && typeof data.plan === "object") setPlan(data.plan);
-      if (data.lundi) setLundi(lundiDeLaSemaine(new Date(data.lundi)));
+      restaurerPeriode(data);
       setMsgPartage("Planificación guardada cargada.");
     } catch (e) {
       localStorage.removeItem(STORAGE_KEY);
@@ -855,6 +872,8 @@ export default function PlanificateurChocolat() {
     produits,
     plan,
     lundi: cleDate(lundiAffiche),
+    dateDebutOpti,
+    dateFinOpti,
   });
 
   const guardarPlanificacion = () => {
@@ -868,6 +887,8 @@ export default function PlanificateurChocolat() {
       version: 1,
       usine,
       lundi: cleDate(lundiAffiche),
+      dateDebutOpti,
+      dateFinOpti,
       plan,
       lignes: lignes.filter((l) => l.usine === usine),
       produits: produits.filter((p) => idsPlanificados.has(p.id) || idsPlanificados.has(String(p.id))),
@@ -1031,8 +1052,10 @@ export default function PlanificateurChocolat() {
   const viderHorizon = () => {
     const datesSet = new Set();
     for (let dt = new Date(periodeOpti.debut); dt <= periodeOpti.fin; dt.setDate(dt.getDate() + 1)) datesSet.add(cleDate(dt));
+    joursSemaine.forEach((j) => datesSet.add(j.cle));
     const lignesIds = new Set(lignesUsine.map((l) => l.id));
     setPlan((p) => { const np = {}; Object.entries(p).forEach(([k, v]) => { const [dt, lid] = k.split("|"); if (datesSet.has(dt) && lignesIds.has(lid)) return; np[k] = v; }); return np; });
+    setLundi(lundiDeLaSemaine(periodeOpti.debut));
     setMsgOpti("Planificación borrada del " + fmtDate(periodeOpti.debut) + " al " + fmtDate(periodeOpti.fin) + ".");
   };
 
@@ -1619,10 +1642,10 @@ export default function PlanificateurChocolat() {
               <button onClick={() => changerSemaine(1)} className="px-3 py-1 bg-violet-100 rounded-lg hover:bg-violet-200 text-violet-900">Semana sig. →</button>
             </div>
             <div className="flex items-center gap-2 mb-3 flex-wrap">
-              <button onClick={() => optimiser(periodeOpti.debut, { respecterDateExacte: true, dateFin: periodeOpti.fin })} className="px-4 py-2 bg-green-700 text-white rounded-lg text-sm font-medium hover:bg-green-800 shadow">✨ Optimizar la planificación</button>
+              <button onClick={() => { setLundi(lundiDeLaSemaine(periodeOpti.debut)); optimiser(periodeOpti.debut, { respecterDateExacte: true, dateFin: periodeOpti.fin }); }} className="px-4 py-2 bg-green-700 text-white rounded-lg text-sm font-medium hover:bg-green-800 shadow">✨ Optimizar la planificación</button>
               <label className="flex items-center gap-2 px-3 py-2 bg-green-50 border border-green-200 rounded-lg text-sm text-green-900">
                 Desde
-                <input type="date" className="bg-white border border-green-300 rounded-md px-2 py-1 text-sm font-semibold text-green-900" value={dateDebutOpti} onChange={(e) => { setDateDebutOpti(e.target.value); if (dateFinOpti < e.target.value) setDateFinOpti(e.target.value); }} />
+                <input type="date" className="bg-white border border-green-300 rounded-md px-2 py-1 text-sm font-semibold text-green-900" value={dateDebutOpti} onChange={(e) => { const valeur = e.target.value; setDateDebutOpti(valeur); setLundi(lundiDeLaSemaine(dateDepuisCle(valeur))); if (dateFinOpti < valeur) setDateFinOpti(valeur); }} />
               </label>
               <label className="flex items-center gap-2 px-3 py-2 bg-green-50 border border-green-200 rounded-lg text-sm text-green-900">
                 Hasta

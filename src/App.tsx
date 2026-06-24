@@ -410,8 +410,11 @@ const TURNOS_PAR_USINE = {
   ],
 };
 
-function lundiDeLaSemaine(d) { const date = new Date(d.getFullYear(), d.getMonth(), d.getDate()); const j = date.getDay(); date.setDate(date.getDate() + (j === 0 ? -6 : 1 - j)); return date; }
+function debutJour(d) { return new Date(d.getFullYear(), d.getMonth(), d.getDate()); }
+function lundiDeLaSemaine(d) { const date = debutJour(d); const j = date.getDay(); date.setDate(date.getDate() + (j === 0 ? -6 : 1 - j)); return date; }
+function prochainLundiApres(d) { const date = debutJour(d); const j = date.getDay(); const delta = j === 0 ? 1 : 8 - j; date.setDate(date.getDate() + delta); return date; }
 function cleDate(d) { return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); }
+function dateDepuisCle(cle) { const [y, m, d] = String(cle || "").split("-").map(Number); return new Date(y || 2000, (m || 1) - 1, d || 1); }
 function fmtDate(d) { return String(d.getDate()).padStart(2, "0") + "/" + String(d.getMonth() + 1).padStart(2, "0"); }
 function fmtNb(n) { return Math.round(n).toLocaleString("es-AR"); }
 function memeId(a, b) { return String(a) === String(b); }
@@ -423,7 +426,11 @@ function statutStock(stock, min, max) {
 }
 function getPal(ligne) { return PALETTE[((ligne && ligne.pal) || 0) % PALETTE.length]; }
 function turnosUsine(usineId) { return TURNOS_PAR_USINE[usineId] || TURNOS_PAR_USINE.fatima; }
-function turnosLigne(ligne) { return turnosUsine(ligne && ligne.usine); }
+function turnosLigne(ligne) {
+  const turnos = turnosUsine(ligne && ligne.usine);
+  if (ligne && ligne.id === "vb_stephan") return turnos.filter((t) => t.id !== "n");
+  return turnos;
+}
 function turnosBaseAffiches(ligne) { return ligne && ligne.usine === "fatima" ? 1 : turnosLigne(ligne).length; }
 function turnosUsinePourDate(usineId, date) {
   const turnos = turnosUsine(usineId);
@@ -435,7 +442,14 @@ function turnosUsinePourDate(usineId, date) {
   if ((usineId === "mitre" || usineId === "vb") && jour === 6) return turnos.filter((t) => t.id === "m");
   return turnos;
 }
-function turnosLignePourDate(ligne, date) { return turnosUsinePourDate(ligne && ligne.usine, date); }
+function turnosLignePourDate(ligne, date) {
+  const turnos = turnosUsinePourDate(ligne && ligne.usine, date);
+  if (ligne && ligne.id === "vb_stephan") {
+    if (date instanceof Date && (date.getDay() === 0 || date.getDay() === 6)) return [];
+    return turnos.filter((t) => t.id !== "n");
+  }
+  return turnos;
+}
 function turnoDepuisCle(cle, ligne) {
   const turnoId = String(cle || "").split("|")[2];
   return turnosLigne(ligne).find((t) => String(t.id) === turnoId) || turnosLigne(ligne)[0];
@@ -600,7 +614,8 @@ function kgEffectifBloc(b) {
   return b && b.realKg != null && b.realKg !== "" && Number(b.realKg) >= 0 ? Number(b.realKg) : (b ? b.kg : 0);
 }
 
-const STORAGE_KEY = "choco-planner-state-v4";
+const STORAGE_KEY = "choco-planner-state-v6";
+const OLD_STORAGE_KEYS = ["choco-planner-state-v4", "choco-planner-state-v5"];
 
 function encodePayload(payload) {
   const json = JSON.stringify(payload);
@@ -667,19 +682,37 @@ export default function PlanificateurChocolat() {
   const [msgImport, setMsgImport] = useState("");
   const [msgLigne, setMsgLigne] = useState("");
   const [msgOpti, setMsgOpti] = useState("");
+  const [dateDebutOpti, setDateDebutOpti] = useState(() => cleDate(prochainLundiApres(new Date())));
+  const [dateFinOpti, setDateFinOpti] = useState(() => {
+    const d = prochainLundiApres(new Date());
+    d.setDate(d.getDate() + HORIZON * 7 - 1);
+    return cleDate(d);
+  });
   const [msgPartage, setMsgPartage] = useState("");
+  const [optimiserApresMajStock, setOptimiserApresMajStock] = useState(false);
+  const [reglesCapaciteAldo, setReglesCapaciteAldo] = useState([]);
+  const [regleDulceUneSemaineSurDeux, setRegleDulceUneSemaineSurDeux] = useState(false);
+  const [regleFramboisePuisFraise, setRegleFramboisePuisFraise] = useState(false);
   const [selection, setSelection] = useState(null);
   const [dragKey, setDragKey] = useState(null);
   const [masquerNonConfig, setMasquerNonConfig] = useState(false);
   const [aldoOuvert, setAldoOuvert] = useState(false);
   const [aldoTexte, setAldoTexte] = useState("");
   const [aldoMessages, setAldoMessages] = useState([
-    { role: "aldo", texte: "Hola, soy Aldo. Puedo ayudarte a orientar el planning: optimizar, revisar productos criticos, abrir importacion o explicar los colores." },
+    { role: "aldo", texte: "¿Cómo puedo ayudarte?" },
   ]);
 
   const lignesUsine = useMemo(() => lignes.filter((l) => l.usine === usine), [lignes, usine]);
   const produitsUsine = useMemo(() => produits.filter((p) => p.usine === usine && !(usine === "esandi" && estNomFatimaProtege(p.nom))), [produits, usine]);
   const produitsNonAssignes = useMemo(() => produitsUsine.filter((p) => !p.ligne || !lignes.some((l) => l.id === p.ligne)), [produitsUsine, lignes]);
+  const periodeOpti = useMemo(() => {
+    const debut = debutJour(dateDepuisCle(dateDebutOpti));
+    let fin = debutJour(dateDepuisCle(dateFinOpti));
+    if (fin < debut) fin = debut;
+    const jours = Math.max(1, Math.round((fin.getTime() - debut.getTime()) / 86400000) + 1);
+    return { debut, fin, jours, semaines: Math.max(1, Math.ceil(jours / 7)) };
+  }, [dateDebutOpti, dateFinOpti]);
+  const horizonOpti = periodeOpti.semaines;
 
   const joursSemaine = useMemo(() => JOURS.map((nom, i) => {
     const d = new Date(lundi.getFullYear(), lundi.getMonth(), lundi.getDate() + i);
@@ -718,7 +751,15 @@ export default function PlanificateurChocolat() {
     return 0;
   };
   const demandeJour = (p) => (p.demande != null && p.demande !== "" && Number(p.demande) > 0 ? Number(p.demande) : demandeJourCalculee(p));
-  const projection = (p) => p.stock + (productionParProduit[p.id] || 0) - demandeJour(p) * (HORIZON * 7);
+  const projection = (p) => p.stock + (productionParProduit[p.id] || 0) - demandeJour(p) * periodeOpti.jours;
+  const capaciteLigneDate = (ligne, date = null) => {
+    if (!ligne) return 0;
+    const d = date instanceof Date ? date : null;
+    const regle = d ? [...reglesCapaciteAldo].reverse().find((r) => r.ligneId === ligne.id && r.mois === d.getMonth()) : null;
+    return regle ? regle.capacite : (ligne.capacite || 0);
+  };
+  const kgBlocPlanning = (ligne, turno = null, date = null) => capaciteLigneDate(ligne, date) * ((turno && turno.facteur) || 1);
+  const capaciteJourPlanning = (ligne, date) => turnosLignePourDate(ligne, date).reduce((s, t) => s + kgBlocPlanning(ligne, t, date), 0);
   const optionProduitPlanning = (p) => {
     if (!estConfigure(p)) return "○ " + p.nom + " · sin min/max";
     const s = seuils(p);
@@ -779,10 +820,10 @@ export default function PlanificateurChocolat() {
       return;
     }
     try {
+      OLD_STORAGE_KEYS.forEach((key) => localStorage.removeItem(key));
       const sauvegarde = localStorage.getItem(STORAGE_KEY);
       if (!sauvegarde) return;
       const data = JSON.parse(sauvegarde);
-      if (data.usine) setUsine(data.usine);
       if (Array.isArray(data.lignes)) setLignes(fusionAvecBase(LIGNES_INIT, data.lignes));
       if (Array.isArray(data.produits)) setProduits(fusionAvecBase(PRODUITS_INIT, data.produits));
       if (data.plan && typeof data.plan === "object") setPlan(data.plan);
@@ -831,7 +872,8 @@ export default function PlanificateurChocolat() {
   const assigner = (cle, pid) => {
     const ligne = lignes.find((l) => l.id === cle.split("|")[1]);
     const turno = turnoDepuisCle(cle, ligne);
-    setPlan((p) => { const np = { ...p }; if (pid === "") delete np[cle]; else np[cle] = { p: Number(pid), kg: kgBloc(ligne, turno) }; return np; });
+    const date = dateDepuisCle(cle.split("|")[0]);
+    setPlan((p) => { const np = { ...p }; if (pid === "") delete np[cle]; else np[cle] = { p: Number(pid), kg: kgBlocPlanning(ligne, turno, date) }; return np; });
   };
 
   const majRealKg = (cle, valeur) => {
@@ -856,14 +898,33 @@ export default function PlanificateurChocolat() {
   };
 
   // ====== OPTIMIZADOR: producción DIVISIBLE, 1 producto por turno ======
-  const optimiser = () => {
+  const optimiser = (lundiForce = null, options: any = {}) => {
+    const lundiBase = lundiForce || lundi;
+    const lignesIdsUsine = new Set(lignesUsine.map((l) => l.id));
+    const planningUsineVide = !Object.entries(plan).some(([k, v]) => {
+      const [, lid] = k.split("|");
+      return lignesIdsUsine.has(lid) && !!lireBloc(v, lignes.find((l) => l.id === lid));
+    });
+    const lundiMinimum = prochainLundiApres(new Date());
+    const lundiDepart = planningUsineVide && !options.respecterDateExacte && lundiBase < lundiMinimum ? lundiMinimum : lundiBase;
+    const dateFin = options.dateFin instanceof Date ? debutJour(options.dateFin) : null;
+    const semaineAffichee = lundiDeLaSemaine(lundiDepart);
+    if (semaineAffichee.getTime() !== lundi.getTime()) setLundi(semaineAffichee);
     const datesHorizon = [];
-    for (let w = 0; w < HORIZON; w++) for (let d = 0; d < 7; d++) {
-      const dt = new Date(lundi.getFullYear(), lundi.getMonth(), lundi.getDate() + w * 7 + d);
-      datesHorizon.push({ cle: cleDate(dt), date: dt, prod: d < JOURS.length });
+    if (dateFin) {
+      for (let dt = new Date(lundiDepart); dt <= dateFin; dt.setDate(dt.getDate() + 1)) {
+        const date = new Date(dt);
+        const semaine = Math.floor((debutJour(date).getTime() - lundiDepart.getTime()) / (7 * 86400000));
+        datesHorizon.push({ cle: cleDate(date), date, prod: date.getDay() >= 1 && date.getDay() <= JOURS.length, semaine });
+      }
+    } else {
+      for (let w = 0; w < horizonOpti; w++) for (let d = 0; d < 7; d++) {
+        const dt = new Date(lundiDepart.getFullYear(), lundiDepart.getMonth(), lundiDepart.getDate() + w * 7 + d);
+        datesHorizon.push({ cle: cleDate(dt), date: dt, prod: d < JOURS.length, semaine: w });
+      }
     }
     const datesSet = new Set(datesHorizon.map((d) => d.cle));
-    const lignesIds = new Set(lignesUsine.map((l) => l.id));
+    const lignesIds = lignesIdsUsine;
     const nouveauPlan = {};
     Object.entries(plan).forEach(([k, v]) => {
       const [dt, lid] = k.split("|");
@@ -882,6 +943,7 @@ export default function PlanificateurChocolat() {
       produitsUsine.forEach((p) => { if (estConfigure(p)) stockSim[p.id] -= demandeJour(p); });
       if (!jour.prod) return;
       lignesUsine.forEach((ligne) => {
+        if (regleDulceUneSemaineSurDeux && ligne.id === "vb_stephan" && jour.semaine % 2 === 1) return;
         const prods = produitsUsine.filter((p) => p.ligne === ligne.id && estConfigure(p) && kgParBulto(p) && seuils(p).max > 0);
         if (prods.length === 0) return;
         turnosLignePourDate(ligne, jour.date).forEach((turno) => {
@@ -893,7 +955,7 @@ export default function PlanificateurChocolat() {
             if (kgpbReel) stockSim[blocReel.p] = (stockSim[blocReel.p] || 0) + kgEffectifBloc(blocReel) / kgpbReel;
             return;
           }
-          const kgb_ligne = kgBloc(ligne, turno); // kg disponibles por turno
+          const kgb_ligne = kgBlocPlanning(ligne, turno, jour.date); // kg disponibles por turno
           // Produit le plus en déficit sous le plancher vert (min*1.5)
           let meilleur = null, meilleurScore = -Infinity;
           prods.forEach((p) => {
@@ -903,7 +965,9 @@ export default function PlanificateurChocolat() {
             if (stockSim[p.id] >= s.max) return;
             const deficitMax = Math.max(0, s.max - stockSim[p.id]);
             const memeFamille = derniereFamilleParLigne[ligne.id] && derniereFamilleParLigne[ligne.id] === familleProduit(p);
-            const score = urgence * 1000 + deficitMax + (memeFamille ? Math.max(25, Math.abs(urgence) * 120) : 0);
+            const derniere = produits.find((prod) => memeId(prod.id, derniereFamilleParLigne[ligne.id + "_produit"]));
+            const favoriseFraise = regleFramboisePuisFraise && ligne.id === "vb_stephan" && tokensProduit(derniere && derniere.nom).includes("FRAMBUESA") && tokensProduit(p.nom).includes("FRUTILLA");
+            const score = urgence * 1000 + deficitMax + (memeFamille ? Math.max(25, Math.abs(urgence) * 120) : 0) + (favoriseFraise ? 500000 : 0);
             if (score > meilleurScore) { meilleur = p; meilleurScore = score; }
           });
           if (!meilleur) return;
@@ -920,6 +984,7 @@ export default function PlanificateurChocolat() {
           nouveauPlan[jour.cle + "|" + ligne.id + "|" + turno.id] = { p: meilleur.id, kg: kgProduit, raison };
           stockSim[meilleur.id] += kgProduit / kgpb;
           derniereFamilleParLigne[ligne.id] = famille;
+          derniereFamilleParLigne[ligne.id + "_produit"] = meilleur.id;
           blocsUtilises++;
         });
       });
@@ -930,15 +995,21 @@ export default function PlanificateurChocolat() {
     const sansConv = configures.filter((p) => !kgParBulto(p)).length;
     const enVert = configures.filter((p) => { const s = seuils(p); if (s.max <= 0) return true; return stockSim[p.id] >= s.min * 1.5 && stockSim[p.id] <= s.max; }).length;
     const sousMin = configures.filter((p) => stockSim[p.id] < seuils(p).min).length;
-    setMsgOpti("✓ " + blocsUtilises + " turno(s) utilizado(s) en " + HORIZON + " sem. · familias similares agrupadas cuando la urgencia lo permite · " + enVert + "/" + configures.length + " en zona verde al final del horizonte" + (sousMin > 0 ? " · ⚠️ " + sousMin + " todavía bajo el mínimo (capacidad insuficiente)" : "") + (sansConv > 0 ? " · " + sansConv + " sin conversión no planificados" : "") + ".");
+    setMsgOpti("✓ " + blocsUtilises + " turno(s) utilizado(s) del " + fmtDate(lundiDepart) + (dateFin ? " al " + fmtDate(dateFin) : " en " + horizonOpti + " sem.") + " · familias similares agrupadas cuando la urgencia lo permite · " + enVert + "/" + configures.length + " en zona verde al final del horizonte" + (sousMin > 0 ? " · ⚠️ " + sousMin + " todavía bajo el mínimo (capacidad insuficiente)" : "") + (sansConv > 0 ? " · " + sansConv + " sin conversión no planificados" : "") + ".");
   };
+
+  useEffect(() => {
+    if (!optimiserApresMajStock) return;
+    setOptimiserApresMajStock(false);
+    optimiser();
+  }, [optimiserApresMajStock, produits]);
 
   const viderHorizon = () => {
     const datesSet = new Set();
-    for (let w = 0; w < HORIZON; w++) for (let d = 0; d < JOURS.length; d++) { const dt = new Date(lundi.getFullYear(), lundi.getMonth(), lundi.getDate() + w * 7 + d); datesSet.add(cleDate(dt)); }
+    for (let dt = new Date(periodeOpti.debut); dt <= periodeOpti.fin; dt.setDate(dt.getDate() + 1)) datesSet.add(cleDate(dt));
     const lignesIds = new Set(lignesUsine.map((l) => l.id));
     setPlan((p) => { const np = {}; Object.entries(p).forEach(([k, v]) => { const [dt, lid] = k.split("|"); if (datesSet.has(dt) && lignesIds.has(lid)) return; np[k] = v; }); return np; });
-    setMsgOpti("Planificación de las próximas " + HORIZON + " semanas borrada.");
+    setMsgOpti("Planificación borrada del " + fmtDate(periodeOpti.debut) + " al " + fmtDate(periodeOpti.fin) + ".");
   };
 
   const ajouterProduit = () => {
@@ -967,7 +1038,7 @@ export default function PlanificateurChocolat() {
   };
   const majLigne = (id, champ, valeur) => setLignes(lignes.map((l) => (l.id === id ? { ...l, [champ]: valeur } : l)));
 
-  const importerFeuilleUsine = () => {
+  const appliquerCollageStocks = ({ modeActualisation = false } = {}) => {
     if (!usine) return;
     const brut = parseTSV(texteImport).map((r) => r.map((c) => normaliser(c)));
     const rows = brut.filter((r) => r.some((c) => c !== ""));
@@ -1005,19 +1076,22 @@ export default function PlanificateurChocolat() {
         if (cibleFatima) redirigesFatima++;
         if (!exact) reconnus++;
       }
-      else if (usine === "fatima") { ignores++; }
+      else if (usine === "fatima" || modeActualisation) { ignores++; }
       else { const id = nouveaux.reduce((m, p) => Math.max(m, p.id), 0) + 1; nouveaux.push({ id, nom, ligne: null, usine, stock: isNaN(vStock) ? 0 : vStock, demande: 0, min: isNaN(vMin) ? null : vMin, max: isNaN(vMax) ? null : vMax, pesoBulto: PESO_BULTO_POR_PRODUCTO[nom] ?? null }); ajoutes++; }
     }
     if (maj === 0 && ajoutes === 0) { setMsgImport("⚠️ No se detectó ningún producto. Verifica el pegado."); return; }
     setProduits(nouveaux);
-    setMsgImport("Importacion (stock del " + (dateStock || "?") + "): " + maj + " actualizado(s), " + ajoutes + " nuevo(s), " + reconnus + " reconocido(s) por nombre similar, " + redirigesFatima + " redirigido(s) a Fatima, " + avecMinMax + " con min./max. " + ignores + (usine === "fatima" ? " producto(s) ignorado(s) por estar fuera de la lista autorizada o por celdas vacias." : " producto(s) ignorado(s) por celdas vacias.") + (avecMinMax === 0 ? " No se leyo ningun min./max." : ""));
+    if (modeActualisation) setOptimiserApresMajStock(true);
+    setMsgImport((modeActualisation ? "Actualizacion" : "Importacion") + " (stock del " + (dateStock || "?") + "): " + maj + " actualizado(s), " + (modeActualisation ? "planning conservado" : ajoutes + " nuevo(s)") + ", " + reconnus + " reconocido(s) por nombre similar, " + redirigesFatima + " redirigido(s) a Fatima, " + avecMinMax + " con min./max. " + ignores + (usine === "fatima" ? " producto(s) ignorado(s) por estar fuera de la lista autorizada o por celdas vacias." : modeActualisation ? " producto(s) ignorado(s) porque no existian en la base o por celdas vacias." : " producto(s) ignorado(s) por celdas vacias.") + (avecMinMax === 0 ? " No se leyo ningun min./max." : "") + (modeActualisation ? " Gomitas, proyeccion y diagnostico recalculados." : ""));
     setTexteImport("");
   };
+  const importerFeuilleUsine = () => appliquerCollageStocks({ modeActualisation: false });
+  const actualiserStocksUsine = () => appliquerCollageStocks({ modeActualisation: true });
 
   const exporterExcel = () => {
     const nomUsine = (USINES.find((u) => u.id === usine) || {}).nom || "";
     const semanas = [];
-    for (let w = 0; w < HORIZON; w++) {
+    for (let w = 0; w < horizonOpti; w++) {
       const dias = JOURS.map((nom, i) => {
         const date = new Date(lundi.getFullYear(), lundi.getMonth(), lundi.getDate() + w * 7 + i);
         return { nom, date, cle: cleDate(date) };
@@ -1139,7 +1213,7 @@ export default function PlanificateurChocolat() {
       const prods = produitsUsine.filter((p) => p.ligne === ligne.id && estConfigure(p) && kgParBulto(p));
       const capSem = JOURS.reduce((s, _j, idx) => {
         const date = new Date(lundi.getFullYear(), lundi.getMonth(), lundi.getDate() + idx);
-        return s + capaciteJour(ligne, date);
+        return s + capaciteJourPlanning(ligne, date);
       }, 0);
       const demSem = prods.reduce((s, p) => s + demandeJour(p) * 7 * kgParBulto(p), 0);
       return { ligne, capSem, demSem, charge: capSem > 0 ? demSem / capSem : 0 };
@@ -1165,12 +1239,137 @@ export default function PlanificateurChocolat() {
     };
   };
 
+  const moisDepuisTexteAldo = (q) => {
+    const mois = [
+      ["janvier", "enero", "january"],
+      ["fevrier", "febrero", "february"],
+      ["mars", "marzo", "march"],
+      ["avril", "abril", "april"],
+      ["mai", "mayo", "may"],
+      ["juin", "junio", "june"],
+      ["juillet", "julio", "july"],
+      ["aout", "agosto", "august"],
+      ["septembre", "septiembre", "september"],
+      ["octobre", "octubre", "october"],
+      ["novembre", "noviembre", "november"],
+      ["decembre", "diciembre", "december"],
+    ];
+    return mois.findIndex((noms) => noms.some((nom) => q.includes(nom)));
+  };
+  const datePreciseDepuisTexteAldo = (q) => {
+    const now = new Date();
+    const numerique = q.match(/\b(\d{1,2})[\/.-](\d{1,2})(?:[\/.-](\d{2,4}))?\b/);
+    if (numerique) {
+      const jour = Number(numerique[1]);
+      const mois = Number(numerique[2]) - 1;
+      let annee = numerique[3] ? Number(numerique[3]) : now.getFullYear();
+      if (annee < 100) annee += 2000;
+      const d = new Date(annee, mois, jour);
+      if (d.getFullYear() === annee && d.getMonth() === mois && d.getDate() === jour) return d;
+    }
+    const mois = moisDepuisTexteAldo(q);
+    const nomsMois = "janvier|enero|january|fevrier|febrero|february|mars|marzo|march|avril|abril|april|mai|mayo|may|juin|junio|june|juillet|julio|july|aout|agosto|august|septembre|septiembre|september|octobre|octubre|october|novembre|noviembre|november|decembre|diciembre|december";
+    const texte = q.match(new RegExp("\\b(?:el |le |du |del |from |desde |start(?:ing)? |a partir du |a partir de |a partir del )?(\\d{1,2})(?:er|e|st|nd|rd|th)?(?:\\s+de|\\s+of)?\\s+(" + nomsMois + ")\\b"));
+    if (texte && mois >= 0) {
+      const jour = Number(texte[1]);
+      const annee = mois < now.getMonth() ? now.getFullYear() + 1 : now.getFullYear();
+      const d = new Date(annee, mois, jour);
+      if (d.getMonth() === mois && d.getDate() === jour) return d;
+    }
+    const premier = q.match(new RegExp("\\b(?:el |le |du |del |from |desde |start(?:ing)? |a partir du |a partir de |a partir del )?(?:premier|primero|first)(?:\\s+de|\\s+of)?\\s+(" + nomsMois + ")\\b"));
+    if (premier && mois >= 0) {
+      const annee = mois < now.getMonth() ? now.getFullYear() + 1 : now.getFullYear();
+      return new Date(annee, mois, 1);
+    }
+    const moisPuisJour = q.match(new RegExp("\\b(" + nomsMois + ")\\s+(\\d{1,2})(?:er|e|st|nd|rd|th)?\\b"));
+    if (moisPuisJour && mois >= 0) {
+      const jour = Number(moisPuisJour[2]);
+      const annee = mois < now.getMonth() ? now.getFullYear() + 1 : now.getFullYear();
+      const d = new Date(annee, mois, jour);
+      if (d.getMonth() === mois && d.getDate() === jour) return d;
+    }
+    return null;
+  };
+  const dateFinDepuisTexteAldo = (q) => {
+    const fin = q.match(/(?:jusqu'?a|jusqu au|hasta|until|through|date de fin|end(?:ing)?(?: on| at)?|fin(?:ir|it|al)?(?: le| au| a)?|\bau\b|\bto\b)(.*)$/i);
+    if (!fin || !fin[1]) return null;
+    return datePreciseDepuisTexteAldo(fin[1]);
+  };
+  const premierLundiDuMois = (mois) => {
+    const now = new Date();
+    const annee = mois < now.getMonth() ? now.getFullYear() + 1 : now.getFullYear();
+    const d = new Date(annee, mois, 1);
+    while (d.getDay() !== 1) d.setDate(d.getDate() + 1);
+    return d;
+  };
+  const premierJourDuMois = (mois) => {
+    const now = new Date();
+    const annee = mois < now.getMonth() ? now.getFullYear() + 1 : now.getFullYear();
+    return new Date(annee, mois, 1);
+  };
+  const dernierJourDuMois = (mois) => {
+    const debut = premierJourDuMois(mois);
+    return new Date(debut.getFullYear(), debut.getMonth() + 1, 0);
+  };
+  const ligneDepuisTexteAldo = (q) => lignesUsine.find((l) => tokensProduit(q).some((t) => tokensProduit(l.nom).includes(t))) || null;
+  const capaciteDepuisTexteAldo = (q) => {
+    const m = q.match(/(\d+(?:[.,]\d+)?)\s*(?:kg|kilos?)/i) || q.match(/capac\w*\D+(\d+(?:[.,]\d+)?)/i);
+    return m ? parseNum(m[1]) : NaN;
+  };
+
+  const appliquerConsignesAldo = (question, q) => {
+    const actions = [];
+    let lundiCible = null;
+    const datePrecise = datePreciseDepuisTexteAldo(q);
+    let dateFin = dateFinDepuisTexteAldo(q);
+    const mois = moisDepuisTexteAldo(q);
+    const demandeDepartPrecis = q.includes("partir") || q.includes("desde") || q.includes("from") || q.includes("starting") || q.includes("start") || q.includes("commence") || q.includes("empez") || q.includes("debut") || q.includes("inicio");
+    const demandeMoisComplet = mois >= 0 && (q.includes("mois") || q.includes("mes") || q.includes("month")) && (q.includes("planif") || q.includes("planning") || q.includes("schedule") || q.includes("calend") || q.includes("complete") || q.includes("completa") || q.includes("optim"));
+    if (datePrecise && demandeDepartPrecis) {
+      lundiCible = datePrecise;
+      setLundi(lundiCible);
+      actions.push("empiezo exactamente el " + fmtDate(lundiCible));
+    } else if (demandeMoisComplet) {
+      lundiCible = premierJourDuMois(mois);
+      dateFin = dateFin || dernierJourDuMois(mois);
+      setLundi(lundiCible);
+      actions.push("planifico el mes completo desde el " + fmtDate(lundiCible));
+    }
+    if ((q.includes("dulce") || q.includes("dulces")) && (q.includes("semaine sur deux") || q.includes("semana por medio") || q.includes("une semaine sur deux") || q.includes("1 semaine sur 2"))) {
+      setRegleDulceUneSemaineSurDeux(true);
+      actions.push("les Dulce/Stephan seront planifiés une semaine sur deux");
+    }
+    if ((q.includes("framboise") || q.includes("frambuesa")) && (q.includes("fraise") || q.includes("frutilla"))) {
+      setRegleFramboisePuisFraise(true);
+      actions.push("après Framboise, je favorise Frutilla/Fraise sur Stephan");
+    }
+    const capacite = capaciteDepuisTexteAldo(question);
+    const ligneCap = ligneDepuisTexteAldo(q);
+    if (ligneCap && !isNaN(capacite) && q.includes("capac")) {
+      const moisRegle = mois >= 0 ? mois : new Date().getMonth();
+      setReglesCapaciteAldo((r) => [...r.filter((x) => !(x.ligneId === ligneCap.id && x.mois === moisRegle)), { ligneId: ligneCap.id, mois: moisRegle, capacite }]);
+      actions.push("capacité temporaire de " + ligneCap.nom + " fixée à " + fmtNb(capacite) + " kg/turno pour le mois demandé");
+    }
+    if (dateFin) actions.push("paro el llenado el " + fmtDate(dateFin));
+    const veutRemplir = q.includes("complete") || q.includes("completa") || q.includes("fill") || q.includes("rempl") || q.includes("rellena") || q.includes("optim") || q.includes("planif") || q.includes("planning") || q.includes("schedule") || q.includes("calend");
+    return { actions, lundiCible, dateFin, veutRemplir, dateExacte: !!datePrecise || demandeMoisComplet };
+  };
+
   const repondreAldo = (questionBrute = "") => {
     const question = questionBrute.trim();
     if (!question) return;
     const q = question.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
     let reponse = "";
-    if (q.includes("analys") || q.includes("analyse") || q.includes("analiza") || q.includes("resumen") || q.includes("situation") || q.includes("estado")) {
+    const consignes = appliquerConsignesAldo(question, q);
+    if (consignes.actions.length > 0 || (consignes.veutRemplir && (consignes.lundiCible || consignes.dateFin))) {
+      if (consignes.veutRemplir || q.includes("complete") || q.includes("rempl") || q.includes("calend")) {
+        setTimeout(() => optimiser(consignes.lundiCible, { respecterDateExacte: consignes.dateExacte, dateFin: consignes.dateFin }), 0);
+        setOnglet("calendrier");
+      }
+      reponse = "Entendido. " + (consignes.actions.length ? consignes.actions.join("; ") + ". " : "") +
+        (consignes.veutRemplir ? "Completo el calendario con estas consignas y mantengo las restricciones de stock/capacidad." : "Guardo esta consigna para las próximas optimizaciones.") +
+        " Después puedes pedirme una corrección, por ejemplo: baja Stephan en julio, o fuerza Frutilla después de Framboise.";
+    } else if (q.includes("analys") || q.includes("analyse") || q.includes("analiza") || q.includes("resumen") || q.includes("situation") || q.includes("estado")) {
       const a = analyseAldo();
       setOnglet("diagnostic");
       reponse = a.texte;
@@ -1396,7 +1595,15 @@ export default function PlanificateurChocolat() {
               <button onClick={() => changerSemaine(1)} className="px-3 py-1 bg-violet-100 rounded-lg hover:bg-violet-200 text-violet-900">Semana sig. →</button>
             </div>
             <div className="flex items-center gap-2 mb-3 flex-wrap">
-              <button onClick={optimiser} className="px-4 py-2 bg-green-700 text-white rounded-lg text-sm font-medium hover:bg-green-800 shadow">✨ Optimizar las próximas {HORIZON} semanas</button>
+              <button onClick={() => optimiser(periodeOpti.debut, { respecterDateExacte: true, dateFin: periodeOpti.fin })} className="px-4 py-2 bg-green-700 text-white rounded-lg text-sm font-medium hover:bg-green-800 shadow">✨ Optimizar la planificación</button>
+              <label className="flex items-center gap-2 px-3 py-2 bg-green-50 border border-green-200 rounded-lg text-sm text-green-900">
+                Desde
+                <input type="date" className="bg-white border border-green-300 rounded-md px-2 py-1 text-sm font-semibold text-green-900" value={dateDebutOpti} onChange={(e) => { setDateDebutOpti(e.target.value); if (dateFinOpti < e.target.value) setDateFinOpti(e.target.value); }} />
+              </label>
+              <label className="flex items-center gap-2 px-3 py-2 bg-green-50 border border-green-200 rounded-lg text-sm text-green-900">
+                Hasta
+                <input type="date" className="bg-white border border-green-300 rounded-md px-2 py-1 text-sm font-semibold text-green-900" value={dateFinOpti} min={dateDebutOpti} onChange={(e) => setDateFinOpti(e.target.value)} />
+              </label>
               <button onClick={viderHorizon} className="px-3 py-2 bg-white border border-gray-300 text-gray-600 rounded-lg text-sm hover:bg-gray-100">Borrar horizonte</button>
               <button onClick={guardarPlanificacion} className="px-3 py-2 bg-violet-800 text-white rounded-lg text-sm hover:bg-violet-900">Guardar</button>
               <button onClick={compartirPlanificacion} className="px-3 py-2 bg-sky-700 text-white rounded-lg text-sm hover:bg-sky-800">Compartir</button>
@@ -1424,7 +1631,7 @@ export default function PlanificateurChocolat() {
                           {joursSemaine.map((j) => {
                             const turnosJour = turnosLignePourDate(ligne, j.date);
                             const utiliseJour = totalJourLigne(ligne, j);
-                            const capJour = capaciteJour(ligne, j.date);
+                            const capJour = capaciteJourPlanning(ligne, j.date);
                             return (
                             <td key={j.cle} className="p-1 align-top">
                               <div className="text-[10px] text-gray-400 text-center mb-1">{fmtNb(utiliseJour)} / {fmtNb(capJour)} kg</div>
@@ -1488,7 +1695,7 @@ export default function PlanificateurChocolat() {
                 </table>
               </div>
             )}
-            <p className="text-xs text-gray-500 mt-2">Cada turno produce segun los horarios de la fabrica: Fatima trabaja de lunes a viernes un turno completo dividido en medio turno manana y medio turno tarde, y no trabaja sabado ni domingo; Esandi trabaja manana y tarde, con solo manana el sabado; Mitre/VB trabajan 3 turnos base, con solo manana el sabado. La cantidad es <strong>divisible</strong>. La gomita de color muestra el estado del stock justo despues de ese bloque, simulando la demanda dia por dia.</p>
+            <p className="text-xs text-gray-500 mt-2">Cada turno produce segun los horarios de la fabrica: Fatima trabaja de lunes a viernes un turno completo dividido en medio turno manana y medio turno tarde, y no trabaja sabado ni domingo; Esandi trabaja manana y tarde, con solo manana el sabado; Mitre/VB trabajan 3 turnos base, con solo manana el sabado. Excepcion: Stephan trabaja solo lunes a viernes, manana y tarde. La cantidad es <strong>divisible</strong>. La gomita de color muestra el estado del stock justo despues de ese bloque, simulando la demanda dia por dia.</p>
             <Legende />
           </div>
         )}
@@ -1627,12 +1834,16 @@ export default function PlanificateurChocolat() {
               <ol className="text-sm text-gray-600 mb-2 list-decimal list-inside space-y-1">
                 <li>Abre la pestaña <strong>{usineActive ? usineActive.nom : ""}</strong> de tu Google Sheets</li>
                 <li>Sélectionnez tout (Ctrl+A) puis copiez (Ctrl+C)</li>
-                <li>Pega aquí (Ctrl+V) y haz clic en Importar</li>
+                <li>Pega aquí (Ctrl+V) y elige Importar o Actualizar stocks</li>
                 <li>Si el nombre trae textos extra como solo BsAs, stock max o min, la app intenta reconocer el producto de la base.</li>
               </ol>
               <p className="text-xs text-gray-500 mb-2">Valores en <strong>bultos</strong>: nombres, luego Stock máx., Stock mín., y la última línea con fecha = stock del día.</p>
               <textarea className="w-full border rounded-lg p-2 text-sm h-40 font-mono" placeholder="(pega aquí todo el contenido de la pestaña)" value={texteImport} onChange={(e) => setTexteImport(e.target.value)} />
-              <button onClick={importerFeuilleUsine} className="mt-2 px-4 py-2 bg-violet-800 text-white rounded-lg text-sm hover:bg-violet-900">Importar para {usineActive ? usineActive.nom : ""}</button>
+              <div className="mt-2 flex flex-wrap gap-2">
+                <button onClick={actualiserStocksUsine} className="px-4 py-2 bg-emerald-700 text-white rounded-lg text-sm hover:bg-emerald-800">Actualizar stocks y conservar planning</button>
+                <button onClick={importerFeuilleUsine} className="px-4 py-2 bg-violet-800 text-white rounded-lg text-sm hover:bg-violet-900">Importar base para {usineActive ? usineActive.nom : ""}</button>
+              </div>
+              <p className="text-xs text-gray-500 mt-2"><strong>Actualizar stocks</strong> modifica solo productos ya existentes: conserva calendario, reales kg, lineas y planning. Las gomitas, proyecciones y diagnostico se recalculan automaticamente.</p>
               {msgImport && <p className="text-sm text-green-700 mt-2">{msgImport}</p>}
             </div>
             <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-4">
@@ -1648,7 +1859,7 @@ export default function PlanificateurChocolat() {
             const prods = produitsUsine.filter((p) => p.ligne === ligne.id && estConfigure(p) && kgParBulto(p));
             const capH = JOURS.reduce((s, _jour, idx) => {
               const date = new Date(lundi.getFullYear(), lundi.getMonth(), lundi.getDate() + idx);
-              return s + capaciteJour(ligne, date);
+              return s + capaciteJourPlanning(ligne, date);
             }, 0);
             const demH = prods.reduce((s, p) => s + demandeJour(p) * 7 * kgParBulto(p), 0);
             const defi = prods.reduce((s, p) => s + Math.max(0, (seuils(p).min * 1.5 - p.stock)) * kgParBulto(p), 0);
@@ -1794,22 +2005,22 @@ export default function PlanificateurChocolat() {
       </div>
       <div className="fixed bottom-4 right-4 z-50">
         {aldoOuvert && (
-          <div className="mb-3 w-[min(360px,calc(100vw-2rem))] bg-white border border-violet-200 rounded-lg shadow-xl overflow-hidden">
-            <div className="bg-violet-800 text-white px-4 py-3 flex items-center justify-between">
+          <div className="mb-3 w-[min(360px,calc(100vw-2rem))] bg-white border border-emerald-200 rounded-lg shadow-xl overflow-hidden">
+            <div className="bg-emerald-700 text-white px-4 py-3 flex items-center justify-between">
               <div>
                 <div className="font-bold">Aldo</div>
-                <div className="text-xs text-violet-100">Assistant planning local</div>
+                <div className="text-xs text-emerald-100">Assistant planning local</div>
               </div>
-              <button className="text-violet-100 hover:text-white text-xl leading-none" onClick={() => setAldoOuvert(false)}>×</button>
+              <button className="text-emerald-100 hover:text-white text-xl leading-none" onClick={() => setAldoOuvert(false)}>×</button>
             </div>
-            <div className="p-3 max-h-72 overflow-y-auto space-y-2 bg-violet-50">
+            <div className="p-3 max-h-72 overflow-y-auto space-y-2 bg-emerald-50">
               {aldoMessages.map((m, idx) => (
-                <div key={idx} className={"text-sm rounded-lg px-3 py-2 " + (m.role === "user" ? "bg-white border border-violet-200 text-violet-900 ml-8" : "bg-violet-100 text-violet-950 mr-8")}>
+                <div key={idx} className={"text-sm rounded-lg px-3 py-2 " + (m.role === "user" ? "bg-white border border-emerald-200 text-emerald-950 ml-8" : "bg-emerald-100 text-emerald-950 mr-8")}>
                   {m.texte}
                 </div>
               ))}
             </div>
-            <div className="p-3 border-t border-violet-100 bg-white">
+            <div className="p-3 border-t border-emerald-100 bg-white">
               <div className="flex gap-2">
                 <input
                   className="flex-1 border rounded-lg px-3 py-2 text-sm"
@@ -1818,17 +2029,17 @@ export default function PlanificateurChocolat() {
                   onChange={(e) => setAldoTexte(e.target.value)}
                   onKeyDown={(e) => { if (e.key === "Enter") repondreAldo(aldoTexte); }}
                 />
-                <button className="px-3 py-2 bg-violet-800 text-white rounded-lg text-sm" onClick={() => repondreAldo(aldoTexte)}>Enviar</button>
+                <button className="px-3 py-2 bg-emerald-700 text-white rounded-lg text-sm hover:bg-emerald-800" onClick={() => repondreAldo(aldoTexte)}>Enviar</button>
               </div>
               <div className="flex flex-wrap gap-1 mt-2">
                 {["Optimizar", "Criticos", "Importar", "Colores"].map((txt) => (
-                  <button key={txt} className="px-2 py-1 rounded-full bg-violet-100 text-violet-800 text-xs hover:bg-violet-200" onClick={() => repondreAldo(txt)}>{txt}</button>
+                  <button key={txt} className="px-2 py-1 rounded-full bg-emerald-100 text-emerald-800 text-xs hover:bg-emerald-200" onClick={() => repondreAldo(txt)}>{txt}</button>
                 ))}
               </div>
             </div>
           </div>
         )}
-        <button onClick={() => setAldoOuvert((v) => !v)} className="rounded-full bg-violet-900 text-white shadow-lg px-4 py-3 font-semibold hover:bg-violet-800">
+        <button onClick={() => setAldoOuvert((v) => !v)} className="rounded-full bg-emerald-700 text-white shadow-lg px-4 py-3 font-semibold hover:bg-emerald-800">
           Aldo
         </button>
       </div>

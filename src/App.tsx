@@ -272,11 +272,16 @@ const PRODUITS_INIT = [
   mkEsandi(109, "TURRON NUEZ Y DAMASCO", "e_tur", 3.63),
   mkEsandi(110, "TURRON PISTACHO Y NARANJA", "e_tur", 3.63),
   mkEsandi(111, "CONEJITO DDL X 5", "e_bomb", 2.1),
-  mkVB(112, "DULCE FRAMBUESA 420gr", "vb_stephan", 4.62),
-  mkVB(113, "DULCE FRUTILLA 420gr", "vb_stephan", 4.62),
-  mkVB(114, "DULCE FRUTOS DEL BOSQUE", "vb_stephan", 4.62),
-  mkVB(115, "DULCE MOSQUETA 420gr", "vb_stephan", 4.62),
-  mkVB(116, "DULCE SAUCO 420gr", "vb_stephan", 4.62),
+  { ...mkVB(112, "DULCE FRAMBUESA 420gr BsAs", "vb_stephan", 4.62), min: 82, max: 163 },
+  { ...mkVB(113, "DULCE FRUTILLA 420gr BsAs", "vb_stephan", 4.62), min: 39, max: 78 },
+  { ...mkVB(114, "DULCE FRUTOS DEL BOSQUE BsAs", "vb_stephan", 4.62), min: 22, max: 44 },
+  { ...mkVB(115, "DULCE MOSQUETA 420gr BsAs", "vb_stephan", 4.62), min: 62, max: 124 },
+  { ...mkVB(116, "DULCE SAUCO 420gr BsAs", "vb_stephan", 4.62), min: 28, max: 57 },
+  { ...mkVB(133, "DULCE FRAMBUESA 420gr VB", "vb_stephan", 4.62), min: 201, max: 402 },
+  { ...mkVB(134, "DULCE FRUTILLA 420gr VB", "vb_stephan", 4.62), min: 73, max: 146 },
+  { ...mkVB(135, "DULCE FRUTOS DEL BOSQUE VB", "vb_stephan", 4.62), min: 57, max: 114 },
+  { ...mkVB(136, "DULCE MOSQUETA 420gr VB", "vb_stephan", 4.62), min: 76, max: 152 },
+  { ...mkVB(137, "DULCE SAUCO 420gr VB", "vb_stephan", 4.62), min: 73, max: 146 },
   mkFatima(117, "TABLETA DE PISTACHO, SAL Y CARAMELO BsAs", "f_tabletas", 3.8, ["TAB SAL CARAMELO 100gr", "TABLETA DE PISTACHO, SAL Y CARAMELO BsAs"]),
   mkFatima(118, "TAB CHOC LECHE PURO 80G BsAs", "f_tabletas", 3.04, ["TABLETA LECHE PURO X80gr solo BsAs stock max p/4 meses min 2", "TAB CHOC LECHE PURO 80G BsAs"]),
   mkFatima(119, "TABLETA CHOC AMARGO 70% BsAs", "f_tabletas", 3.04, ["TABLETA 70 solo BsAs stock max p/4 meses min 2", "TABLETA CHOC AMARGO 70% BsAs"]),
@@ -594,6 +599,7 @@ function estNomFatimaProtege(nomProduit) {
 }
 function familleProduit(p) {
   const toks = tokensProduit(p && p.nom);
+  if (toks.includes("DULCE")) return "DULCE";
   const type = toks.includes("AMARGO") ? "AMARGO" : toks.includes("LECHE") ? "LECHE" : toks.includes("BLANCO") || toks.includes("BLANCA") ? "BLANCO" : toks.includes("PISTACHO") ? "PISTACHO" : toks.includes("DDL") ? "DDL" : "";
   const ingredients = ["ALMENDRA", "PISTACHO", "SAL", "CARAMELO", "BLANCO", "BLANCA", "LECHE", "AMARGO"].filter((t) => toks.includes(t));
   return [type, ingredients.filter((t) => t !== type).join("-")].filter(Boolean).join("|") || toks.filter((t) => !/^\d+$/.test(t)).slice(0, 3).join("|");
@@ -607,7 +613,7 @@ function etiquetaZonaProducto(p) {
 // Lecture d'une cellule de planning -> { p, kg, realKg } (rétro-compatible)
 function lireBloc(cell, ligne) {
   if (cell == null) return null;
-  if (typeof cell === "object") return { p: cell.p, kg: cell.kg, realKg: cell.realKg };
+  if (typeof cell === "object") return { ...cell, p: cell.p, kg: cell.kg, realKg: cell.realKg };
   return { p: cell, kg: kgBloc(ligne) };
 }
 function kgEffectifBloc(b) {
@@ -653,6 +659,13 @@ function fusionAvecBase(base: any[], sauvegarde: any[]) {
       fusionne.nom = baseItem.nom;
       fusionne.ligne = "f_tabletas";
       fusionne.aliases = baseItem.aliases;
+    }
+    if (baseItem && fusionne.usine === "vb" && ((fusionne.id >= 112 && fusionne.id <= 116) || (fusionne.id >= 133 && fusionne.id <= 137))) {
+      fusionne.nom = baseItem.nom;
+      fusionne.ligne = baseItem.ligne;
+      fusionne.pesoBulto = baseItem.pesoBulto;
+      fusionne.min = baseItem.min;
+      fusionne.max = baseItem.max;
     }
     if (baseItem && fusionne.usine === "mitre" && fusionne.id >= 3001 && fusionne.id <= 3049) {
       fusionne.nom = baseItem.nom;
@@ -714,10 +727,11 @@ export default function PlanificateurChocolat() {
   }, [dateDebutOpti, dateFinOpti]);
   const horizonOpti = periodeOpti.semaines;
 
+  const lundiAffiche = useMemo(() => lundiDeLaSemaine(lundi), [lundi]);
   const joursSemaine = useMemo(() => JOURS.map((nom, i) => {
-    const d = new Date(lundi.getFullYear(), lundi.getMonth(), lundi.getDate() + i);
+    const d = new Date(lundiAffiche.getFullYear(), lundiAffiche.getMonth(), lundiAffiche.getDate() + i);
     return { nom, date: d, cle: cleDate(d) };
-  }), [lundi]);
+  }), [lundiAffiche]);
 
   // Production planifiée par produit, EN BULTOS (en tenant compte des quantités partielles)
   const productionParProduit = useMemo(() => {
@@ -799,7 +813,7 @@ export default function PlanificateurChocolat() {
       try {
         const data = decodePayload(partage);
         if (data.usine) setUsine(data.usine);
-        if (data.lundi) setLundi(new Date(data.lundi));
+        if (data.lundi) setLundi(lundiDeLaSemaine(new Date(data.lundi)));
         if (data.plan && typeof data.plan === "object") setPlan(data.plan);
         if (Array.isArray(data.lignes)) {
           setLignes((actuelles) => {
@@ -827,7 +841,7 @@ export default function PlanificateurChocolat() {
       if (Array.isArray(data.lignes)) setLignes(fusionAvecBase(LIGNES_INIT, data.lignes));
       if (Array.isArray(data.produits)) setProduits(fusionAvecBase(PRODUITS_INIT, data.produits));
       if (data.plan && typeof data.plan === "object") setPlan(data.plan);
-      if (data.lundi) setLundi(new Date(data.lundi));
+      if (data.lundi) setLundi(lundiDeLaSemaine(new Date(data.lundi)));
       setMsgPartage("Planificación guardada cargada.");
     } catch (e) {
       localStorage.removeItem(STORAGE_KEY);
@@ -840,7 +854,7 @@ export default function PlanificateurChocolat() {
     lignes,
     produits,
     plan,
-    lundi: cleDate(lundi),
+    lundi: cleDate(lundiAffiche),
   });
 
   const guardarPlanificacion = () => {
@@ -853,7 +867,7 @@ export default function PlanificateurChocolat() {
     const payload = {
       version: 1,
       usine,
-      lundi: cleDate(lundi),
+      lundi: cleDate(lundiAffiche),
       plan,
       lignes: lignes.filter((l) => l.usine === usine),
       produits: produits.filter((p) => idsPlanificados.has(p.id) || idsPlanificados.has(String(p.id))),
@@ -938,6 +952,8 @@ export default function PlanificateurChocolat() {
     produitsUsine.forEach((p) => { stockSim[p.id] = p.stock; });
 
     let blocsUtilises = 0;
+    let blocsSansBesoin = 0;
+    let blocsEvitesMax = 0;
     const derniereFamilleParLigne = {};
     datesHorizon.forEach((jour) => {
       produitsUsine.forEach((p) => { if (estConfigure(p)) stockSim[p.id] -= demandeJour(p); });
@@ -956,13 +972,19 @@ export default function PlanificateurChocolat() {
             return;
           }
           const kgb_ligne = kgBlocPlanning(ligne, turno, jour.date); // kg disponibles por turno
-          // Produit le plus en déficit sous le plancher vert (min*1.5)
+          // Produit le plus en déficit sous le plancher vert (min*1.5), en turno completo.
           let meilleur = null, meilleurScore = -Infinity;
+          let candidatsSousVert = 0;
+          let candidatsCompletsPossibles = 0;
           prods.forEach((p) => {
             const s = seuils(p);
             const plancher = s.min * 1.5;
-            const urgence = plancher - stockSim[p.id]; // > 0 si est? debajo del verde
-            if (stockSim[p.id] >= s.max) return;
+            const urgence = plancher - stockSim[p.id]; // > 0 si esta debajo del verde
+            if (urgence <= 0) return;
+            candidatsSousVert++;
+            const bultosTurnoCompleto = kgb_ligne / kgParBulto(p);
+            if (stockSim[p.id] + bultosTurnoCompleto > s.max) return;
+            candidatsCompletsPossibles++;
             const deficitMax = Math.max(0, s.max - stockSim[p.id]);
             const memeFamille = derniereFamilleParLigne[ligne.id] && derniereFamilleParLigne[ligne.id] === familleProduit(p);
             const derniere = produits.find((prod) => memeId(prod.id, derniereFamilleParLigne[ligne.id + "_produit"]));
@@ -970,17 +992,19 @@ export default function PlanificateurChocolat() {
             const score = urgence * 1000 + deficitMax + (memeFamille ? Math.max(25, Math.abs(urgence) * 120) : 0) + (favoriseFraise ? 500000 : 0);
             if (score > meilleurScore) { meilleur = p; meilleurScore = score; }
           });
-          if (!meilleur) return;
+          if (!meilleur) {
+            if (candidatsSousVert > 0 && candidatsCompletsPossibles === 0) blocsEvitesMax++;
+            else blocsSansBesoin++;
+            return;
+          }
           const s = seuils(meilleur);
           const kgpb = kgParBulto(meilleur);
-          const bultosManquants = s.max - stockSim[meilleur.id];        // hasta el máximo
-          const kgNecessaires = bultosManquants * kgpb;
-          const kgProduit = Math.max(0, Math.min(kgb_ligne, kgNecessaires)); // divisible : on ne fait que le nécessaire
+          const kgProduit = kgb_ligne;
           if (kgProduit <= 0) return;
           const famille = familleProduit(meilleur);
           const raison = (derniereFamilleParLigne[ligne.id] === famille)
             ? "Agrupado por familia similar (" + famille + ")"
-            : (stockSim[meilleur.id] < s.min ? "Prioridad: bajo minimo" : "Reposicion hasta maximo");
+            : (stockSim[meilleur.id] < s.min ? "Prioridad: bajo minimo" : "Turno completo para volver a zona verde");
           nouveauPlan[jour.cle + "|" + ligne.id + "|" + turno.id] = { p: meilleur.id, kg: kgProduit, raison };
           stockSim[meilleur.id] += kgProduit / kgpb;
           derniereFamilleParLigne[ligne.id] = famille;
@@ -995,7 +1019,7 @@ export default function PlanificateurChocolat() {
     const sansConv = configures.filter((p) => !kgParBulto(p)).length;
     const enVert = configures.filter((p) => { const s = seuils(p); if (s.max <= 0) return true; return stockSim[p.id] >= s.min * 1.5 && stockSim[p.id] <= s.max; }).length;
     const sousMin = configures.filter((p) => stockSim[p.id] < seuils(p).min).length;
-    setMsgOpti("✓ " + blocsUtilises + " turno(s) utilizado(s) del " + fmtDate(lundiDepart) + (dateFin ? " al " + fmtDate(dateFin) : " en " + horizonOpti + " sem.") + " · familias similares agrupadas cuando la urgencia lo permite · " + enVert + "/" + configures.length + " en zona verde al final del horizonte" + (sousMin > 0 ? " · ⚠️ " + sousMin + " todavía bajo el mínimo (capacidad insuficiente)" : "") + (sansConv > 0 ? " · " + sansConv + " sin conversión no planificados" : "") + ".");
+    setMsgOpti("✓ " + blocsUtilises + " turno(s) completo(s) utilizado(s) del " + fmtDate(lundiDepart) + (dateFin ? " al " + fmtDate(dateFin) : " en " + horizonOpti + " sem.") + " · " + blocsSansBesoin + " turno(s) libres porque el stock ya estaba en verde · " + blocsEvitesMax + " turno(s) evitado(s) porque producir completo superaba el max. · familias similares agrupadas cuando la urgencia lo permite · " + enVert + "/" + configures.length + " en zona verde al final del horizonte" + (sousMin > 0 ? " · ⚠️ " + sousMin + " todavía bajo el mínimo (capacidad insuficiente o turno completo demasiado grande)" : "") + (sansConv > 0 ? " · " + sansConv + " sin conversión no planificados" : "") + ".");
   };
 
   useEffect(() => {
@@ -1093,7 +1117,7 @@ export default function PlanificateurChocolat() {
     const semanas = [];
     for (let w = 0; w < horizonOpti; w++) {
       const dias = JOURS.map((nom, i) => {
-        const date = new Date(lundi.getFullYear(), lundi.getMonth(), lundi.getDate() + w * 7 + i);
+        const date = new Date(lundiAffiche.getFullYear(), lundiAffiche.getMonth(), lundiAffiche.getDate() + w * 7 + i);
         return { nom, date, cle: cleDate(date) };
       });
       semanas.push(dias);
@@ -1172,7 +1196,7 @@ export default function PlanificateurChocolat() {
     URL.revokeObjectURL(url);
   };
 
-  const changerSemaine = (delta) => setLundi(new Date(lundi.getFullYear(), lundi.getMonth(), lundi.getDate() + delta * 7));
+  const changerSemaine = (delta) => setLundi(new Date(lundiAffiche.getFullYear(), lundiAffiche.getMonth(), lundiAffiche.getDate() + delta * 7));
   const totalSemaineLigne = (ligneId) => {
     const ligne = lignes.find((l) => l.id === ligneId); if (!ligne) return 0;
     let total = 0;
@@ -1212,7 +1236,7 @@ export default function PlanificateurChocolat() {
     const lignesAnalyse = lignesUsine.map((ligne) => {
       const prods = produitsUsine.filter((p) => p.ligne === ligne.id && estConfigure(p) && kgParBulto(p));
       const capSem = JOURS.reduce((s, _j, idx) => {
-        const date = new Date(lundi.getFullYear(), lundi.getMonth(), lundi.getDate() + idx);
+        const date = new Date(lundiAffiche.getFullYear(), lundiAffiche.getMonth(), lundiAffiche.getDate() + idx);
         return s + capaciteJourPlanning(ligne, date);
       }, 0);
       const demSem = prods.reduce((s, p) => s + demandeJour(p) * 7 * kgParBulto(p), 0);
@@ -1858,7 +1882,7 @@ export default function PlanificateurChocolat() {
           const diag = lignesUsine.map((ligne) => {
             const prods = produitsUsine.filter((p) => p.ligne === ligne.id && estConfigure(p) && kgParBulto(p));
             const capH = JOURS.reduce((s, _jour, idx) => {
-              const date = new Date(lundi.getFullYear(), lundi.getMonth(), lundi.getDate() + idx);
+              const date = new Date(lundiAffiche.getFullYear(), lundiAffiche.getMonth(), lundiAffiche.getDate() + idx);
               return s + capaciteJourPlanning(ligne, date);
             }, 0);
             const demH = prods.reduce((s, p) => s + demandeJour(p) * 7 * kgParBulto(p), 0);

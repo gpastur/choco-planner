@@ -620,8 +620,8 @@ function kgEffectifBloc(b) {
   return b && b.realKg != null && b.realKg !== "" && Number(b.realKg) >= 0 ? Number(b.realKg) : (b ? b.kg : 0);
 }
 
-const STORAGE_KEY = "choco-planner-state-v6";
-const OLD_STORAGE_KEYS = ["choco-planner-state-v4", "choco-planner-state-v5"];
+const STORAGE_KEY = "choco-planner-state-v7";
+const OLD_STORAGE_KEYS = ["choco-planner-state-v4", "choco-planner-state-v5", "choco-planner-state-v6"];
 
 function encodePayload(payload) {
   const json = JSON.stringify(payload);
@@ -732,6 +732,21 @@ export default function PlanificateurChocolat() {
     const d = new Date(lundiAffiche.getFullYear(), lundiAffiche.getMonth(), lundiAffiche.getDate() + i);
     return { nom, date: d, cle: cleDate(d) };
   }), [lundiAffiche]);
+
+  const nettoyerPlanningHorsPeriode = (debut, fin) => {
+    const debutCle = cleDate(debutJour(debut));
+    const finCle = cleDate(debutJour(fin));
+    const lignesIds = new Set(lignesUsine.map((l) => l.id));
+    setPlan((p) => {
+      const np = {};
+      Object.entries(p).forEach(([k, v]) => {
+        const [dt, lid] = k.split("|");
+        if (lignesIds.has(lid) && (dt < debutCle || dt > finCle)) return;
+        np[k] = v;
+      });
+      return np;
+    });
+  };
 
   // Production planifiée par produit, EN BULTOS (en tenant compte des quantités partielles)
   const productionParProduit = useMemo(() => {
@@ -960,11 +975,14 @@ export default function PlanificateurChocolat() {
     }
     const datesSet = new Set(datesHorizon.map((d) => d.cle));
     const lignesIds = lignesIdsUsine;
+    const dateDebutCle = cleDate(debutJour(lundiDepart));
+    const dateFinCle = dateFin ? cleDate(dateFin) : null;
     const nouveauPlan = {};
     Object.entries(plan).forEach(([k, v]) => {
       const [dt, lid] = k.split("|");
       const ligne = lignes.find((l) => l.id === lid);
       const b = lireBloc(v, ligne);
+      if (dateFinCle && lignesIds.has(lid) && (dt < dateDebutCle || dt > dateFinCle)) return;
       if (datesSet.has(dt) && lignesIds.has(lid) && !(b && b.realKg != null && b.realKg !== "")) return;
       nouveauPlan[k] = v;
     });
@@ -1645,11 +1663,11 @@ export default function PlanificateurChocolat() {
               <button onClick={() => { setLundi(lundiDeLaSemaine(periodeOpti.debut)); optimiser(periodeOpti.debut, { respecterDateExacte: true, dateFin: periodeOpti.fin }); }} className="px-4 py-2 bg-green-700 text-white rounded-lg text-sm font-medium hover:bg-green-800 shadow">✨ Optimizar la planificación</button>
               <label className="flex items-center gap-2 px-3 py-2 bg-green-50 border border-green-200 rounded-lg text-sm text-green-900">
                 Desde
-                <input type="date" className="bg-white border border-green-300 rounded-md px-2 py-1 text-sm font-semibold text-green-900" value={dateDebutOpti} onChange={(e) => { const valeur = e.target.value; setDateDebutOpti(valeur); setLundi(lundiDeLaSemaine(dateDepuisCle(valeur))); if (dateFinOpti < valeur) setDateFinOpti(valeur); }} />
+                <input type="date" className="bg-white border border-green-300 rounded-md px-2 py-1 text-sm font-semibold text-green-900" value={dateDebutOpti} onChange={(e) => { const valeur = e.target.value; const nouvelleFin = dateFinOpti < valeur ? valeur : dateFinOpti; setDateDebutOpti(valeur); setDateFinOpti(nouvelleFin); setLundi(lundiDeLaSemaine(dateDepuisCle(valeur))); nettoyerPlanningHorsPeriode(dateDepuisCle(valeur), dateDepuisCle(nouvelleFin)); }} />
               </label>
               <label className="flex items-center gap-2 px-3 py-2 bg-green-50 border border-green-200 rounded-lg text-sm text-green-900">
                 Hasta
-                <input type="date" className="bg-white border border-green-300 rounded-md px-2 py-1 text-sm font-semibold text-green-900" value={dateFinOpti} min={dateDebutOpti} onChange={(e) => setDateFinOpti(e.target.value)} />
+                <input type="date" className="bg-white border border-green-300 rounded-md px-2 py-1 text-sm font-semibold text-green-900" value={dateFinOpti} min={dateDebutOpti} onChange={(e) => { const valeur = e.target.value; setDateFinOpti(valeur); nettoyerPlanningHorsPeriode(dateDepuisCle(dateDebutOpti), dateDepuisCle(valeur)); }} />
               </label>
               <button onClick={viderHorizon} className="px-3 py-2 bg-white border border-gray-300 text-gray-600 rounded-lg text-sm hover:bg-gray-100">Borrar horizonte</button>
               <button onClick={guardarPlanificacion} className="px-3 py-2 bg-violet-800 text-white rounded-lg text-sm hover:bg-violet-900">Guardar</button>

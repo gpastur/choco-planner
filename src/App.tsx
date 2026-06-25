@@ -808,6 +808,75 @@ export default function PlanificateurChocolat() {
     }
   };
 
+  const textoMateriasPrimas = () => {
+    if (!matieresResultat) return "";
+    const materias = (matieresResultat as any).materias || [];
+    const sinReceta = (matieresResultat as any).sinReceta || [];
+    const lineas = [
+      "Necesidades de materias primas",
+      "Periodo: " + fmtDate(periodeOpti.debut) + " - " + fmtDate(periodeOpti.fin),
+      "Usina: " + (usineActive ? usineActive.nom : usine),
+      "",
+      "Materias primas:",
+      ...materias.map((m) => "- " + m.materia + ": " + fmtNb(m.kg) + " kg"),
+    ];
+    if (sinReceta.length > 0) {
+      lineas.push("", "Sin receta privada configurada:");
+      sinReceta.forEach((x) => lineas.push("- " + x.producto));
+    }
+    return lineas.join("\n");
+  };
+
+  const copiarMateriasPrimas = async () => {
+    const texto = textoMateriasPrimas();
+    if (!texto) {
+      setMsgMatieres("Primero calcula las materias primas.");
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(texto);
+      setMsgMatieres("Resumen de materias primas copiado.");
+    } catch (e) {
+      setMsgMatieres("No se pudo copiar automaticamente. Selecciona el resumen y copialo manualmente.");
+    }
+  };
+
+  const compartirMateriasPrimas = async () => {
+    const texto = textoMateriasPrimas();
+    if (!texto) {
+      setMsgMatieres("Primero calcula las materias primas.");
+      return;
+    }
+    if ((navigator as any).share) {
+      try {
+        await (navigator as any).share({ title: "Materias primas", text: texto });
+        setMsgMatieres("Resumen compartido.");
+        return;
+      } catch (e) {
+        if ((e as any).name === "AbortError") return;
+      }
+    }
+    const url = "https://wa.me/?text=" + encodeURIComponent(texto);
+    window.open(url, "_blank", "noopener,noreferrer");
+  };
+
+  const descargarMateriasCSV = () => {
+    if (!matieresResultat) {
+      setMsgMatieres("Primero calcula las materias primas.");
+      return;
+    }
+    const materias = (matieresResultat as any).materias || [];
+    const csv = ["Materia prima;Kg necesarios", ...materias.map((m) => '"' + String(m.materia).replace(/"/g, '""') + '";' + String(Math.round(m.kg * 100) / 100))].join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "materias-primas-" + cleDate(periodeOpti.debut) + "-" + cleDate(periodeOpti.fin) + ".csv";
+    a.click();
+    URL.revokeObjectURL(url);
+    setMsgMatieres("CSV de materias primas descargado.");
+  };
+
   const seuils = (p) => ({ min: p.min != null ? p.min : 0, max: p.max != null ? p.max : 0 });
   const estConfigure = (p) => p.min != null || p.max != null;
   const estTabletaFatima = (p) => p && p.usine === "fatima" && p.id >= 117 && p.id <= 132;
@@ -1970,6 +2039,16 @@ export default function PlanificateurChocolat() {
                 </div>
               ) : (
                 <>
+                  <div className="flex flex-wrap gap-2 mb-3">
+                    <button onClick={copiarMateriasPrimas} className="px-3 py-2 bg-emerald-700 text-white rounded-lg text-sm hover:bg-emerald-800">Copiar resumen</button>
+                    <button onClick={compartirMateriasPrimas} className="px-3 py-2 bg-sky-700 text-white rounded-lg text-sm hover:bg-sky-800">Compartir</button>
+                    <button onClick={descargarMateriasCSV} className="px-3 py-2 bg-white border border-slate-300 text-slate-700 rounded-lg text-sm hover:bg-slate-50">Descargar CSV</button>
+                  </div>
+                  <textarea
+                    readOnly
+                    className="w-full min-h-36 border border-emerald-100 bg-emerald-50 rounded-lg p-3 text-sm text-slate-700 mb-4"
+                    value={textoMateriasPrimas()}
+                  />
                   <table className="w-full text-sm">
                     <thead><tr className="text-left text-slate-500 border-b"><th className="py-1">Materia prima</th><th className="py-1 text-right">Kg necesarios</th></tr></thead>
                     <tbody>
@@ -2020,18 +2099,23 @@ export default function PlanificateurChocolat() {
         )}
 
         {onglet === "diagnostic" && (() => {
+          const datesDiagnostic = [];
+          for (let dt = new Date(periodeOpti.debut); dt <= periodeOpti.fin; dt.setDate(dt.getDate() + 1)) datesDiagnostic.push(new Date(dt));
           const diag = lignesUsine.map((ligne) => {
             const prods = produitsUsine.filter((p) => p.ligne === ligne.id && estConfigure(p) && kgParBulto(p));
-            const capH = JOURS.reduce((s, _jour, idx) => {
+            const capH = datesDiagnostic.reduce((s, date) => s + capaciteJourPlanning(ligne, date), 0);
+            const demH = prods.reduce((s, p) => s + demandeJour(p) * periodeOpti.jours * kgParBulto(p), 0);
+            const capSemInfo = JOURS.reduce((s, _jour, idx) => {
               const date = new Date(lundiAffiche.getFullYear(), lundiAffiche.getMonth(), lundiAffiche.getDate() + idx);
               return s + capaciteJourPlanning(ligne, date);
             }, 0);
-            const demH = prods.reduce((s, p) => s + demandeJour(p) * 7 * kgParBulto(p), 0);
+            const demSemInfo = prods.reduce((s, p) => s + demandeJour(p) * 7 * kgParBulto(p), 0);
+            const margeSemInfo = capSemInfo - demSemInfo;
             const defi = prods.reduce((s, p) => s + Math.max(0, (seuils(p).min * 1.5 - p.stock)) * kgParBulto(p), 0);
             const marge = capH - demH;
             const sansConv = produitsUsine.filter((p) => p.ligne === ligne.id && estConfigure(p) && !kgParBulto(p)).length;
-            const temps = defi <= 0 ? 0 : (marge > 0 ? defi / marge : Infinity);
-            return { ligne, capH, demH, defi, marge, charge: capH > 0 ? demH / capH : 0, temps, sansConv };
+            const temps = defi <= 0 ? 0 : (margeSemInfo > 0 ? defi / margeSemInfo : Infinity);
+            return { ligne, capH, demH, defi, marge, capSemInfo, demSemInfo, margeSemInfo, charge: capH > 0 ? demH / capH : 0, temps, sansConv };
           });
           const totalDem = diag.reduce((s, d) => s + d.demH, 0);
           const goulots = diag.filter((d) => d.marge <= 0 && d.demH > 0);
@@ -2049,7 +2133,7 @@ export default function PlanificateurChocolat() {
               const deficitKg = deficitBultos * kgBulto;
               const demandeHebdoKg = demandeJour(p) * 7 * kgBulto;
               const tempsSemaines =
-                deficitKg <= 0 ? 0 : (d && d.marge > 0 ? deficitKg / d.marge : Infinity);
+                deficitKg <= 0 ? 0 : (d && d.margeSemInfo > 0 ? deficitKg / d.margeSemInfo : Infinity);
               return {
                 p,
                 ligne,
@@ -2059,7 +2143,7 @@ export default function PlanificateurChocolat() {
                 deficitKg,
                 demandeHebdoKg,
                 chargeLigne: d ? d.charge : 0,
-                margeLigne: d ? d.marge : 0,
+                margeLigne: d ? d.margeSemInfo : 0,
                 tempsSemaines,
               };
             })
@@ -2073,13 +2157,13 @@ export default function PlanificateurChocolat() {
           return (
             <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-4">
               <h2 className="font-semibold text-violet-900 mb-1">Diagnóstico de capacidad — {usineActive ? usineActive.nom : ""}</h2>
-              <p className="text-xs text-gray-500 mb-3">Supuestos: horarios reales por fabrica, produccion lunes a sabado segun calendario, ventas 7 dias/semana. Fatima: un turno completo de lunes a viernes dividido en medio turno manana y medio turno tarde, sabado y domingo sin turno. Esandi: manana y tarde, sabado solo manana. Mitre/VB: 3 turnos base y sabado solo manana. Demanda/sem = suma(demanda/dia x 7 x kg/bulto).</p>
+              <p className="text-xs text-gray-500 mb-3">Periodo analizado: <strong>{fmtDate(periodeOpti.debut)} al {fmtDate(periodeOpti.fin)}</strong> ({periodeOpti.jours} dias). La carga principal se calcula sobre ese rango: demanda acumulada del periodo dividida por la capacidad disponible del periodo. La estimacion en semanas es solo informativa y usa el margen semanal normal.</p>
               {totalDem === 0 ? (
                 <div className="p-3 bg-violet-50 rounded-lg text-sm text-violet-800">Primero importa los stocks (mín./máx.) en la pestaña Importar: el diagnóstico se calcula con tus valores reales.</div>
               ) : goulots.length > 0 ? (
-                <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-800 mb-3">⚠️ {goulots.length} línea(s) en sobrecarga ({goulots.map((d) => d.ligne.nom).join(", ")}): la demanda supera la capacidad; esos productos no podrán mantenerse todos en verde sin turnos adicionales.</div>
+                <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-800 mb-3">⚠️ {goulots.length} línea(s) en sobrecarga en el periodo seleccionado ({goulots.map((d) => d.ligne.nom).join(", ")}): la demanda del rango supera la capacidad disponible del rango.</div>
               ) : (
-                <div className="p-3 bg-green-50 border border-green-200 rounded-lg text-sm text-green-800 mb-3">✓ Todas las líneas tienen margen positivo. Tiempo estimado para llevar todos los productos a verde: <strong>{maxTemps < 1 ? "menos de una semana" : Math.ceil(maxTemps) + " semana(s)"}</strong> (marcado por la línea más cargada).</div>
+                <div className="p-3 bg-green-50 border border-green-200 rounded-lg text-sm text-green-800 mb-3">✓ Todas las líneas tienen margen positivo en el periodo seleccionado. Info: al ritmo semanal normal, llevar todos los productos a verde tomaría aprox. <strong>{maxTemps < 1 ? "menos de una semana" : Math.ceil(maxTemps) + " semana(s)"}</strong>.</div>
               )}
 
               {totalDem > 0 && (
@@ -2131,19 +2215,19 @@ export default function PlanificateurChocolat() {
                       </table>
                     </div>
                   )}
-                  <p className="text-xs text-gray-500 mt-2">Objetivo verde = stock min. x 1,5. El tiempo estimado supone que la margen disponible de la linea se prioriza primero a ese producto; si varios productos compiten por la misma linea, el tiempo real puede ser mayor.</p>
+                  <p className="text-xs text-gray-500 mt-2">Objetivo verde = stock min. x 1,5. El tiempo estimado es informativo: usa el margen semanal normal de la linea, no reemplaza el diagnostico del periodo seleccionado.</p>
                 </div>
               )}
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead><tr className="text-left text-gray-500 border-b">
                     <th className="py-1 pr-2">Línea</th>
-                    <th className="py-1 text-right">Capacité/sem (kg)</th>
-                    <th className="py-1 text-right">Demanda/sem (kg)</th>
-                    <th className="py-1 text-right">Carga</th>
+                    <th className="py-1 text-right">Capacidad periodo (kg)</th>
+                    <th className="py-1 text-right">Demanda periodo (kg)</th>
+                    <th className="py-1 text-right">Carga periodo</th>
                     <th className="py-1 text-right">Déficit actual (kg)</th>
-                    <th className="py-1 text-right">Margen/sem (kg)</th>
-                    <th className="py-1 text-right">Tiempo → todo en verde</th>
+                    <th className="py-1 text-right">Margen periodo (kg)</th>
+                    <th className="py-1 text-right">Info semanas → verde</th>
                   </tr></thead>
                   <tbody>
                     {diag.map((d) => {
@@ -2163,7 +2247,7 @@ export default function PlanificateurChocolat() {
                   </tbody>
                 </table>
               </div>
-              <p className="text-xs text-gray-500 mt-3"><strong>Carga</strong> = demanda de reposición ÷ capacidad. Por encima de 100 % (rojo): la línea no alcanza la demanda y sus productos caerán por debajo del mínimo aunque se planifique. <strong>Tiempo → todo en verde</strong> = déficit actual (hasta el piso verde) ÷ margen semanal disponible.</p>
+              <p className="text-xs text-gray-500 mt-3"><strong>Carga periodo</strong> = demanda acumulada entre Desde/Hasta ÷ capacidad disponible entre Desde/Hasta. Una carga baja no garantiza que todo quede verde si se exige producir turnos completos y un turno completo haria superar el maximo de stock. <strong>Info semanas → verde</strong> = deficit actual hasta el piso verde ÷ margen semanal normal; es una referencia, no el diagnostico principal del rango.</p>
             </div>
           );
         })()}

@@ -695,6 +695,8 @@ export default function PlanificateurChocolat() {
   const [msgImport, setMsgImport] = useState("");
   const [msgLigne, setMsgLigne] = useState("");
   const [msgOpti, setMsgOpti] = useState("");
+  const [matieresResultat, setMatieresResultat] = useState(null);
+  const [msgMatieres, setMsgMatieres] = useState("");
   const [dateDebutOpti, setDateDebutOpti] = useState(() => cleDate(prochainLundiApres(new Date())));
   const [dateFinOpti, setDateFinOpti] = useState(() => {
     const d = prochainLundiApres(new Date());
@@ -761,6 +763,50 @@ export default function PlanificateurChocolat() {
     });
     return prod;
   }, [plan, lignes, produits]);
+
+  const planningDulcesMatieres = useMemo(() => {
+    const debutCle = cleDate(periodeOpti.debut);
+    const finCle = cleDate(periodeOpti.fin);
+    const parProduit = {};
+    Object.entries(plan).forEach(([cle, cell]) => {
+      const [dt, lid] = cle.split("|");
+      if (dt < debutCle || dt > finCle) return;
+      const ligne = lignes.find((l) => l.id === lid);
+      if (!ligne || ligne.usine !== usine) return;
+      const b = lireBloc(cell, ligne);
+      if (!b || b.p == null) return;
+      const p = produits.find((x) => memeId(x.id, b.p));
+      if (!p || !tokensProduit(p.nom).includes("DULCE")) return;
+      parProduit[p.id] = parProduit[p.id] || { id: p.id, nom: p.nom, kg: 0 };
+      parProduit[p.id].kg += kgEffectifBloc(b);
+    });
+    return Object.values(parProduit).sort((a: any, b: any) => a.nom.localeCompare(b.nom));
+  }, [plan, lignes, produits, usine, periodeOpti]);
+
+  const calcularMateriasPrimas = async () => {
+    setMsgMatieres("");
+    setMatieresResultat(null);
+    if (planningDulcesMatieres.length === 0) {
+      setMsgMatieres("No hay Dulces planificados en la periodo seleccionada.");
+      return;
+    }
+    try {
+      const resp = await fetch("/api/materias-primas", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ items: planningDulcesMatieres }),
+      });
+      const data = await resp.json();
+      if (!resp.ok) {
+        setMsgMatieres(data && data.detalle ? data.detalle : "No se pudo calcular materias primas.");
+        return;
+      }
+      setMatieresResultat(data);
+      setMsgMatieres("Materias primas calculadas para la planificacion seleccionada.");
+    } catch (error) {
+      setMsgMatieres("La funcion privada de recetas no esta disponible en esta previsualizacion local.");
+    }
+  };
 
   const seuils = (p) => ({ min: p.min != null ? p.min : 0, max: p.max != null ? p.max : 0 });
   const estConfigure = (p) => p.min != null || p.max != null;
@@ -1640,6 +1686,7 @@ export default function PlanificateurChocolat() {
           <button onClick={() => setOnglet("calendrier")} className={"px-4 py-2 rounded-lg text-sm font-medium transition " + (onglet === "calendrier" ? "bg-violet-800 text-white shadow" : "bg-white text-violet-800 hover:bg-violet-100")}>📅 Calendario</button>
           <button onClick={() => setOnglet("stocks")} className={"px-4 py-2 rounded-lg text-sm font-medium transition " + (onglet === "stocks" ? "bg-violet-800 text-white shadow" : "bg-white text-violet-800 hover:bg-violet-100")}>📦 Estado de Stocks</button>
           <button onClick={() => setOnglet("produits")} className={"px-4 py-2 rounded-lg text-sm font-medium transition " + (onglet === "produits" ? "bg-violet-800 text-white shadow" : "bg-white text-violet-800 hover:bg-violet-100")}>⚙️ Productos y Líneas{produitsNonAssignes.length > 0 ? " (" + produitsNonAssignes.length + ")" : ""}</button>
+          <button onClick={() => setOnglet("materias")} className={"px-4 py-2 rounded-lg text-sm font-medium transition " + (onglet === "materias" ? "bg-violet-800 text-white shadow" : "bg-white text-violet-800 hover:bg-violet-100")}>🧾 Materias primas</button>
           <button onClick={() => setOnglet("diagnostic")} className={"px-4 py-2 rounded-lg text-sm font-medium transition " + (onglet === "diagnostic" ? "bg-violet-800 text-white shadow" : "bg-white text-violet-800 hover:bg-violet-100")}>📊 Diagnóstico</button>
               <button onClick={() => setOnglet("import")} className={"px-4 py-2 rounded-lg text-sm font-medium transition " + (onglet === "import" ? "bg-violet-800 text-white shadow" : "bg-white text-violet-800 hover:bg-violet-100")}>🔄 Importar / Exportar</button>
         </div>
@@ -1884,6 +1931,67 @@ export default function PlanificateurChocolat() {
           </div>
         )}
 
+        {onglet === "materias" && (
+          <div className="grid gap-4 lg:grid-cols-[1fr_1.2fr]">
+            <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-4">
+              <h2 className="font-semibold text-violet-900 mb-2">Materias primas privadas</h2>
+              <p className="text-sm text-slate-600 mb-3">
+                La receta no se guarda en la app ni en GitHub. Este modulo envia solo los kg planificados de Dulces a una funcion privada del servidor y muestra totales agregados.
+              </p>
+              <div className="text-xs text-slate-500 mb-3">
+                Periodo: <strong>{fmtDate(periodeOpti.debut)} - {fmtDate(periodeOpti.fin)}</strong>
+              </div>
+              <button onClick={calcularMateriasPrimas} className="px-4 py-2 bg-emerald-700 text-white rounded-lg text-sm hover:bg-emerald-800">Calcular materias primas</button>
+              {msgMatieres && <p className="text-sm text-emerald-800 mt-3">{msgMatieres}</p>}
+              <div className="mt-4 border-t pt-3">
+                <h3 className="font-semibold text-sm text-slate-700 mb-2">Dulces planificados</h3>
+                {planningDulcesMatieres.length === 0 ? (
+                  <p className="text-sm text-slate-400">No hay Dulces planificados en este periodo.</p>
+                ) : (
+                  <table className="w-full text-sm">
+                    <thead><tr className="text-left text-slate-500 border-b"><th className="py-1">Producto</th><th className="py-1 text-right">Kg plan</th></tr></thead>
+                    <tbody>
+                      {planningDulcesMatieres.map((item: any) => (
+                        <tr key={item.id} className="border-b border-slate-100">
+                          <td className="py-2 pr-2">{item.nom}</td>
+                          <td className="py-2 text-right font-semibold">{fmtNb(item.kg)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+            </div>
+            <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-4">
+              <h2 className="font-semibold text-violet-900 mb-2">Necesidades agregadas</h2>
+              {!matieresResultat ? (
+                <div className="p-4 rounded-lg bg-slate-50 border border-slate-200 text-sm text-slate-500">
+                  Pulsa calcular para ver los kg por materia prima. Si la funcion privada no esta configurada, aqui aparecera el mensaje de configuracion.
+                </div>
+              ) : (
+                <>
+                  <table className="w-full text-sm">
+                    <thead><tr className="text-left text-slate-500 border-b"><th className="py-1">Materia prima</th><th className="py-1 text-right">Kg necesarios</th></tr></thead>
+                    <tbody>
+                      {(matieresResultat as any).materias.map((m) => (
+                        <tr key={m.materia} className="border-b border-slate-100">
+                          <td className="py-2 pr-2 font-medium">{m.materia}</td>
+                          <td className="py-2 text-right font-bold text-emerald-800">{fmtNb(m.kg)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  {(matieresResultat as any).sinReceta && (matieresResultat as any).sinReceta.length > 0 && (
+                    <div className="mt-4 p-3 rounded-lg bg-amber-50 border border-amber-200 text-sm text-amber-800">
+                      Sin receta privada configurada para: {(matieresResultat as any).sinReceta.map((x) => x.producto).join(", ")}
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          </div>
+        )}
+
         {onglet === "import" && (
           <div className="grid gap-4 md:grid-cols-2">
             <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-4">
@@ -1900,7 +2008,7 @@ export default function PlanificateurChocolat() {
                 <button onClick={actualiserStocksUsine} className="px-4 py-2 bg-emerald-700 text-white rounded-lg text-sm hover:bg-emerald-800">Actualizar stocks y conservar planning</button>
                 <button onClick={importerFeuilleUsine} className="px-4 py-2 bg-violet-800 text-white rounded-lg text-sm hover:bg-violet-900">Importar base para {usineActive ? usineActive.nom : ""}</button>
               </div>
-              <p className="text-xs text-gray-500 mt-2"><strong>Actualizar stocks</strong> modifica solo productos ya existentes: conserva calendario, reales kg, lineas y planning. Las gomitas, proyecciones y diagnostico se recalculan automaticamente.</p>
+              <p className="text-xs text-gray-500 mt-2"><strong>Actualizar stocks</strong> modifica solo productos ya existentes: conserva calendario, reales kg, lineas y planning. Para recalcular el calendario, elige Desde/Hasta y pulsa Optimizar la planificacion.</p>
               {msgImport && <p className="text-sm text-green-700 mt-2">{msgImport}</p>}
             </div>
             <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-4">

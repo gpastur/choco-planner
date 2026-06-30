@@ -3,6 +3,7 @@ function normalizar(valor) {
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .toUpperCase()
+    .replace(/\bBS\s+AS\b/g, "")
     .replace(/\b(BSAS|VB)\b/g, "")
     .replace(/\s+/g, " ")
     .trim();
@@ -37,6 +38,8 @@ function leerRecetasPrivadas() {
     ["RECETAS_ESANDI_JSON", process.env.RECETAS_ESANDI_JSON],
     ["RECETAS_FATIMA_JSON", process.env.RECETAS_FATIMA_JSON],
     ["RECETAS_MITRE_JSON", process.env.RECETAS_MITRE_JSON],
+    ["RECETAS_PRODUCTOS_JSON", process.env.RECETAS_PRODUCTOS_JSON],
+    ["RECETAS_EXTRA_JSON", process.env.RECETAS_EXTRA_JSON],
   ].filter(([, valor]) => valor && String(valor).trim());
 
   if (fuentes.length === 0) {
@@ -52,6 +55,18 @@ function leerRecetasPrivadas() {
     }
   }
   return { recetas };
+}
+
+function corregirReceta(nombre, receta) {
+  const clave = normalizar(nombre);
+  const recetasCorregidas = {
+    "OSOS DDL GRANEL": { "Choco leche": "67%", "DDL clasico": "33%" },
+    "OSOS DDL X4": { "Choco leche": "67%", "DDL clasico": "33%" },
+    "OSOS DDL X6": { "Choco leche": "67%", "DDL clasico": "33%" },
+    "OSOS DDL X12": { "Choco leche": "67%", "DDL clasico": "33%" },
+    "CORAZON X5": { "Choco leche": "67%", "DDL clasico": "33%" },
+  };
+  return recetasCorregidas[clave] || receta;
 }
 
 export default function handler(req, res) {
@@ -74,7 +89,7 @@ export default function handler(req, res) {
   }
 
   const items = Array.isArray(req.body && req.body.items) ? req.body.items : [];
-  const recetasPorNombre = new Map(Object.entries(privadas.recetas).map(([nombre, receta]) => [normalizar(nombre), receta]));
+  const recetasPorNombre = new Map(Object.entries(privadas.recetas).map(([nombre, receta]) => [normalizar(nombre), corregirReceta(nombre, receta)]));
   const totales = {};
   const sinReceta = [];
 

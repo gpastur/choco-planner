@@ -151,7 +151,7 @@ const PESO_BULTO_POR_PRODUCTO = {
   "TABLETA CHOC AMARGO 90%": 3.04,
   "TORTUGAS": 1.275,
   "TURRON ALMENDRA": 3.63,
-  "TURRON ALMENDRA BANADO": 3.63,
+  "TURRON ALMENDRA BANADO": 3.96,
   "TURRON GIANDUIA": 3.63,
   "TURRON MANI": 3.63,
   "TURRON NUEZ": 3.63,
@@ -174,8 +174,8 @@ const PRODUITS_INIT = [
   mkEsandi(11, "CAFE TOSTADO CONFI x 1 kg", "e_env", 6),
   mkEsandi(12, "CHOCO TAZA BOLSA 200gr", "e_env", 6),
   mkEsandi(13, "CORAZON DDL GRANEL", "e_bomb", 4.92),
-  mkEsandi(14, "CORAZON x5", "e_bomb", 4.32),
-  mkEsandi(15, "FIGURAS MACIZAS MIx", "e_bomb", 4.5),
+  mkEsandi(14, "CORAZON x5", "e_bomb", 3.6),
+  mkEsandi(15, "FIGURAS MACIZAS MIx", "e_bomb", 7.98),
   mkEsandi(16, "FONDUE MICRO", "e_bomb", 5.4),
   mkEsandi(17, "FONDUE TRADICIONAL X 200gr", "e_env", 6),
   mkEsandi(18, "GARRAP ALMENDRA 100gr", "e_pc", 3.2),
@@ -261,17 +261,27 @@ const PRODUITS_INIT = [
   mkEsandi(98, "TABLETA LECHE XXL AVELLANA", "e_crem", 11.2),
   mkEsandi(99, "TABLETA MINI GOTA DDL", "e_bomb", 3.15),
   mkEsandi(100, "TABLETA PISTACHO", "e_crem", 3.8),
-  mkEsandi(101, "TABLETA RELLENA DDL 120gr", "e_bomb", 5.13),
+  mkEsandi(101, "TABLETA RELLENA DDL 120gr", "e_bomb", 4.32),
   mkEsandi(102, "TABLETA XXL LECHE PURA", "e_crem", 5.6),
   mkEsandi(103, "TORTUGAS", "e_dec", 1.275),
   mkEsandi(104, "TURRON ALMENDRA", "e_tur", 3.63),
-  mkEsandi(105, "TURRON ALMENDRA BANADO", "e_tur", 3.63),
+  mkEsandi(105, "TURRON ALMENDRA BANADO", "e_tur", 3.96),
   mkEsandi(106, "TURRON GIANDUIA", "e_tur", 3.63),
   mkEsandi(107, "TURRON MANI", "e_tur", 3.63),
   mkEsandi(108, "TURRON NUEZ", "e_tur", 3.63),
   mkEsandi(109, "TURRON NUEZ Y DAMASCO", "e_tur", 3.63),
   mkEsandi(110, "TURRON PISTACHO Y NARANJA", "e_tur", 3.63),
   mkEsandi(111, "CONEJITO DDL X 5", "e_bomb", 2.1),
+  mkEsandi(138, "CHOCO FONDUE 200gr", "e_env", 6),
+  mkEsandi(139, "TABLETA 70 ECUADOR VB", "e_bomb", 3.04),
+  mkEsandi(140, "TABLETA 80 TUMACO VB", "e_bomb", 3.04),
+  mkEsandi(141, "FRASCO NUICCIOLA 380 GR", "e_crem", 4.18),
+  mkEsandi(142, "FRASCO MARROC 380 GR", "e_crem", 4.18),
+  mkEsandi(143, "HUESITO FIG MACIZA", "e_bomb", 7.98),
+  mkEsandi(144, "ALMENDRA PICADA ENV x300gr", "e_env", 4.5),
+  mkEsandi(145, "LICOR DE CHOCOLATE BOTELLA", "e_env", 5),
+  mkEsandi(146, "JUGO DE FRAM/FRUT BOTELLA", "e_env", 4.4),
+  mkVB(147, "DULCE FRUTOS ROJOS", "vb_stephan", 4.62),
   { ...mkVB(112, "DULCE FRAMBUESA 420gr BsAs", "vb_stephan", 4.62), min: 82, max: 163 },
   { ...mkVB(113, "DULCE FRUTILLA 420gr BsAs", "vb_stephan", 4.62), min: 39, max: 78 },
   { ...mkVB(114, "DULCE FRUTOS DEL BOSQUE BsAs", "vb_stephan", 4.62), min: 22, max: 44 },
@@ -298,55 +308,55 @@ const PRODUITS_INIT = [
   mkFatima(130, "TABLETA CHOC AMARGO 80% VB", "f_tabletas", 3.04, ["TABLETA 80 VB", "TABLETA CHOC AMARGO 80% VB"]),
   mkFatima(131, "TABLETA CHOC AMARGO 60% VB", "f_tabletas", 3.04, ["TABLETA 60 VB", "TABLETA CHOC AMARGO 60% VB"]),
   mkFatima(132, "TABLETA CHOC AMARGO 90% VB", "f_tabletas", 3.04, ["TABLETA 90 VB", "TABLETA CHOC AMARGO 90% VB"]),
-  mkMitre(3001, "ALFAJOR ALMENDRA AVELLANA", "l3", 72, 241, 482),
-  mkMitre(3002, "ALFAJOR DDL CHOCOLATE", "l3", 352, 310, 619),
-  mkMitre(3003, "ALFAJOR DDL GLASE", "l3", 165, 119, 237),
-  mkMitre(3004, "ALFAJOR FRAMBUESA CHOCO", "l3", 389, 247, 494),
-  mkMitre(3005, "ALFAJOR FRAMBUESA GLASE", "l3", 0, 96, 193),
-  mkMitre(3006, "ALFAJOR MOUSSE", "l3", 132, 229, 459),
+  mkMitre(3001, "ALFAJOR ALMENDRA AVELLANA", "l3", 72, 241, 482, 2.7),
+  mkMitre(3002, "ALFAJOR DDL CHOCOLATE", "l3", 352, 310, 619, 2.7),
+  mkMitre(3003, "ALFAJOR DDL GLASE", "l3", 165, 119, 237, 2.7),
+  mkMitre(3004, "ALFAJOR FRAMBUESA CHOCO", "l3", 389, 247, 494, 2.7),
+  mkMitre(3005, "ALFAJOR FRAMBUESA GLASE", "l3", 0, 96, 193, 2.7),
+  mkMitre(3006, "ALFAJOR MOUSSE", "l3", 132, 229, 459, 2.7),
   mkMitre(3007, "ALFAJOR BLANCO ALMENDRA", "l3", 76, 109, 218),
-  mkMitre(3008, "CROCANTE ALMENDRA LECHE", null, 0, 66, 264),
-  mkMitre(3009, "CROCANTE ALMENDRA AMARGO", null, 0, 44, 175),
+  mkMitre(3008, "CROCANTE ALMENDRA LECHE", null, 0, 66, 264, 3),
+  mkMitre(3009, "CROCANTE ALMENDRA AMARGO", null, 0, 44, 175, 3),
   mkMitre(3010, "TORTA GALESA 300gr", null, 22, 12, 47),
   mkMitre(3011, "CEREZA CON CABITO", null, 0, 12, 46),
   mkMitre(3012, "BUDIN DE LIMON sintacc viene de MC", null, 18, 12, 24),
   mkMitre(3013, "BUDIN DE CHOCOLATE viene de mitre", null, 0, 4, 8),
-  mkMitre(3014, "RAPANUINOS x2 AMARGO", null, 28, 38, 76),
-  mkMitre(3015, "RAPANUINOS x2 BLANCO", null, 6, 45, 90),
-  mkMitre(3016, "CAPRICHO AL RUHM", null, 21, 14, 54),
-  mkMitre(3017, "TRUFA PATAGONIA", null, 39, 36, 142),
-  mkMitre(3018, "HABANOS", null, 31, 45, 181),
-  mkMitre(3019, "CRIOLLA", null, 23, 38, 150),
-  mkMitre(3020, "MOUSSE AMARGO", null, 3, 12, 47),
-  mkMitre(3021, "MOUSSE FRAMBUESA", null, 1, 15, 61),
-  mkMitre(3022, "GOLOSA", null, 21, 12, 46),
-  mkMitre(3023, "70 CACAO", null, 35, 16, 65),
-  mkMitre(3024, "NARANJITAS", null, 0, 4, 16),
-  mkMitre(3025, "MENTITAS", null, 0, 6, 23),
-  mkMitre(3026, "MARACUYA AMARGA", null, 15, 25, 101),
-  mkMitre(3027, "RAMA BANADA", null, 0, 9, 36),
-  mkMitre(3028, "VOLCAN DDL", null, 0, 16, 65),
-  mkMitre(3029, "ECLIPSE DE NOGAL", null, 1, 10, 40),
-  mkMitre(3030, "TRUFA KARI AMARGA", null, 0, 6, 23),
-  mkMitre(3031, "TRUFA NEVADA (COCO)", null, 22, 34, 136),
-  mkMitre(3032, "CIRUELAS", null, 0, 6, 25),
-  mkMitre(3033, "HIGOS", null, 0, 3, 10),
-  mkMitre(3034, "TRUFA BANANA", null, 2, 25, 101),
-  mkMitre(3035, "TENTACION RAMA", null, 0, 10, 40),
-  mkMitre(3036, "BROWNIE DDL", null, 0, 19, 75),
-  mkMitre(3037, "BROWNIE MOUSSE AMARGO", null, 0, 14, 57),
-  mkMitre(3038, "PASION DE ALMENDRA", null, 20, 17, 67),
-  mkMitre(3039, "NUEZ AL COGNAC", null, 36, 14, 57),
-  mkMitre(3040, "TRINIDAD DE ALMENDRA", null, 0, 28, 111),
-  mkMitre(3041, "TRINIDAD DE AVELLANA", null, 15, 43, 172),
-  mkMitre(3042, "TR SAMBAYON", null, 0, 16, 64),
-  mkMitre(3043, "TR TIRAMISU", null, 0, 17, 66),
-  mkMitre(3044, "ESTAMBUL", null, 4, 29, 117),
-  mkMitre(3045, "TRUFA KARI LECHE", null, 0, 26, 102),
-  mkMitre(3046, "TRUFA EUFORIA", null, 1, 16, 63),
-  mkMitre(3047, "TRUFA WHISKY", null, 44, 12, 49),
-  mkMitre(3048, "TRUFA CAPPUCCINO", null, 76, 9, 35),
-  mkMitre(3049, "NIBS CACAO", null, 62, 10, 40),
+  mkMitre(3014, "RAPANUINOS x2 AMARGO", null, 28, 38, 76, 4.86),
+  mkMitre(3015, "RAPANUINOS x2 BLANCO", null, 6, 45, 90, 4.86),
+  mkMitre(3016, "CAPRICHO AL RUHM", null, 21, 14, 54, 5.4),
+  mkMitre(3017, "TRUFA PATAGONIA", null, 39, 36, 142, 3.6),
+  mkMitre(3018, "HABANOS", null, 31, 45, 181, 3.6),
+  mkMitre(3019, "CRIOLLA", null, 23, 38, 150, 3.6),
+  mkMitre(3020, "MOUSSE AMARGO", null, 3, 12, 47, 3.6),
+  mkMitre(3021, "MOUSSE FRAMBUESA", null, 1, 15, 61, 3.6),
+  mkMitre(3022, "GOLOSA", null, 21, 12, 46, 5.4),
+  mkMitre(3023, "70 CACAO", null, 35, 16, 65, 3.6),
+  mkMitre(3024, "NARANJITAS", null, 0, 4, 16, 3.6),
+  mkMitre(3025, "MENTITAS", null, 0, 6, 23, 3.6),
+  mkMitre(3026, "MARACUYA AMARGA", null, 15, 25, 101, 3.6),
+  mkMitre(3027, "RAMA BANADA", null, 0, 9, 36, 3.6),
+  mkMitre(3028, "VOLCAN DDL", null, 0, 16, 65, 3.6),
+  mkMitre(3029, "ECLIPSE DE NOGAL", null, 1, 10, 40, 3.6),
+  mkMitre(3030, "TRUFA KARI AMARGA", null, 0, 6, 23, 3.6),
+  mkMitre(3031, "TRUFA NEVADA (COCO)", null, 22, 34, 136, 3.6),
+  mkMitre(3032, "CIRUELAS", null, 0, 6, 25, 3.6),
+  mkMitre(3033, "HIGOS", null, 0, 3, 10, 3.6),
+  mkMitre(3034, "TRUFA BANANA", null, 2, 25, 101, 3.6),
+  mkMitre(3035, "TENTACION RAMA", null, 0, 10, 40, 3.6),
+  mkMitre(3036, "BROWNIE DDL", null, 0, 19, 75, 3.6),
+  mkMitre(3037, "BROWNIE MOUSSE AMARGO", null, 0, 14, 57, 3.6),
+  mkMitre(3038, "PASION DE ALMENDRA", null, 20, 17, 67, 5.4),
+  mkMitre(3039, "NUEZ AL COGNAC", null, 36, 14, 57, 5.4),
+  mkMitre(3040, "TRINIDAD DE ALMENDRA", null, 0, 28, 111, 3.6),
+  mkMitre(3041, "TRINIDAD DE AVELLANA", null, 15, 43, 172, 3.6),
+  mkMitre(3042, "TR SAMBAYON", null, 0, 16, 64, 3.6),
+  mkMitre(3043, "TR TIRAMISU", null, 0, 17, 66, 3.6),
+  mkMitre(3044, "ESTAMBUL", null, 4, 29, 117, 3.6),
+  mkMitre(3045, "TRUFA KARI LECHE", null, 0, 26, 102, 3.6),
+  mkMitre(3046, "TRUFA EUFORIA", null, 1, 16, 63, 3.6),
+  mkMitre(3047, "TRUFA WHISKY", null, 44, 12, 49, 3.6),
+  mkMitre(3048, "TRUFA CAPPUCCINO", null, 76, 9, 35, 3.6),
+  mkMitre(3049, "NIBS CACAO", null, 62, 10, 40, 1.2),
 ];
 
 const JOURS = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
@@ -374,7 +384,6 @@ const NOMS_TRUFAS_MITRE = [
   "TRUFA KARI AMARGA",
   "TRUFA NEVADA COCO",
   "CEREZA CON CABITO",
-  "CEREZA SIN CABITO AMARGO",
   "CIRUELAS",
   "HIGOS",
   "TRUFA BANANA",
@@ -523,7 +532,7 @@ const NOMS_FATIMA_PROTEGES = [
 ];
 const MOTS_IMPORT_IGNORES = new Set([
   "SOLO", "BSAS", "BUENOS", "AIRES", "STOCK", "MAX", "MIN", "MAXIMO", "MINIMO",
-  "P", "POR", "PARA", "MESES", "MES", "OBJETIVO", "BASE", "VB", "BARILOCHE", "DE", "DEL", "LA", "EL",
+  "P", "POR", "PARA", "MESES", "MES", "OBJETIVO", "BASE", "VB", "BS", "AS", "BARILOCHE", "DE", "DEL", "LA", "EL",
 ]);
 function tokensProduit(s) {
   return String(s || "")
@@ -590,6 +599,14 @@ function trouverProduitFatimaProtege(produitsListe, nomImporte) {
   });
   return protege ? trouverProduitExistant(produitsListe, "fatima", nomImporte) : null;
 }
+function trouverProduitAutreUsinePredefini(produitsListe, usineCourante, nomImporte) {
+  const candidats = USINES
+    .map((u) => u.id)
+    .filter((id) => id !== usineCourante)
+    .map((id) => trouverProduitExistant(produitsListe, id, nomImporte))
+    .filter(Boolean);
+  return candidats[0] || null;
+}
 function estNomFatimaProtege(nomProduit) {
   const cleProduit = tokensProduit(nomProduit).join(" ");
   return NOMS_FATIMA_PROTEGES.some((nom) => {
@@ -647,8 +664,10 @@ function htmlEscape(value) {
 }
 function fusionAvecBase(base: any[], sauvegarde: any[]) {
   const parId = new Map(base.map((item) => [item.id, item]));
+  const idsObsoletes = new Set([3050, 3051, 3052, 3053, 3054, 3055, 3056, 3057, 3058, 3059, 3060]);
   (Array.isArray(sauvegarde) ? sauvegarde : []).forEach((item) => {
     if (item.id === "f_tabletas_bariloche") return;
+    if (idsObsoletes.has(item.id)) return;
     const fusionne = { ...(parId.get(item.id) || {}), ...item };
     const baseItem = parId.get(item.id);
     if (fusionne.id === "f_tabletas") {
@@ -1231,7 +1250,7 @@ export default function PlanificateurChocolat() {
     const ligneStock = idxStock !== -1 ? rows[idxStock] : [];
     const dateStock = ligneStock[0] || "";
     const debut = (isNaN(parseNum(ligneMax[0])) && isNaN(parseNum(ligneMin[0]))) ? 1 : 0;
-    let maj = 0, ajoutes = 0, avecMinMax = 0, ignores = 0, reconnus = 0, redirigesFatima = 0;
+    let maj = 0, ajoutes = 0, avecMinMax = 0, ignores = 0, reconnus = 0, redirigesAutreUsine = 0;
     let nouveaux = [...produits];
     const nbCols = Math.max(ligneNoms.length, ligneMax.length, ligneMin.length, ligneStock.length);
     for (let c = debut; c < nbCols; c++) {
@@ -1242,11 +1261,12 @@ export default function PlanificateurChocolat() {
       const champs = { ...(isNaN(vStock) ? {} : { stock: vStock }), ...(isNaN(vMin) ? {} : { min: vMin }), ...(isNaN(vMax) ? {} : { max: vMax }) };
       const cibleFatima = usine !== "fatima" ? trouverProduitFatimaProtege(nouveaux, nom) : null;
       const exact = cibleFatima ? null : nouveaux.find((p) => p.usine === usine && p.nom.toLowerCase() === nom.toLowerCase());
-      const existant = cibleFatima || exact || trouverProduitExistant(nouveaux, usine, nom);
+      const cibleAutreUsine = !exact && !cibleFatima ? trouverProduitAutreUsinePredefini(nouveaux, usine, nom) : null;
+      const existant = cibleFatima || exact || cibleAutreUsine || trouverProduitExistant(nouveaux, usine, nom);
       if (existant) {
         nouveaux = nouveaux.map((p) => (p.id === existant.id ? { ...p, ...champs } : p));
         maj++;
-        if (cibleFatima) redirigesFatima++;
+        if (cibleFatima || cibleAutreUsine) redirigesAutreUsine++;
         if (!exact) reconnus++;
       }
       else if (usine === "fatima" || modeActualisation) { ignores++; }
@@ -1254,7 +1274,7 @@ export default function PlanificateurChocolat() {
     }
     if (maj === 0 && ajoutes === 0) { setMsgImport("⚠️ No se detectó ningún producto. Verifica el pegado."); return; }
     setProduits(nouveaux);
-    setMsgImport((modeActualisation ? "Actualizacion" : "Importacion") + " (stock del " + (dateStock || "?") + "): " + maj + " actualizado(s), " + (modeActualisation ? "planning conservado sin recalcular" : ajoutes + " nuevo(s)") + ", " + reconnus + " reconocido(s) por nombre similar, " + redirigesFatima + " redirigido(s) a Fatima, " + avecMinMax + " con min./max. " + ignores + (usine === "fatima" ? " producto(s) ignorado(s) por estar fuera de la lista autorizada o por celdas vacias." : modeActualisation ? " producto(s) ignorado(s) porque no existian en la base o por celdas vacias." : " producto(s) ignorado(s) por celdas vacias.") + (avecMinMax === 0 ? " No se leyo ningun min./max." : "") + (modeActualisation ? " Para recalcular el calendario, elige Desde/Hasta y pulsa Optimizar la planificacion." : ""));
+    setMsgImport((modeActualisation ? "Actualizacion" : "Importacion") + " (stock del " + (dateStock || "?") + "): " + maj + " actualizado(s), " + (modeActualisation ? "planning conservado sin recalcular" : ajoutes + " nuevo(s)") + ", " + reconnus + " reconocido(s) por nombre similar, " + redirigesAutreUsine + " redirigido(s) a su planta predefinida, " + avecMinMax + " con min./max. " + ignores + (usine === "fatima" ? " producto(s) ignorado(s) por estar fuera de la lista autorizada o por celdas vacias." : modeActualisation ? " producto(s) ignorado(s) porque no existian en la base o por celdas vacias." : " producto(s) ignorado(s) por celdas vacias.") + (avecMinMax === 0 ? " No se leyo ningun min./max." : "") + (modeActualisation ? " Para recalcular el calendario, elige Desde/Hasta y pulsa Optimizar la planificacion." : ""));
     setTexteImport("");
   };
   const importerFeuilleUsine = () => appliquerCollageStocks({ modeActualisation: false });

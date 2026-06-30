@@ -17,30 +17,64 @@ function ratio(valor) {
   return texto.includes("%") || n > 1 ? n / 100 : n;
 }
 
+const CAMPOS_TECNICOS = new Set([
+  "UNIDADES/BULTO",
+  "PESO/BULTO [KG]",
+  "PESO/BULTO",
+  "PESO/UNIDAD",
+  "PESO / U",
+  "U / BULTO",
+  "COD",
+]);
+
+function esCampoTecnico(nombre) {
+  return CAMPOS_TECNICOS.has(normalizar(nombre));
+}
+
+function leerRecetasPrivadas() {
+  const fuentes = [
+    ["RECETAS_DULCES_JSON", process.env.RECETAS_DULCES_JSON],
+    ["RECETAS_ESANDI_JSON", process.env.RECETAS_ESANDI_JSON],
+    ["RECETAS_FATIMA_JSON", process.env.RECETAS_FATIMA_JSON],
+    ["RECETAS_MITRE_JSON", process.env.RECETAS_MITRE_JSON],
+  ].filter(([, valor]) => valor && String(valor).trim());
+
+  if (fuentes.length === 0) {
+    return { error: "Configura al menos RECETAS_DULCES_JSON o RECETAS_ESANDI_JSON en Vercel. Las recetas no deben guardarse en GitHub." };
+  }
+
+  const recetas = {};
+  for (const [nombreVariable, valor] of fuentes) {
+    try {
+      Object.assign(recetas, JSON.parse(valor));
+    } catch (error) {
+      return { error: nombreVariable + " no es un JSON valido" };
+    }
+  }
+  return { recetas };
+}
+
 export default function handler(req, res) {
   if (req.method !== "POST") {
     res.status(405).json({ error: "Metodo no permitido" });
     return;
   }
 
-  if (!process.env.RECETAS_DULCES_JSON) {
+  const privadas = leerRecetasPrivadas();
+  if (privadas.error && privadas.error.includes("Configura")) {
     res.status(503).json({
       error: "Recetas privadas no configuradas",
-      detalle: "Configura RECETAS_DULCES_JSON en Vercel. Las recetas no deben guardarse en GitHub.",
+      detalle: privadas.error,
     });
     return;
   }
-
-  let recetas;
-  try {
-    recetas = JSON.parse(process.env.RECETAS_DULCES_JSON);
-  } catch (error) {
-    res.status(500).json({ error: "RECETAS_DULCES_JSON no es un JSON valido" });
+  if (privadas.error) {
+    res.status(500).json({ error: privadas.error });
     return;
   }
 
   const items = Array.isArray(req.body && req.body.items) ? req.body.items : [];
-  const recetasPorNombre = new Map(Object.entries(recetas).map(([nombre, receta]) => [normalizar(nombre), receta]));
+  const recetasPorNombre = new Map(Object.entries(privadas.recetas).map(([nombre, receta]) => [normalizar(nombre), receta]));
   const totales = {};
   const sinReceta = [];
 
@@ -54,6 +88,7 @@ export default function handler(req, res) {
       return;
     }
     Object.entries(receta).forEach(([materia, valor]) => {
+      if (esCampoTecnico(materia)) return;
       const kgMateria = kg * ratio(valor);
       if (kgMateria > 0) totales[materia] = (totales[materia] || 0) + kgMateria;
     });

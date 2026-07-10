@@ -16,6 +16,11 @@ const USINES = [
   { id: "fatima", nom: "Fatima", icone: "🏭" },
 ];
 
+const GOOGLE_STOCK_GIDS = {
+  esandi: "237875513",
+};
+const GOOGLE_STOCK_SHEET_ID = "1EgT_gHFf8qht-dNF_H0XTV0QVNMQIvCG";
+
 const LIGNES_INIT = [
   { id: "e_bomb", nom: "Bombonera", capacite: 550, pal: 0, usine: "esandi" },
   { id: "e_crem", nom: "Cremino", capacite: 850, pal: 1, usine: "esandi" },
@@ -30,6 +35,7 @@ const LIGNES_INIT = [
   { id: "l4", nom: "Sollich", capacite: 500, pal: 3, usine: "mitre" },
   { id: "l5", nom: "Bulher", capacite: 500, pal: 4, usine: "mitre" },
   { id: "vb_stephan", nom: "Stephan", capacite: 130, pal: 0, usine: "vb" },
+  { id: "vb_tostadora", nom: "Tostadora", capacite: 140, pal: 1, usine: "vb" },
   { id: "f_tabletas", nom: "Tabletas", capacite: 3200, pal: 1, usine: "fatima" },
 ];
 
@@ -282,6 +288,7 @@ const PRODUITS_INIT = [
   mkEsandi(145, "LICOR DE CHOCOLATE BOTELLA", "e_env", 5),
   mkEsandi(146, "JUGO DE FRAM/FRUT BOTELLA", "e_env", 4.4),
   mkVB(147, "DULCE FRUTOS ROJOS", "vb_stephan", 4.62),
+  mkVB(148, "Cafe Crudo", "vb_tostadora", null),
   { ...mkVB(112, "DULCE FRAMBUESA 420gr BsAs", "vb_stephan", 4.62), min: 82, max: 163 },
   { ...mkVB(113, "DULCE FRUTILLA 420gr BsAs", "vb_stephan", 4.62), min: 39, max: 78 },
   { ...mkVB(114, "DULCE FRUTOS DEL BOSQUE BsAs", "vb_stephan", 4.62), min: 22, max: 44 },
@@ -365,6 +372,8 @@ const JOURS_HORIZON = HORIZON * JOURS.length;
 const JOURS_MOIS = 30;
 const JOURS_MIN_TABLETAS_FATIMA = 60;
 const JOURS_MAX_TABLETAS_FATIMA = 120;
+const JOURS_MIN_TURRONES_ESANDI = 60;
+const JOURS_MAX_TURRONES_ESANDI = 120;
 const JOURS_MIN_TRUFAS_MITRE = 15;
 const JOURS_MAX_TRUFAS_MITRE = 30;
 const NOMS_TRUFAS_MITRE = [
@@ -443,6 +452,7 @@ function turnosUsine(usineId) { return TURNOS_PAR_USINE[usineId] || TURNOS_PAR_U
 function turnosLigne(ligne) {
   const turnos = turnosUsine(ligne && ligne.usine);
   if (ligne && ligne.id === "vb_stephan") return turnos.filter((t) => t.id !== "n");
+  if (ligne && ligne.id === "vb_tostadora") return turnos.filter((t) => t.id === "m");
   return turnos;
 }
 function turnosBaseAffiches(ligne) { return ligne && ligne.usine === "fatima" ? 1 : turnosLigne(ligne).length; }
@@ -461,6 +471,10 @@ function turnosLignePourDate(ligne, date) {
   if (ligne && ligne.id === "vb_stephan") {
     if (date instanceof Date && (date.getDay() === 0 || date.getDay() === 6)) return [];
     return turnos.filter((t) => t.id !== "n");
+  }
+  if (ligne && ligne.id === "vb_tostadora") {
+    if (date instanceof Date && (date.getDay() === 0 || date.getDay() === 6)) return [];
+    return turnos.filter((t) => t.id === "m");
   }
   return turnos;
 }
@@ -686,6 +700,11 @@ function fusionAvecBase(base: any[], sauvegarde: any[]) {
       fusionne.min = baseItem.min;
       fusionne.max = baseItem.max;
     }
+    if (baseItem && fusionne.usine === "vb" && fusionne.id === 148) {
+      fusionne.nom = baseItem.nom;
+      fusionne.ligne = baseItem.ligne;
+      fusionne.pesoBulto = baseItem.pesoBulto;
+    }
     if (baseItem && fusionne.usine === "mitre" && fusionne.id >= 3001 && fusionne.id <= 3049) {
       fusionne.nom = baseItem.nom;
       fusionne.ligne = baseItem.ligne;
@@ -899,13 +918,14 @@ export default function PlanificateurChocolat() {
   const seuils = (p) => ({ min: p.min != null ? p.min : 0, max: p.max != null ? p.max : 0 });
   const estConfigure = (p) => p.min != null || p.max != null;
   const estTabletaFatima = (p) => p && p.usine === "fatima" && p.id >= 117 && p.id <= 132;
+  const estTurronEsandi = (p) => p && p.usine === "esandi" && p.ligne === "e_tur";
   const estTrufaMitre = (p) => {
     if (!p || p.usine !== "mitre") return false;
     const cleProduit = tokensProduit(p.nom).join(" ");
     return NOMS_TRUFAS_MITRE.some((nom) => tokensProduit(nom).join(" ") === cleProduit);
   };
-  const joursMinCouverture = (p) => (estTabletaFatima(p) ? JOURS_MIN_TABLETAS_FATIMA : estTrufaMitre(p) ? JOURS_MIN_TRUFAS_MITRE : JOURS_MOIS);
-  const joursMaxCouverture = (p) => (estTabletaFatima(p) ? JOURS_MAX_TABLETAS_FATIMA : estTrufaMitre(p) ? JOURS_MAX_TRUFAS_MITRE : JOURS_MOIS * 2);
+  const joursMinCouverture = (p) => (estTabletaFatima(p) ? JOURS_MIN_TABLETAS_FATIMA : estTurronEsandi(p) ? JOURS_MIN_TURRONES_ESANDI : estTrufaMitre(p) ? JOURS_MIN_TRUFAS_MITRE : JOURS_MOIS);
+  const joursMaxCouverture = (p) => (estTabletaFatima(p) ? JOURS_MAX_TABLETAS_FATIMA : estTurronEsandi(p) ? JOURS_MAX_TURRONES_ESANDI : estTrufaMitre(p) ? JOURS_MAX_TRUFAS_MITRE : JOURS_MOIS * 2);
   const demandeJourCalculee = (p) => {
     const s = seuils(p);
     if (s.min > 0) return s.min / joursMinCouverture(p);
@@ -946,7 +966,9 @@ export default function PlanificateurChocolat() {
           if (prod && estConfigure(prod)) {
             const s = seuils(prod);
             const statut = statutStock(stockSim[b.p] || 0, s.min, s.max);
-            resultat[cle] = { badge: statut.badge, label: statut.label, stock: stockSim[b.p] || 0 };
+            const kgpb = kgParBulto(prod);
+            const ecartVertKg = kgpb ? ((stockSim[b.p] || 0) - s.min * 1.5) * kgpb : 0;
+            resultat[cle] = { badge: statut.badge, label: statut.label, stock: stockSim[b.p] || 0, ecartVertKg };
           }
         });
       });
@@ -1230,9 +1252,10 @@ export default function PlanificateurChocolat() {
   };
   const majLigne = (id, champ, valeur) => setLignes(lignes.map((l) => (l.id === id ? { ...l, [champ]: valeur } : l)));
 
-  const appliquerCollageStocks = ({ modeActualisation = false } = {}) => {
+  const appliquerCollageStocks = ({ modeActualisation = false, texteSource = null } = {}) => {
     if (!usine) return;
-    const brut = parseTSV(texteImport).map((r) => r.map((c) => normaliser(c)));
+    const texteAImporter = texteSource != null ? texteSource : texteImport;
+    const brut = parseTSV(texteAImporter).map((r) => r.map((c) => normaliser(c)));
     const rows = brut.filter((r) => r.some((c) => c !== ""));
     if (rows.length < 3) { setMsgImport("⚠️ Collage incomplet (noms, Stock max, Stock min, stock du jour)."); return; }
     const estLigneLibelle = (r, mots) => r.some((c, i) => {
@@ -1279,6 +1302,72 @@ export default function PlanificateurChocolat() {
   };
   const importerFeuilleUsine = () => appliquerCollageStocks({ modeActualisation: false });
   const actualiserStocksUsine = () => appliquerCollageStocks({ modeActualisation: true });
+  const lireGoogleSheetDepuisNavigateur = (gid) => new Promise((resolve, reject) => {
+    const callback = "__chocoSheet_" + Date.now() + "_" + Math.round(Math.random() * 100000);
+    const script = document.createElement("script");
+    const nettoyer = () => {
+      delete window[callback];
+      if (script.parentNode) script.parentNode.removeChild(script);
+    };
+    window[callback] = (data) => {
+      try {
+        const rows = (data.table && data.table.rows ? data.table.rows : []).map((row) =>
+          (row.c || []).map((cell) => {
+            if (!cell) return "";
+            if (cell.f != null) return String(cell.f);
+            if (cell.v == null) return "";
+            return String(cell.v);
+          })
+        );
+        const texte = rows
+          .filter((r) => r.some((c) => String(c || "").trim() !== ""))
+          .map((r) => r.map((c) => String(c || "").trim()).join("\t"))
+          .join("\n");
+        nettoyer();
+        resolve(texte);
+      } catch (error) {
+        nettoyer();
+        reject(error);
+      }
+    };
+    script.onerror = () => {
+      nettoyer();
+      reject(new Error("No se pudo cargar Google Sheets desde el navegador."));
+    };
+    script.src = "https://docs.google.com/spreadsheets/d/" + GOOGLE_STOCK_SHEET_ID + "/gviz/tq?gid=" + encodeURIComponent(gid) + "&tqx=responseHandler:" + callback;
+    document.body.appendChild(script);
+  });
+  const actualiserStocksGoogle = async () => {
+    if (!usine) return;
+    const gid = GOOGLE_STOCK_GIDS[usine];
+    if (!gid) {
+      setMsgImport("⚠️ No hay una fuente Google Sheets configurada para esta fabrica.");
+      return;
+    }
+    setMsgImport("Leyendo Google Sheets...");
+    try {
+      const resp = await fetch("/api/google-stock?gid=" + encodeURIComponent(gid));
+      const data = await resp.json();
+      if (!resp.ok || !data.texto) {
+        throw new Error((data && (data.detalle || data.error)) || "No se pudo leer Google Sheets.");
+      }
+      setTexteImport(data.texto);
+      appliquerCollageStocks({ modeActualisation: true, texteSource: data.texto });
+    } catch (error) {
+      try {
+        setMsgImport("API local no disponible, intento lectura directa desde Google Sheets...");
+        const texto = await lireGoogleSheetDepuisNavigateur(gid);
+        if (!texto) {
+          setMsgImport("Google Sheets respondio vacio. Verifica que la hoja este compartida en lectura.");
+          return;
+        }
+        setTexteImport(texto);
+        appliquerCollageStocks({ modeActualisation: true, texteSource: texto });
+      } catch (error2) {
+        setMsgImport("No se pudo leer Google Sheets. Verifica que el archivo este compartido como 'cualquier persona con el enlace puede ver'.");
+      }
+    }
+  };
 
   const exporterExcel = () => {
     const nomUsine = (USINES.find((u) => u.id === usine) || {}).nom || "";
@@ -1838,7 +1927,9 @@ export default function PlanificateurChocolat() {
                                 const etatBloc = etatApresBloc[cle] || (prod && estConfigure(prod) ? (() => {
                                   const s = seuils(prod);
                                   const st = statutStock(prod.stock, s.min, s.max);
-                                  return { badge: st.badge, label: st.label, stock: prod.stock, actuel: true };
+                                  const kgpbActuel = kgParBulto(prod);
+                                  const ecartVertKg = kgpbActuel ? (prod.stock - s.min * 1.5) * kgpbActuel : 0;
+                                  return { badge: st.badge, label: st.label, stock: prod.stock, actuel: true, ecartVertKg };
                                 })() : null);
                                 const pastille = etatBloc ? etatBloc.badge : null;
                                 const kgpb = prod ? kgParBulto(prod) : null;
@@ -1869,7 +1960,10 @@ export default function PlanificateurChocolat() {
                                         className={"w-full text-xs rounded p-1.5 border-2 text-left min-h-10 transition cursor-pointer " + (prod ? pal.clair + " " + pal.bordure + " " + pal.texte + " font-medium" : "bg-gray-50 border-dashed border-gray-300 text-gray-400 hover:bg-gray-100") + (dragKey === cle ? " opacity-40" : "")}>
                                         <span className="flex items-center justify-between">
                                           <span className="text-[10px] opacity-60">{turno.nom}</span>
-                                          {pastille && <span className={"w-2.5 h-2.5 rounded-full " + pastille}></span>}
+                                          <span className="flex items-center gap-1">
+                                            {etatBloc && Math.round(etatBloc.ecartVertKg || 0) !== 0 && <span className="text-[10px] opacity-70">{etatBloc.ecartVertKg > 0 ? "+" : ""}{fmtNb(etatBloc.ecartVertKg)} kg</span>}
+                                            {pastille && <span className={"w-2.5 h-2.5 rounded-full " + pastille}></span>}
+                                          </span>
                                         </span>
                                         {prod ? <><span>{prod.nom}</span>{zone && <span className="ml-1 px-1 rounded bg-white/70 text-[10px]">{zone}</span>}</> : "+ asignar"}
                                         {prod && <span className="block text-[10px] opacity-60">Plan {fmtNb(b.kg)} kg{b.realKg != null && b.realKg !== "" ? " · Real " + fmtNb(kgEff) + " kg" + (ecartKg ? " (" + (ecartKg > 0 ? "+" : "") + fmtNb(ecartKg) + ")" : "") : ""}{kgpb ? " · " + fmtNb(bultos) + " blt" : ""}</span>}
@@ -1960,7 +2054,7 @@ export default function PlanificateurChocolat() {
                   </div>
                 );
               })}
-            <p className="text-xs text-gray-500 mt-3">Todo esta en <strong>bultos</strong>. Demanda/dia = Stock min. / cobertura: general {JOURS_MOIS} dias; tabletas Fatima {JOURS_MIN_TABLETAS_FATIMA} dias; trufas Mitre {JOURS_MIN_TRUFAS_MITRE} dias. Si solo hay max, se usa la cobertura maxima de la categoria. El campo kg/bulto convierte los bultos a kg para planificar turnos.</p>
+            <p className="text-xs text-gray-500 mt-3">Todo esta en <strong>bultos</strong>. Demanda/dia = Stock min. / cobertura: general {JOURS_MOIS} dias; tabletas Fatima {JOURS_MIN_TABLETAS_FATIMA} dias; turrones Esandi {JOURS_MIN_TURRONES_ESANDI} dias; trufas Mitre {JOURS_MIN_TRUFAS_MITRE} dias. Si solo hay max, se usa la cobertura maxima de la categoria. El campo kg/bulto convierte los bultos a kg para planificar turnos.</p>
           </div>
         )}
 
@@ -2104,9 +2198,11 @@ export default function PlanificateurChocolat() {
               <p className="text-xs text-gray-500 mb-2">Valores en <strong>bultos</strong>: nombres, luego Stock máx., Stock mín., y la última línea con fecha = stock del día.</p>
               <textarea className="w-full border rounded-lg p-2 text-sm h-40 font-mono" placeholder="(pega aquí todo el contenido de la pestaña)" value={texteImport} onChange={(e) => setTexteImport(e.target.value)} />
               <div className="mt-2 flex flex-wrap gap-2">
+                <button onClick={actualiserStocksGoogle} className="px-4 py-2 bg-sky-700 text-white rounded-lg text-sm hover:bg-sky-800">Actualizar desde Google Sheets</button>
                 <button onClick={actualiserStocksUsine} className="px-4 py-2 bg-emerald-700 text-white rounded-lg text-sm hover:bg-emerald-800">Actualizar stocks y conservar planning</button>
                 <button onClick={importerFeuilleUsine} className="px-4 py-2 bg-violet-800 text-white rounded-lg text-sm hover:bg-violet-900">Importar base para {usineActive ? usineActive.nom : ""}</button>
               </div>
+              {!GOOGLE_STOCK_GIDS[usine] && <p className="text-xs text-amber-700 mt-2">Google Sheets automatico aun no configurado para esta fabrica.</p>}
               <p className="text-xs text-gray-500 mt-2"><strong>Actualizar stocks</strong> modifica solo productos ya existentes: conserva calendario, reales kg, lineas y planning. Para recalcular el calendario, elige Desde/Hasta y pulsa Optimizar la planificacion.</p>
               {msgImport && <p className="text-sm text-green-700 mt-2">{msgImport}</p>}
             </div>

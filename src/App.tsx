@@ -1,5 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 
+const APP_VERSION = "2026.07.16-notas-google";
+
 const PALETTE = [
   { couleur: "bg-violet-600", clair: "bg-violet-100", bordure: "border-violet-600", texte: "text-violet-800" },
   { couleur: "bg-rose-700", clair: "bg-rose-100", bordure: "border-rose-700", texte: "text-rose-800" },
@@ -18,8 +20,13 @@ const USINES = [
 
 const GOOGLE_STOCK_GIDS = {
   esandi: "237875513",
+  mitre: "2042836438",
+  vb: "1331648669",
 };
 const GOOGLE_STOCK_SHEET_ID = "1EgT_gHFf8qht-dNF_H0XTV0QVNMQIvCG";
+const GOOGLE_MP_STOCK_SHEETS = {
+  esandi: { sheetId: "1gSX71TD0LtJiw5hmrojVEVRBQq9FLOpVJuXZ2M9jhJA", gid: "1633317681" },
+};
 
 const LIGNES_INIT = [
   { id: "e_bomb", nom: "Bombonera", capacite: 550, pal: 0, usine: "esandi" },
@@ -644,7 +651,7 @@ function etiquetaZonaProducto(p) {
 // Lecture d'une cellule de planning -> { p, kg, realKg } (rétro-compatible)
 function lireBloc(cell, ligne) {
   if (cell == null) return null;
-  if (typeof cell === "object") return { ...cell, p: cell.p, kg: cell.kg, realKg: cell.realKg };
+  if (typeof cell === "object") return { ...cell, p: cell.p, kg: cell.kg, realKg: cell.realKg, note: cell.note || "" };
   return { p: cell, kg: kgBloc(ligne) };
 }
 function kgEffectifBloc(b) {
@@ -735,6 +742,8 @@ export default function PlanificateurChocolat() {
   const [msgOpti, setMsgOpti] = useState("");
   const [matieresResultat, setMatieresResultat] = useState(null);
   const [msgMatieres, setMsgMatieres] = useState("");
+  const [texteImportMatieres, setTexteImportMatieres] = useState("");
+  const [stockMatieres, setStockMatieres] = useState([]);
   const [dateDebutOpti, setDateDebutOpti] = useState(() => cleDate(prochainLundiApres(new Date())));
   const [dateFinOpti, setDateFinOpti] = useState(() => {
     const d = prochainLundiApres(new Date());
@@ -821,6 +830,229 @@ export default function PlanificateurChocolat() {
     return Object.values(parProduit).sort((a: any, b: any) => a.nom.localeCompare(b.nom));
   }, [plan, lignes, produits, usine, periodeOpti]);
 
+  const normaliserMatiere = (nom) => {
+    const tokens = tokensProduit(nom).filter((t) => ![
+      "STOCK", "MIN", "MINIMO", "MINIMA", "MAX", "MAXIMO", "KG", "KGS", "PROV", "PROVEEDOR", "PROVEEDORES",
+      "BOLSA", "BOLSAS", "CAJA", "CAJAS", "BIDON", "BIDONES", "TAMBOR", "TAMBORES", "SACO", "SACOS",
+      "NACIONAL", "IMPORTADO", "IMPORTADA", "LOCAL", "ESANDI", "VB", "MITRE", "FATIMA",
+    ].includes(t));
+    const txt = tokens.join(" ");
+    const aliases = [
+      { test: /\bAZUCAR\s+INVERTIDO\b/, nom: "Azucar invertido" },
+      { test: /\bAZUCAR\b/, nom: "Azucar" },
+      { test: /\bFRAMBUESA(S)?\b|\bPULPA\s+FRAMBUESA\b/, nom: "Frambuesas frescas" },
+      { test: /\bFRUTILLA(S)?\b/, nom: "Frutilla" },
+      { test: /\bSAUCO\b/, nom: "Sauco pulpa" },
+      { test: /\bCASSIS\b/, nom: "Cassis" },
+      { test: /\bARANDANO(S)?\b/, nom: "Arandanos" },
+      { test: /\bMOSQUETA\b/, nom: "Mosqueta" },
+      { test: /\bLIMON\b/, nom: "Limon" },
+      { test: /\bDEXTROSA(S)?\b/, nom: "Dextrosa" },
+      { test: /\bVAINILLA\b|\bVANILLA\b/, nom: "Pasta de vainilla potenciada" },
+      { test: /\bWHISKY\b/, nom: "Whisky chivas 12" },
+      { test: /\bVODKA\b/, nom: "Vodka" },
+      { test: /\bALCOHOL\b/, nom: "Alcohol tridestilado" },
+      { test: /\bLECHE\s+ENTERA\b|\bLECHE\s+LIQUIDA\b/, nom: "Leche entera liquida" },
+      { test: /\bDPO\b/, nom: "DPO" },
+      { test: /\bCREMA\s+LECHE\b/, nom: "Crema de leche" },
+      { test: /\bCREMA\s+MARROC\b/, nom: "Crema Marroc" },
+      { test: /\bNUICCIOLA\b/, nom: "Crema Nuicciola" },
+      { test: /\bPRALINE\s+AVELLANA\s+S?\/?\s*MANTECA\b/, nom: "Praline avellana s/manteca" },
+      { test: /\bPRALINE\s+AVELLANA\b/, nom: "Praline avellana" },
+      { test: /\bPRALINE\s+MANI\b/, nom: "Praline mani s/manteca" },
+      { test: /\bCHOC(O)?\s+LECHE\b|\bCHOCOLATE\s+LECHE\b/, nom: "Choco leche" },
+      { test: /\bCHOC(O)?\s+BLANCO\b|\bCHOCOLATE\s+BLANCO\b/, nom: "Choco blanco" },
+      { test: /\bCHOC(O)?\s+AMARGO\s+SIN\s+AZUCAR\b/, nom: "Choco amargo sin azucar" },
+      { test: /\bCHOC(O)?\s+AMARGO\b|\bCHOCOLATE\s+AMARGO\b/, nom: "Choco amargo" },
+      { test: /\bCHOC(O)?\s+60\b|\b60\s*%?\b/, nom: "Choco 60%" },
+      { test: /\bCHOC(O)?\s+70\b|\b70\s*%?\b/, nom: "Choco 70%" },
+      { test: /\bCHOC(O)?\s+80\b|\b80\s*%?\b/, nom: "Choco 80%" },
+      { test: /\bCHOC(O)?\s+90\b|\b90\s*%?\b/, nom: "Choco 90%" },
+      { test: /\bDDL\b|\bDULCE\s+DE\s+LECHE\b/, nom: "DDL clasico" },
+    ];
+    const alias = aliases.find((a) => a.test.test(txt));
+    return alias ? alias.nom : normaliser(nom);
+  };
+
+  const cleMatiere = (nom) => tokensProduit(normaliserMatiere(nom)).join(" ");
+  const scoreMatiere = (a, b) => {
+    const ta = new Set(tokensProduit(a));
+    const tb = new Set(tokensProduit(b));
+    if (!ta.size || !tb.size) return 0;
+    let commun = 0;
+    ta.forEach((t) => { if (tb.has(t)) commun++; });
+    return commun / Math.max(ta.size, tb.size);
+  };
+
+  const analyserCollageMatieres = (texteSource) => {
+    const rows = parseTSV(texteSource).map((r) => r.map((c) => normaliser(c))).filter((r) => r.some((c) => c !== ""));
+    if (rows.length < 2) return { erreur: "Collage incompleto: necesito nombres, stock minimo y stock actual." };
+    const estLigneMin = (r) => r.some((c, i) => i <= 1 && /stock\s*min|mínimo|minimo|min\./i.test(c || ""));
+    let idxMin = rows.findIndex(estLigneMin);
+    if (idxMin === -1) idxMin = Math.min(1, rows.length - 1);
+    const ligneNoms = rows[Math.max(0, idxMin - 1)] || rows[0] || [];
+    const ligneMin = rows[idxMin] || [];
+    let idxStock = -1;
+    for (let i = rows.length - 1; i > idxMin; i--) {
+      if (rows[i].some((c, ci) => ci > 0 && c !== "" && !isNaN(parseNum(c)))) { idxStock = i; break; }
+    }
+    const ligneStock = idxStock !== -1 ? rows[idxStock] : [];
+    const dateStock = ligneStock[0] || "";
+    const debut = (isNaN(parseNum(ligneMin[0])) && isNaN(parseNum(ligneStock[0]))) ? 1 : 0;
+    const parCle = {};
+    let colonnes = 0;
+    const nbCols = Math.max(ligneNoms.length, ligneMin.length, ligneStock.length);
+    for (let c = debut; c < nbCols; c++) {
+      const nomOriginal = normaliser(ligneNoms[c]);
+      if (!nomOriginal) continue;
+      const stock = parseNum(ligneStock[c]);
+      const min = parseNum(ligneMin[c]);
+      if (isNaN(stock) && isNaN(min)) continue;
+      const nomCanonique = normaliserMatiere(nomOriginal);
+      const cle = cleMatiere(nomCanonique);
+      if (!cle) continue;
+      if (!parCle[cle]) parCle[cle] = { cle, nom: nomCanonique, stock: 0, min: 0, colonnes: [], dateStock };
+      if (!isNaN(stock)) parCle[cle].stock += stock;
+      if (!isNaN(min)) parCle[cle].min += min;
+      parCle[cle].colonnes.push(nomOriginal);
+      colonnes++;
+    }
+    return { items: Object.values(parCle).sort((a: any, b: any) => a.nom.localeCompare(b.nom)), colonnes, dateStock };
+  };
+
+  const diagnosticMatieres = useMemo(() => {
+    const besoins = matieresResultat ? ((matieresResultat as any).materias || []) : [];
+    const stocks = stockMatieres || [];
+    const stockParCle = new Map(stocks.map((s: any) => [s.cle, s]));
+    const lignesDiag = besoins.map((m) => {
+      const cle = cleMatiere(m.materia);
+      let stock = stockParCle.get(cle);
+      let confiance = stock ? 1 : 0;
+      if (!stock) {
+        stocks.forEach((s: any) => {
+          const score = scoreMatiere(m.materia, s.nom);
+          if (score > confiance) { confiance = score; stock = s; }
+        });
+      }
+      const reconnu = !!stock && confiance >= 0.5;
+      const stockKg = reconnu ? Number((stock as any).stock || 0) : 0;
+      const minKg = reconnu ? Number((stock as any).min || 0) : 0;
+      const besoinKg = Number(m.kg || 0);
+      const restant = stockKg - besoinKg;
+      const achatKg = reconnu ? Math.max(0, besoinKg + minKg - stockKg) : besoinKg;
+      const statut = !reconnu ? "No determinado" : achatKg > 0 ? "Comprar" : "OK";
+      return {
+        materia: m.materia,
+        besoinKg,
+        stockKg,
+        minKg,
+        restant,
+        achatKg,
+        statut,
+        reconnu,
+        source: reconnu ? (stock as any).nom : "",
+        confiance,
+      };
+    }).sort((a, b) => b.achatKg - a.achatKg || a.materia.localeCompare(b.materia));
+    const stockSansBesoin = stocks.filter((s: any) => !besoins.some((m) => cleMatiere(m.materia) === s.cle));
+    return { lignes: lignesDiag, stockSansBesoin };
+  }, [matieresResultat, stockMatieres]);
+
+  const texteDiagnosticMatieres = () => {
+    if (!matieresResultat) return "";
+    const lignes = diagnosticMatieres.lignes || [];
+    const achat = lignes.filter((l) => l.achatKg > 0);
+    const ok = lignes.filter((l) => l.achatKg <= 0 && l.reconnu);
+    const inconnus = lignes.filter((l) => !l.reconnu);
+    const out = [
+      "Diagnostico materias primas",
+      "Periodo: " + fmtDate(periodeOpti.debut) + " - " + fmtDate(periodeOpti.fin),
+      "Usina: " + (usineActive ? usineActive.nom : usine),
+      "",
+      "A comprar / cubrir:",
+      ...(achat.length ? achat.map((l) => "- " + l.materia + ": comprar " + fmtNb(l.achatKg) + " kg (necesidad " + fmtNb(l.besoinKg) + ", stock " + fmtNb(l.stockKg) + ", minimo " + fmtNb(l.minKg) + ")") : ["- Nada urgente detectado"]),
+      "",
+      "OK:",
+      ...(ok.length ? ok.map((l) => "- " + l.materia + ": OK, margen " + fmtNb(l.stockKg - l.besoinKg - l.minKg) + " kg") : ["- Sin materias OK detectadas"]),
+    ];
+    if (inconnus.length) out.push("", "No determinado:", ...inconnus.map((l) => "- " + l.materia + ": falta asociar stock MP"));
+    return out.join("\n");
+  };
+
+  const importerStockMatieres = (texteSource = null) => {
+    const analyse = analyserCollageMatieres(texteSource != null ? texteSource : texteImportMatieres);
+    if ((analyse as any).erreur) {
+      setMsgMatieres((analyse as any).erreur);
+      return;
+    }
+    setStockMatieres((analyse as any).items || []);
+    setMsgMatieres("Stock MP actualizado" + ((analyse as any).dateStock ? " al " + (analyse as any).dateStock : "") + ": " + ((analyse as any).items || []).length + " materia(s) consolidada(s), " + ((analyse as any).colonnes || 0) + " columna(s) leida(s).");
+    setTexteImportMatieres("");
+  };
+
+  const lireGoogleSheetLibreDepuisNavigateur = (sheetId, gid) => new Promise((resolve, reject) => {
+    const callback = "__chocoSheetLibre_" + Date.now() + "_" + Math.round(Math.random() * 100000);
+    const script = document.createElement("script");
+    const nettoyer = () => {
+      delete window[callback];
+      if (script.parentNode) script.parentNode.removeChild(script);
+    };
+    window[callback] = (data) => {
+      try {
+        const rows = (data.table && data.table.rows ? data.table.rows : []).map((row) =>
+          (row.c || []).map((cell) => {
+            if (!cell) return "";
+            if (cell.f != null) return String(cell.f);
+            if (cell.v == null) return "";
+            return String(cell.v);
+          })
+        );
+        const texte = rows
+          .filter((r) => r.some((c) => String(c || "").trim() !== ""))
+          .map((r) => r.map((c) => String(c || "").trim()).join("\t"))
+          .join("\n");
+        nettoyer();
+        resolve(texte);
+      } catch (error) {
+        nettoyer();
+        reject(error);
+      }
+    };
+    script.onerror = () => {
+      nettoyer();
+      reject(new Error("No se pudo cargar Google Sheets desde el navegador."));
+    };
+    script.src = "https://docs.google.com/spreadsheets/d/" + sheetId + "/gviz/tq?gid=" + encodeURIComponent(gid) + "&tqx=responseHandler:" + callback;
+    document.body.appendChild(script);
+  });
+
+  const actualiserStockMatieresGoogle = async () => {
+    const source = GOOGLE_MP_STOCK_SHEETS[usine];
+    if (!source) {
+      setMsgMatieres("No hay fuente de stock MP configurada para esta fabrica.");
+      return;
+    }
+    setMsgMatieres("Leyendo stock MP desde Google Sheets...");
+    try {
+      const resp = await fetch("/api/google-sheet?sheetId=" + encodeURIComponent(source.sheetId) + "&gid=" + encodeURIComponent(source.gid));
+      const data = await resp.json();
+      if (!resp.ok || !data.texto) throw new Error((data && (data.detalle || data.error)) || "No se pudo leer Google Sheets.");
+      importerStockMatieres(data.texto);
+    } catch (error) {
+      try {
+        setMsgMatieres("API local no disponible, intento lectura directa desde Google Sheets...");
+        const texto = await lireGoogleSheetLibreDepuisNavigateur(source.sheetId, source.gid);
+        if (!texto) {
+          setMsgMatieres("Google Sheets respondio vacio. Verifica que la hoja este compartida en lectura.");
+          return;
+        }
+        importerStockMatieres(texto);
+      } catch (error2) {
+        setMsgMatieres("No se pudo leer el stock MP. Verifica que el archivo este compartido como 'cualquier persona con el enlace puede ver'.");
+      }
+    }
+  };
+
   const calcularMateriasPrimas = async () => {
     setMsgMatieres("");
     setMatieresResultat(null);
@@ -848,6 +1080,7 @@ export default function PlanificateurChocolat() {
 
   const textoMateriasPrimas = () => {
     if (!matieresResultat) return "";
+    if (stockMatieres.length > 0) return texteDiagnosticMatieres();
     const materias = (matieresResultat as any).materias || [];
     const sinReceta = (matieresResultat as any).sinReceta || [];
     const lineas = [
@@ -903,8 +1136,13 @@ export default function PlanificateurChocolat() {
       setMsgMatieres("Primero calcula las materias primas.");
       return;
     }
-    const materias = (matieresResultat as any).materias || [];
-    const csv = ["Materia prima;Kg necesarios", ...materias.map((m) => '"' + String(m.materia).replace(/"/g, '""') + '";' + String(Math.round(m.kg * 100) / 100))].join("\n");
+    const q = (v) => '"' + String(v == null ? "" : v).replace(/"/g, '""') + '"';
+    const csv = stockMatieres.length > 0
+      ? [
+        "Materia prima;Kg necesarios;Stock kg;Minimo kg;Compra recomendada kg;Estado;Stock reconocido como",
+        ...diagnosticMatieres.lignes.map((m) => [m.materia, Math.round(m.besoinKg * 100) / 100, Math.round(m.stockKg * 100) / 100, Math.round(m.minKg * 100) / 100, Math.round(m.achatKg * 100) / 100, m.statut, m.source].map(q).join(";")),
+      ].join("\n")
+      : ["Materia prima;Kg necesarios", ...((matieresResultat as any).materias || []).map((m) => q(m.materia) + ";" + String(Math.round(m.kg * 100) / 100))].join("\n");
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -1078,7 +1316,15 @@ export default function PlanificateurChocolat() {
     const ligne = lignes.find((l) => l.id === cle.split("|")[1]);
     const turno = turnoDepuisCle(cle, ligne);
     const date = dateDepuisCle(cle.split("|")[0]);
-    setPlan((p) => { const np = { ...p }; if (pid === "") delete np[cle]; else np[cle] = { p: Number(pid), kg: kgBlocPlanning(ligne, turno, date) }; return np; });
+    setPlan((p) => {
+      const np = { ...p };
+      if (pid === "") delete np[cle];
+      else {
+        const actuel = lireBloc(np[cle], ligne);
+        np[cle] = { p: Number(pid), kg: kgBlocPlanning(ligne, turno, date), note: actuel?.note || "" };
+      }
+      return np;
+    });
   };
 
   const majRealKg = (cle, valeur) => {
@@ -1091,6 +1337,17 @@ export default function PlanificateurChocolat() {
       if (!actuel) return np;
       if (valeur === "") np[cle] = { ...(np[cle] as any), p: actuel.p, kg: actuel.kg, realKg: null };
       else np[cle] = { ...(np[cle] as any), p: actuel.p, kg: actuel.kg, realKg: Math.max(0, Number(valeur) || 0) };
+      return np;
+    });
+  };
+
+  const majNoteTurno = (cle, valeur) => {
+    const ligne = lignes.find((l) => l.id === cle.split("|")[1]);
+    setPlan((p) => {
+      const np = { ...p };
+      const actuel = lireBloc(np[cle], ligne);
+      if (!actuel) return np;
+      np[cle] = { ...(np[cle] as any), p: actuel.p, kg: actuel.kg, note: String(valeur || "").slice(0, 500) };
       return np;
     });
   };
@@ -1340,6 +1597,7 @@ export default function PlanificateurChocolat() {
   const actualiserStocksGoogle = async () => {
     if (!usine) return;
     const gid = GOOGLE_STOCK_GIDS[usine];
+    const nomUsineGoogle = (USINES.find((u) => u.id === usine) || {}).nom || usine;
     if (!gid) {
       setMsgImport("⚠️ No hay una fuente Google Sheets configurada para esta fabrica.");
       return;
@@ -1353,6 +1611,7 @@ export default function PlanificateurChocolat() {
       }
       setTexteImport(data.texto);
       appliquerCollageStocks({ modeActualisation: true, texteSource: data.texto });
+      setMsgImport((message) => "Google Sheets " + nomUsineGoogle + " chargé (gid " + gid + "). " + message);
     } catch (error) {
       try {
         setMsgImport("API local no disponible, intento lectura directa desde Google Sheets...");
@@ -1363,6 +1622,7 @@ export default function PlanificateurChocolat() {
         }
         setTexteImport(texto);
         appliquerCollageStocks({ modeActualisation: true, texteSource: texto });
+        setMsgImport((message) => "Google Sheets " + nomUsineGoogle + " chargé directement (gid " + gid + "). " + message);
       } catch (error2) {
         setMsgImport("No se pudo leer Google Sheets. Verifica que el archivo este compartido como 'cualquier persona con el enlace puede ver'.");
       }
@@ -1416,7 +1676,7 @@ export default function PlanificateurChocolat() {
                     const bultos = b && kgb ? kgEff / kgb : null;
                     return `<div class="bloque">
                       <div class="turno">${htmlEscape(turno.nom)}</div>
-                      ${prod ? `<div class="producto">${htmlEscape(prod.nom)}</div><div class="cantidad">Plan ${htmlEscape(fmtNb(b.kg))} kg${b.realKg != null && b.realKg !== "" ? " · Real " + htmlEscape(fmtNb(kgEff)) + " kg" : ""}${bultos != null ? " · " + htmlEscape(fmtNb(bultos)) + " blt" : ""}</div>` : `<div class="vacio">Sin asignar</div>`}
+                      ${prod ? `<div class="producto">${htmlEscape(prod.nom)}</div><div class="cantidad">Plan ${htmlEscape(fmtNb(b.kg))} kg${b.realKg != null && b.realKg !== "" ? " · Real " + htmlEscape(fmtNb(kgEff)) + " kg" : ""}${bultos != null ? " · " + htmlEscape(fmtNb(bultos)) + " blt" : ""}</div>${b.note ? `<div class="cantidad"><strong>Nota:</strong> ${htmlEscape(b.note)}</div>` : ""}` : `<div class="vacio">Sin asignar</div>`}
                     </div>`;
                   }).join("") || `<div class="vacio">Sin turno</div>`}
                 </td>
@@ -1850,6 +2110,7 @@ export default function PlanificateurChocolat() {
           <div>
             <h1 className="text-2xl font-bold text-violet-900">🍫 Fábrica {usineActive ? usineActive.nom : ""}</h1>
             <p className="text-sm text-violet-700">Stocks en bultos · capacidades en kg/turno · producción divisible</p>
+            <p className="text-[10px] text-slate-400 mt-0.5">Versión {APP_VERSION}</p>
             <div className="flex flex-wrap gap-2 mt-2 text-xs">
               <span className="px-2 py-1 rounded-full bg-violet-50 text-violet-800 border border-violet-100">{lignesUsine.length} línea(s)</span>
               <span className="px-2 py-1 rounded-full bg-sky-50 text-sky-800 border border-sky-100">{produitsUsine.length} producto(s)</span>
@@ -1946,17 +2207,29 @@ export default function PlanificateurChocolat() {
                                           {produits.filter((p) => p.ligne === ligne.id && estConfigure(p)).map((p) => <option key={p.id} value={p.id}>{optionProduitPlanning(p)}</option>)}
                                         </select>
                                         {b && prod && (
-                                          <div className="mt-1 grid grid-cols-[1fr_auto] gap-1 items-center">
-                                            <label className="text-[10px] text-slate-500">
-                                              Real kg
-                                              <input className="mt-0.5 w-full text-xs border rounded p-1" type="number" min="0" step="1" placeholder={fmtNb(b.kg)} value={b.realKg ?? ""} onChange={(e) => majRealKg(cle, e.target.value)} />
+                                          <div className="mt-1 space-y-1">
+                                            <div className="grid grid-cols-[1fr_auto] gap-1 items-end">
+                                              <label className="text-[10px] text-slate-500">
+                                                Real kg
+                                                <input className="mt-0.5 w-full text-xs border rounded p-1" type="number" min="0" step="1" placeholder={fmtNb(b.kg)} value={b.realKg ?? ""} onChange={(e) => majRealKg(cle, e.target.value)} />
+                                              </label>
+                                              <button type="button" onClick={() => setSelection(null)} className="px-2 py-1 rounded bg-violet-800 text-white text-xs">OK</button>
+                                            </div>
+                                            <label className="block text-[10px] text-slate-500">
+                                              Nota del turno
+                                              <textarea
+                                                className="mt-0.5 w-full min-h-14 resize-y text-xs border rounded p-1"
+                                                maxLength={500}
+                                                placeholder="Ej.: parada técnica, falta de insumos, cambio de formato..."
+                                                value={b.note || ""}
+                                                onChange={(e) => majNoteTurno(cle, e.target.value)}
+                                              />
                                             </label>
-                                            <button type="button" onClick={() => setSelection(null)} className="self-end px-2 py-1 rounded bg-violet-800 text-white text-xs">OK</button>
                                           </div>
                                         )}
                                       </div>
                                     ) : (
-                                      <div draggable={!!prod} onDragStart={() => setDragKey(cle)} onClick={() => setSelection(cle)} title={b ? "Plan: " + fmtNb(b.kg) + " kg" + (b.realKg != null && b.realKg !== "" ? " · Real: " + fmtNb(kgEff) + " kg" : "") + (kgpb ? " · ≈ " + fmtNb(bultos) + " bultos" : " · conversión faltante") + (etatBloc ? " · " + (etatBloc.actuel ? "stock actual: " : "stock despues del bloque: ") + fmtNb(etatBloc.stock) + " (" + etatBloc.label + ")" : "") + ((b as any).raison ? " · " + (b as any).raison : "") : ""}
+                                      <div draggable={!!prod} onDragStart={() => setDragKey(cle)} onClick={() => setSelection(cle)} title={b ? "Plan: " + fmtNb(b.kg) + " kg" + (b.realKg != null && b.realKg !== "" ? " · Real: " + fmtNb(kgEff) + " kg" : "") + (kgpb ? " · ≈ " + fmtNb(bultos) + " bultos" : " · conversión faltante") + (etatBloc ? " · " + (etatBloc.actuel ? "stock actual: " : "stock despues del bloque: ") + fmtNb(etatBloc.stock) + " (" + etatBloc.label + ")" : "") + ((b as any).raison ? " · " + (b as any).raison : "") + (b.note ? " · Nota: " + b.note : "") : ""}
                                         className={"w-full text-xs rounded p-1.5 border-2 text-left min-h-10 transition cursor-pointer " + (prod ? pal.clair + " " + pal.bordure + " " + pal.texte + " font-medium" : "bg-gray-50 border-dashed border-gray-300 text-gray-400 hover:bg-gray-100") + (dragKey === cle ? " opacity-40" : "")}>
                                         <span className="flex items-center justify-between">
                                           <span className="text-[10px] opacity-60">{turno.nom}</span>
@@ -1967,6 +2240,7 @@ export default function PlanificateurChocolat() {
                                         </span>
                                         {prod ? <><span>{prod.nom}</span>{zone && <span className="ml-1 px-1 rounded bg-white/70 text-[10px]">{zone}</span>}</> : "+ asignar"}
                                         {prod && <span className="block text-[10px] opacity-60">Plan {fmtNb(b.kg)} kg{b.realKg != null && b.realKg !== "" ? " · Real " + fmtNb(kgEff) + " kg" + (ecartKg ? " (" + (ecartKg > 0 ? "+" : "") + fmtNb(ecartKg) + ")" : "") : ""}{kgpb ? " · " + fmtNb(bultos) + " blt" : ""}</span>}
+                                        {prod && b.note && <span className="mt-1 block border-t border-current/15 pt-1 text-[10px] font-normal opacity-75 line-clamp-2">Nota: {b.note}</span>}
                                       </div>
                                     )}
                                   </div>
@@ -2115,7 +2389,7 @@ export default function PlanificateurChocolat() {
         )}
 
         {onglet === "materias" && (
-          <div className="grid gap-4 lg:grid-cols-[1fr_1.2fr]">
+          <div className="grid gap-4 lg:grid-cols-[0.9fr_1.4fr]">
             <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-4">
               <h2 className="font-semibold text-violet-900 mb-2">Materias primas privadas</h2>
               <p className="text-sm text-slate-600 mb-3">
@@ -2124,8 +2398,39 @@ export default function PlanificateurChocolat() {
               <div className="text-xs text-slate-500 mb-3">
                 Periodo: <strong>{fmtDate(periodeOpti.debut)} - {fmtDate(periodeOpti.fin)}</strong>
               </div>
-              <button onClick={calcularMateriasPrimas} className="px-4 py-2 bg-emerald-700 text-white rounded-lg text-sm hover:bg-emerald-800">Calcular materias primas</button>
+              <div className="flex flex-wrap gap-2">
+                <button onClick={calcularMateriasPrimas} className="px-4 py-2 bg-emerald-700 text-white rounded-lg text-sm hover:bg-emerald-800">Calcular necesidades</button>
+                <button onClick={actualiserStockMatieresGoogle} className="px-4 py-2 bg-sky-700 text-white rounded-lg text-sm hover:bg-sky-800">Actualizar stock MP</button>
+              </div>
+              {!GOOGLE_MP_STOCK_SHEETS[usine] && <p className="text-xs text-amber-700 mt-2">Stock MP automatico aun no configurado para esta fabrica.</p>}
               {msgMatieres && <p className="text-sm text-emerald-800 mt-3">{msgMatieres}</p>}
+              <div className="mt-4 border-t pt-3">
+                <h3 className="font-semibold text-sm text-slate-700 mb-2">Stock MP</h3>
+                <p className="text-xs text-slate-500 mb-2">Valores en kg. Si la misma materia aparece en varias columnas por proveedor, la app la consolida.</p>
+                <textarea
+                  className="w-full border rounded-lg p-2 text-xs h-24 font-mono"
+                  placeholder="(opcional: pega aqui el stock de materias primas)"
+                  value={texteImportMatieres}
+                  onChange={(e) => setTexteImportMatieres(e.target.value)}
+                />
+                <div className="flex flex-wrap gap-2 mt-2">
+                  <button onClick={() => importerStockMatieres()} className="px-3 py-2 bg-white border border-slate-300 text-slate-700 rounded-lg text-xs hover:bg-slate-50">Importar stock MP pegado</button>
+                </div>
+                <div className="grid grid-cols-3 gap-2 mt-3 text-center">
+                  <div className="rounded-lg bg-slate-50 border border-slate-200 p-2">
+                    <div className="text-lg font-bold text-slate-800">{stockMatieres.length}</div>
+                    <div className="text-[11px] text-slate-500">MP consolidadas</div>
+                  </div>
+                  <div className="rounded-lg bg-red-50 border border-red-100 p-2">
+                    <div className="text-lg font-bold text-red-700">{diagnosticMatieres.lignes.filter((l) => l.achatKg > 0).length}</div>
+                    <div className="text-[11px] text-red-600">a comprar</div>
+                  </div>
+                  <div className="rounded-lg bg-amber-50 border border-amber-100 p-2">
+                    <div className="text-lg font-bold text-amber-700">{diagnosticMatieres.lignes.filter((l) => !l.reconnu).length}</div>
+                    <div className="text-[11px] text-amber-600">no determinado</div>
+                  </div>
+                </div>
+              </div>
               <div className="mt-4 border-t pt-3">
                 <h3 className="font-semibold text-sm text-slate-700 mb-2">Productos planificados</h3>
                 {planningProduitsMatieres.length === 0 ? (
@@ -2146,10 +2451,10 @@ export default function PlanificateurChocolat() {
               </div>
             </div>
             <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-4">
-              <h2 className="font-semibold text-violet-900 mb-2">Necesidades agregadas</h2>
+              <h2 className="font-semibold text-violet-900 mb-2">Diagnostico MP y compras</h2>
               {!matieresResultat ? (
                 <div className="p-4 rounded-lg bg-slate-50 border border-slate-200 text-sm text-slate-500">
-                  Pulsa calcular para ver los kg por materia prima. Si la funcion privada no esta configurada, aqui aparecera el mensaje de configuracion.
+                  Pulsa calcular para ver los kg por materia prima. Luego actualiza el stock MP para saber que falta comprar.
                 </div>
               ) : (
                 <>
@@ -2160,20 +2465,41 @@ export default function PlanificateurChocolat() {
                   </div>
                   <textarea
                     readOnly
-                    className="w-full min-h-36 border border-emerald-100 bg-emerald-50 rounded-lg p-3 text-sm text-slate-700 mb-4"
+                    className="w-full min-h-32 border border-emerald-100 bg-emerald-50 rounded-lg p-3 text-sm text-slate-700 mb-4"
                     value={textoMateriasPrimas()}
                   />
-                  <table className="w-full text-sm">
-                    <thead><tr className="text-left text-slate-500 border-b"><th className="py-1">Materia prima</th><th className="py-1 text-right">Kg necesarios</th></tr></thead>
-                    <tbody>
-                      {(matieresResultat as any).materias.map((m) => (
-                        <tr key={m.materia} className="border-b border-slate-100">
-                          <td className="py-2 pr-2 font-medium">{m.materia}</td>
-                          <td className="py-2 text-right font-bold text-emerald-800">{fmtNb(m.kg)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead><tr className="text-left text-slate-500 border-b">
+                        <th className="py-1 pr-2">Materia prima</th>
+                        <th className="py-1 text-right">Necesidad</th>
+                        <th className="py-1 text-right">Stock</th>
+                        <th className="py-1 text-right">Min.</th>
+                        <th className="py-1 text-right">Comprar</th>
+                        <th className="py-1 text-right">Estado</th>
+                      </tr></thead>
+                      <tbody>
+                        {(stockMatieres.length > 0 ? diagnosticMatieres.lignes : ((matieresResultat as any).materias || []).map((m) => ({ materia: m.materia, besoinKg: m.kg, stockKg: 0, minKg: 0, achatKg: 0, statut: "Necesidad", reconocido: true, source: "" }))).map((m) => (
+                          <tr key={m.materia} className="border-b border-slate-100">
+                            <td className="py-2 pr-2 font-medium">
+                              {m.materia}
+                              {m.source && m.source !== m.materia && <div className="text-[11px] text-slate-400">Stock: {m.source}</div>}
+                            </td>
+                            <td className="py-2 text-right font-semibold">{fmtNb(m.besoinKg)} kg</td>
+                            <td className="py-2 text-right">{stockMatieres.length > 0 ? fmtNb(m.stockKg) + " kg" : "-"}</td>
+                            <td className="py-2 text-right">{stockMatieres.length > 0 ? fmtNb(m.minKg) + " kg" : "-"}</td>
+                            <td className={"py-2 text-right font-bold " + (m.achatKg > 0 ? "text-red-700" : "text-emerald-700")}>{stockMatieres.length > 0 ? fmtNb(m.achatKg) + " kg" : "-"}</td>
+                            <td className={"py-2 text-right " + (m.statut === "Comprar" ? "text-red-700 font-semibold" : m.statut === "No determinado" ? "text-amber-700 font-semibold" : "text-emerald-700")}>{stockMatieres.length > 0 ? m.statut : "Necesidad"}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  {stockMatieres.length > 0 && diagnosticMatieres.stockSansBesoin.length > 0 && (
+                    <div className="mt-4 p-3 rounded-lg bg-slate-50 border border-slate-200 text-xs text-slate-500">
+                      MP con stock cargado pero sin necesidad en el planning seleccionado: {diagnosticMatieres.stockSansBesoin.slice(0, 12).map((m: any) => m.nom).join(", ")}{diagnosticMatieres.stockSansBesoin.length > 12 ? "..." : ""}
+                    </div>
+                  )}
                   {(matieresResultat as any).sinReceta && (matieresResultat as any).sinReceta.length > 0 && (
                     <div className="mt-4 p-3 rounded-lg bg-amber-50 border border-amber-200 text-sm text-amber-800">
                       Sin receta privada configurada para: {(matieresResultat as any).sinReceta.map((x) => x.producto).join(", ")}

@@ -5,7 +5,7 @@ import {
   ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts";
 
-const APP_VERSION = "2026.07.17-dashboard-analytique-v1";
+const APP_VERSION = "2026.07.17-simulations-prioridades-v2";
 
 const PALETTE = [
   { couleur: "bg-violet-600", clair: "bg-violet-100", bordure: "border-violet-600", texte: "text-violet-800" },
@@ -764,6 +764,7 @@ export default function PlanificateurChocolat() {
   const [masquerNonConfig, setMasquerNonConfig] = useState(false);
   const [aldoOuvert, setAldoOuvert] = useState(false);
   const [aldoTexte, setAldoTexte] = useState("");
+  const [aldoChargement, setAldoChargement] = useState(false);
   const [aldoMessages, setAldoMessages] = useState([
     { role: "aldo", texte: "¿Cómo puedo ayudarte?" },
   ]);
@@ -789,6 +790,24 @@ export default function PlanificateurChocolat() {
   const [dashboardLigneId, setDashboardLigneId] = useState("");
   const [dashboardProduitId, setDashboardProduitId] = useState("");
   const [dashboardSecteurStock, setDashboardSecteurStock] = useState("");
+  const [prioritesProduction, setPrioritesProduction] = useState<any[]>([]);
+  const [messagePriorites, setMessagePriorites] = useState("");
+  const [nouvellePriorite, setNouvellePriorite] = useState<any>({
+    rule_type: "never_stockout",
+    product_id: "",
+    after_product_id: "",
+    priority: 80,
+    target_multiplier: 2,
+    due_date: "",
+    note: "",
+  });
+  const [simulationSemaines, setSimulationSemaines] = useState(12);
+  const [simulationDemandePct, setSimulationDemandePct] = useState(20);
+  const [simulationEfficacitePct, setSimulationEfficacitePct] = useState(90);
+  const [simulationTurnosExtra, setSimulationTurnosExtra] = useState<Record<string, number>>({});
+  const [simulationVue, setSimulationVue] = useState("global");
+  const [simulationLigneId, setSimulationLigneId] = useState("");
+  const [simulationProduitId, setSimulationProduitId] = useState("");
   const [versionsPlanning, setVersionsPlanning] = useState<any[]>([]);
   const [versionActive, setVersionActive] = useState<any>(null);
   const [nomVersion, setNomVersion] = useState("");
@@ -1445,6 +1464,76 @@ export default function PlanificateurChocolat() {
     setDashboardSecteurStock("");
   }, [dashboardVue, dashboardLigneId, dashboardProduitId, usine]);
 
+  const donneesSimulation = useMemo(() => {
+    const efficacite = simulationEfficacitePct / 100;
+    const produitSelectionne = simulationProduitId ? produitsUsine.find((produit) => memeId(produit.id, simulationProduitId)) : null;
+    const lignesScenario = lignesUsine.filter((ligne) => {
+      if (simulationVue === "ligne") return !simulationLigneId || ligne.id === simulationLigneId;
+      if (simulationVue === "produit") return !produitSelectionne || ligne.id === produitSelectionne.ligne;
+      return true;
+    });
+    const produitsScenario = produitsUsine.filter((produit) => {
+      if (simulationVue === "ligne") return !simulationLigneId || produit.ligne === simulationLigneId;
+      if (simulationVue === "produit") return !simulationProduitId || memeId(produit.id, simulationProduitId);
+      return true;
+    });
+    const lignesSimulation = lignesScenario.map((ligne) => {
+      let capaciteBase = 0;
+      for (let i = 0; i < 7; i++) {
+        const date = new Date(lundiAffiche.getFullYear(), lundiAffiche.getMonth(), lundiAffiche.getDate() + i);
+        capaciteBase += capaciteJourPlanning(ligne, date);
+      }
+      const demandeBase = produitsScenario
+        .filter((produit) => produit.ligne === ligne.id && estConfigure(produit))
+        .reduce((s, produit) => s + demandeJour(produit) * 7 * (kgParBulto(produit) || 0), 0);
+      const demandeAutresProduits = simulationVue === "produit" && produitSelectionne
+        ? produitsUsine
+          .filter((produit) => produit.ligne === ligne.id && !memeId(produit.id, produitSelectionne.id) && estConfigure(produit))
+          .reduce((s, produit) => s + demandeJour(produit) * 7 * (kgParBulto(produit) || 0), 0)
+        : 0;
+      const turnosExtra = Math.max(0, Number(simulationTurnosExtra[ligne.id]) || 0);
+      const capaciteSansExtras = Math.max(0, capaciteBase * efficacite - demandeAutresProduits);
+      const capaciteAvecScenario = capaciteSansExtras + turnosExtra * ligne.capacite;
+      const demandeFinale = demandeBase * (1 + simulationDemandePct / 100);
+      const manqueFinal = Math.max(0, demandeFinale - capaciteAvecScenario);
+      const turnosRecommandes = ligne.capacite > 0 ? Math.ceil(manqueFinal / ligne.capacite) : 0;
+      return {
+        id: ligne.id,
+        ligne: ligne.nom,
+        capaciteBase,
+        demandeBase,
+        turnosExtra,
+        capaciteSansExtras,
+        capaciteScenario: capaciteAvecScenario,
+        demandeFinale,
+        margeFinale: capaciteAvecScenario - demandeFinale,
+        turnosRecommandes,
+      };
+    });
+
+    const projection = Array.from({ length: simulationSemaines }, (_, index) => {
+      const progression = simulationSemaines <= 1 ? 1 : index / (simulationSemaines - 1);
+      const facteurDemande = 1 + (simulationDemandePct / 100) * progression;
+      return {
+        semaine: "S" + (index + 1),
+        demande: lignesSimulation.reduce((s, ligne) => s + ligne.demandeBase * facteurDemande, 0),
+        capaciteBase: lignesSimulation.reduce((s, ligne) => s + ligne.capaciteSansExtras, 0),
+        capaciteScenario: lignesSimulation.reduce((s, ligne) => s + ligne.capaciteScenario, 0),
+      };
+    });
+    const fin = projection[projection.length - 1] || { demande: 0, capaciteScenario: 0 };
+    const lignesInsuffisantes = lignesSimulation.filter((ligne) => ligne.margeFinale < 0);
+    return {
+      lignes: lignesSimulation,
+      projection,
+      demandeFinale: fin.demande,
+      capaciteFinale: fin.capaciteScenario,
+      margeFinale: fin.capaciteScenario - fin.demande,
+      lignesInsuffisantes,
+      turnosRecommandes: lignesSimulation.reduce((s, ligne) => s + ligne.turnosRecommandes, 0),
+    };
+  }, [lignesUsine, produitsUsine, lundiAffiche, simulationSemaines, simulationDemandePct, simulationEfficacitePct, simulationTurnosExtra, reglesCapaciteAldo, simulationVue, simulationLigneId, simulationProduitId]);
+
   const restaurerPeriode = (data) => {
     const debutSauve = data && data.dateDebutOpti ? String(data.dateDebutOpti) : (data && data.lundi ? cleDate(lundiDeLaSemaine(new Date(data.lundi))) : null);
     const finSauvee = data && data.dateFinOpti ? String(data.dateFinOpti) : null;
@@ -1517,6 +1606,7 @@ export default function PlanificateurChocolat() {
 
   const peutPlanifier = !supabaseConfigured || ["admin", "planner"].includes(profil?.role);
   const peutSaisirReel = !supabaseConfigured || ["admin", "planner", "production"].includes(profil?.role);
+  const peutGererPriorites = !supabaseConfigured || ["admin", "planner", "production"].includes(profil?.role);
   const planningFige = versionActive?.status === "approved" || versionActive?.status === "replaced" || versionActive?.status === "archived";
 
   const connecter = async (e) => {
@@ -1597,6 +1687,113 @@ export default function PlanificateurChocolat() {
     setMessageUtilisateurs("Permisos actualizados correctamente.");
   };
 
+  const chargerPriorites = async (usineCible = usine) => {
+    if (!supabase || !session || !usineCible) return;
+    setMessagePriorites("Cargando prioridades...");
+    const { data, error } = await supabase
+      .from("production_priorities")
+      .select("*")
+      .eq("factory_id", usineCible)
+      .order("active", { ascending: false })
+      .order("priority", { ascending: false });
+    setPrioritesProduction(data || []);
+    setMessagePriorites(error ? error.message : "");
+  };
+
+  const enregistrerPriorite = async () => {
+    if (!peutGererPriorites || !usine) return;
+    if (!nouvellePriorite.product_id) {
+      setMessagePriorites("Selecciona un producto.");
+      return;
+    }
+    const produitPrioritaire = produits.find((produit) => memeId(produit.id, nouvellePriorite.product_id));
+    if (!produitPrioritaire || !estConfigure(produitPrioritaire)) {
+      setMessagePriorites("Este producto todavía no tiene stock mín./máx. y no puede ser optimizado. Configúralo primero.");
+      return;
+    }
+    if (nouvellePriorite.rule_type === "sequence" && !nouvellePriorite.after_product_id) {
+      setMessagePriorites("Selecciona el producto que debe producirse primero.");
+      return;
+    }
+    if (nouvellePriorite.rule_type === "sequence") {
+      const produitA = produits.find((produit) => memeId(produit.id, nouvellePriorite.after_product_id));
+      const produitB = produits.find((produit) => memeId(produit.id, nouvellePriorite.product_id));
+      if (memeId(produitA?.id, produitB?.id) || produitA?.ligne !== produitB?.ligne) {
+        setMessagePriorites("La secuencia debe contener dos productos diferentes de la misma línea.");
+        return;
+      }
+    }
+    if (nouvellePriorite.rule_type === "due_date" && !nouvellePriorite.due_date) {
+      setMessagePriorites("Selecciona una fecha límite.");
+      return;
+    }
+    const payloadPriorite = {
+      factory_id: usine,
+      rule_type: nouvellePriorite.rule_type,
+      product_id: String(nouvellePriorite.product_id),
+      after_product_id: nouvellePriorite.rule_type === "sequence" ? String(nouvellePriorite.after_product_id) : null,
+      priority: Number(nouvellePriorite.priority) || 50,
+      target_multiplier: Number(nouvellePriorite.target_multiplier) || 1.5,
+      due_date: nouvellePriorite.rule_type === "due_date" && nouvellePriorite.due_date ? nouvellePriorite.due_date : null,
+      note: String(nouvellePriorite.note || "").slice(0, 300),
+      active: true,
+    };
+    if (!supabase) {
+      setPrioritesProduction((liste) => [...liste, { ...payloadPriorite, id: "local-" + Date.now(), created_by: "local" }]);
+      setNouvellePriorite({ rule_type: "never_stockout", product_id: "", after_product_id: "", priority: 80, target_multiplier: 2, due_date: "", note: "" });
+      setMessagePriorites("Prioridad agregada a la simulación local. En línea quedará guardada en Supabase.");
+      return;
+    }
+    if (!["admin", "planner", "production"].includes(profil?.role) || !session?.user) return;
+    setMessagePriorites("Guardando prioridad...");
+    const { error } = await supabase.from("production_priorities").insert({
+      ...payloadPriorite,
+      created_by: session.user.id,
+    });
+    if (error) {
+      setMessagePriorites(error.message);
+      return;
+    }
+    setNouvellePriorite({ rule_type: "never_stockout", product_id: "", after_product_id: "", priority: 80, target_multiplier: 2, due_date: "", note: "" });
+    await chargerPriorites();
+    setMessagePriorites("Prioridad guardada. Se aplicará en la próxima optimización.");
+  };
+
+  const modifierPriorite = async (id, changements) => {
+    if (!peutGererPriorites) return;
+    if (!supabase) {
+      setPrioritesProduction((liste) => liste.map((regle) => regle.id === id ? { ...regle, ...changements } : regle));
+      setMessagePriorites("Prioridad local actualizada.");
+      return;
+    }
+    if (!["admin", "planner", "production"].includes(profil?.role)) return;
+    const { error } = await supabase.from("production_priorities").update({ ...changements, updated_at: new Date().toISOString() }).eq("id", id);
+    if (error) {
+      setMessagePriorites(error.message);
+      return;
+    }
+    setPrioritesProduction((liste) => liste.map((regle) => regle.id === id ? { ...regle, ...changements } : regle));
+    setMessagePriorites("Prioridad actualizada.");
+  };
+
+  const supprimerPriorite = async (regle) => {
+    if (!peutGererPriorites) return;
+    if (!window.confirm("¿Eliminar definitivamente esta prioridad de producción?")) return;
+    if (!supabase) {
+      setPrioritesProduction((liste) => liste.filter((item) => item.id !== regle.id));
+      setMessagePriorites("Prioridad local eliminada.");
+      return;
+    }
+    if (!["admin", "planner", "production"].includes(profil?.role)) return;
+    const { error } = await supabase.from("production_priorities").delete().eq("id", regle.id);
+    if (error) {
+      setMessagePriorites(error.message);
+      return;
+    }
+    setPrioritesProduction((liste) => liste.filter((item) => item.id !== regle.id));
+    setMessagePriorites("Prioridad eliminada.");
+  };
+
   const chargerVersions = async (usineCible = usine) => {
     if (!supabase || !usineCible || !session) return;
     setMsgVersions("Cargando versiones...");
@@ -1659,6 +1856,10 @@ export default function PlanificateurChocolat() {
 
   useEffect(() => {
     if (supabase && session && usine) chargerVersions(usine);
+  }, [session?.user?.id, usine]);
+
+  useEffect(() => {
+    if (supabase && session && usine) chargerPriorites(usine);
   }, [session?.user?.id, usine]);
 
   const prochainNumeroVersion = async () => {
@@ -1994,6 +2195,7 @@ export default function PlanificateurChocolat() {
     let blocsSansBesoin = 0;
     let blocsEvitesMax = 0;
     const derniereFamilleParLigne = {};
+    const prioritesActives = prioritesProduction.filter((regle) => regle.active && regle.factory_id === usine);
     datesHorizon.forEach((jour) => {
       produitsUsine.forEach((p) => { if (estConfigure(p)) stockSim[p.id] -= demandeJour(p); });
       if (!jour.prod) return;
@@ -2013,11 +2215,14 @@ export default function PlanificateurChocolat() {
           const kgb_ligne = kgBlocPlanning(ligne, turno, jour.date); // kg disponibles por turno
           // Produit le plus en déficit sous le plancher vert (min*1.5), en turno completo.
           let meilleur = null, meilleurScore = -Infinity;
+          let meilleureRegle = null;
           let candidatsSousVert = 0;
           let candidatsCompletsPossibles = 0;
           prods.forEach((p) => {
             const s = seuils(p);
-            const plancher = s.min * 1.5;
+            const reglesProduit = prioritesActives.filter((regle) => String(regle.product_id) === String(p.id));
+            const multiplicateurCible = reglesProduit.reduce((max, regle) => Math.max(max, Number(regle.target_multiplier) || 1.5), 1.5);
+            const plancher = Math.min(s.max, s.min * multiplicateurCible);
             const urgence = plancher - stockSim[p.id]; // > 0 si esta debajo del verde
             if (urgence <= 0) return;
             candidatsSousVert++;
@@ -2028,8 +2233,25 @@ export default function PlanificateurChocolat() {
             const memeFamille = derniereFamilleParLigne[ligne.id] && derniereFamilleParLigne[ligne.id] === familleProduit(p);
             const derniere = produits.find((prod) => memeId(prod.id, derniereFamilleParLigne[ligne.id + "_produit"]));
             const favoriseFraise = regleFramboisePuisFraise && ligne.id === "vb_stephan" && tokensProduit(derniere && derniere.nom).includes("FRAMBUESA") && tokensProduit(p.nom).includes("FRUTILLA");
-            const score = urgence * 1000 + deficitMax + (memeFamille ? Math.max(25, Math.abs(urgence) * 120) : 0) + (favoriseFraise ? 500000 : 0);
-            if (score > meilleurScore) { meilleur = p; meilleurScore = score; }
+            let bonusPriorite = 0;
+            let regleDominante = null;
+            reglesProduit.forEach((regle) => {
+              const poids = Math.max(1, Number(regle.priority) || 50);
+              let bonus = 0;
+              if (regle.rule_type === "never_stockout") bonus = 1000000 + poids * 15000;
+              if (regle.rule_type === "boosted_target") bonus = poids * 6000;
+              if (regle.rule_type === "sequence" && String(regle.after_product_id) === String(derniereFamilleParLigne[ligne.id + "_produit"])) bonus = 2000000 + poids * 15000;
+              if (regle.rule_type === "due_date" && regle.due_date) {
+                const joursRestants = Math.ceil((dateDepuisCle(regle.due_date).getTime() - jour.date.getTime()) / 86400000);
+                if (joursRestants <= 14) bonus = 1200000 + poids * 10000 + Math.max(0, 14 - joursRestants) * 50000;
+              }
+              if (bonus > bonusPriorite) {
+                bonusPriorite = bonus;
+                regleDominante = regle;
+              }
+            });
+            const score = urgence * 1000 + deficitMax + (memeFamille ? Math.max(25, Math.abs(urgence) * 120) : 0) + (favoriseFraise ? 500000 : 0) + bonusPriorite;
+            if (score > meilleurScore) { meilleur = p; meilleurScore = score; meilleureRegle = regleDominante; }
           });
           if (!meilleur) {
             if (candidatsSousVert > 0 && candidatsCompletsPossibles === 0) blocsEvitesMax++;
@@ -2043,7 +2265,9 @@ export default function PlanificateurChocolat() {
           const famille = familleProduit(meilleur);
           const raison = (derniereFamilleParLigne[ligne.id] === famille)
             ? "Agrupado por familia similar (" + famille + ")"
-            : (stockSim[meilleur.id] < s.min ? "Prioridad: bajo minimo" : "Turno completo para volver a zona verde");
+            : (meilleureRegle
+              ? "Prioridad admin: " + (meilleureRegle.rule_type === "never_stockout" ? "producto crítico" : meilleureRegle.rule_type === "sequence" ? "secuencia obligatoria" : meilleureRegle.rule_type === "due_date" ? "fecha límite" : "stock objetivo reforzado")
+              : (stockSim[meilleur.id] < s.min ? "Prioridad: bajo minimo" : "Turno completo para volver a zona verde"));
           nouveauPlan[jour.cle + "|" + ligne.id + "|" + turno.id] = { p: meilleur.id, kg: kgProduit, raison };
           stockSim[meilleur.id] += kgProduit / kgpb;
           derniereFamilleParLigne[ligne.id] = famille;
@@ -2488,12 +2712,156 @@ export default function PlanificateurChocolat() {
     return { actions, lundiCible, dateFin, veutRemplir, dateExacte: !!datePrecise || demandeMoisComplet };
   };
 
-  const repondreAldo = (questionBrute = "") => {
+  const construireContexteAldo = () => {
+    const debutCle = cleDate(periodeOpti.debut);
+    const finCle = cleDate(periodeOpti.fin);
+    const reelsParProduit = {};
+    const planKgParProduit = {};
+    const blocsPlanning = [];
+    Object.entries(plan).forEach(([cle, cellule]) => {
+      const [date, ligneId, turnoId] = cle.split("|");
+      if (date < debutCle || date > finCle) return;
+      const ligne = lignes.find((item) => item.id === ligneId);
+      const bloc = lireBloc(cellule, ligne);
+      if (!bloc?.p) return;
+      const produit = produits.find((item) => memeId(item.id, bloc.p));
+      if (!produit || produit.usine !== usine) return;
+      const planKg = Number(bloc.kg) || 0;
+      const reelInforme = bloc.realKg != null && bloc.realKg !== "";
+      const reelKg = reelInforme ? Number(bloc.realKg) || 0 : null;
+      planKgParProduit[produit.id] = (planKgParProduit[produit.id] || 0) + planKg;
+      if (reelInforme) reelsParProduit[produit.id] = (reelsParProduit[produit.id] || 0) + reelKg;
+      blocsPlanning.push({
+        fecha: date,
+        linea: ligne?.nom || ligneId,
+        turno: turnoId,
+        producto: produit.nom,
+        plan_kg: planKg,
+        real_kg: reelKg,
+        nota: bloc.note || "",
+      });
+    });
+
+    const productos = produitsUsine.filter(estConfigure).map((produit) => {
+      const s = seuils(produit);
+      const kgBulto = kgParBulto(produit);
+      const planKg = Number(planKgParProduit[produit.id] || 0);
+      const realKg = Number(reelsParProduit[produit.id] || 0);
+      const demandaDiaKg = demandeJour(produit) * (kgBulto || 0);
+      const proyectado = produit.stock + (kgBulto ? planKg / kgBulto : 0) - demandeJour(produit) * periodeOpti.jours;
+      return {
+        id: produit.id,
+        producto: produit.nom,
+        equivalentes: Array.isArray(produit.aliases) ? produit.aliases : [],
+        linea: lignes.find((item) => item.id === produit.ligne)?.nom || "Sin línea",
+        stock_bultos: produit.stock,
+        minimo_bultos: s.min,
+        maximo_bultos: s.max,
+        kg_por_bulto: kgBulto,
+        demanda_dia_bultos: demandeJour(produit),
+        demanda_dia_kg: demandaDiaKg,
+        demanda_periodo_kg: demandaDiaKg * periodeOpti.jours,
+        planificado_kg: planKg,
+        real_informado_kg: realKg,
+        stock_proyectado_bultos: proyectado,
+        estado_proyectado: statutStock(proyectado, s.min, s.max).label,
+      };
+    });
+
+    const lineas = lignesUsine.map((ligne) => {
+      const productosLinea = productos.filter((producto) => producto.linea === ligne.nom);
+      let capacidadPeriodo = 0;
+      for (let date = new Date(periodeOpti.debut); date <= periodeOpti.fin; date.setDate(date.getDate() + 1)) {
+        capacidadPeriodo += capaciteJourPlanning(ligne, new Date(date));
+      }
+      return {
+        linea: ligne.nom,
+        kg_por_turno: ligne.capacite,
+        capacidad_periodo_kg: capacidadPeriodo,
+        demanda_periodo_kg: productosLinea.reduce((s, producto) => s + producto.demanda_periodo_kg, 0),
+        planificado_kg: productosLinea.reduce((s, producto) => s + producto.planificado_kg, 0),
+        real_informado_kg: productosLinea.reduce((s, producto) => s + producto.real_informado_kg, 0),
+        productos: productosLinea.length,
+      };
+    });
+
+    return {
+      generado_en: new Date().toISOString(),
+      fabrica: usineActive?.nom || usine,
+      periodo: { desde: debutCle, hasta: finCle, dias: periodeOpti.jours },
+      reglas: {
+        stocks_en_bultos: true,
+        capacidad_en_kg_por_turno: true,
+        zona_verde_desde: "minimo x 1.5",
+        produccion_real_nula_significa: "turno todavía no informado",
+      },
+      resumen: {
+        productos_configurados: productos.length,
+        productos_bajo_minimo: productos.filter((producto) => producto.stock_bultos < producto.minimo_bultos).length,
+        productos_proyectados_bajo_minimo: productos.filter((producto) => producto.stock_proyectado_bultos < producto.minimo_bultos).length,
+        turnos_planificados: blocsPlanning.length,
+        turnos_con_real: blocsPlanning.filter((bloc) => bloc.real_kg != null).length,
+      },
+      lineas,
+      productos,
+      planning: blocsPlanning,
+      prioridades_administrativas: prioritesProduction.filter((regle) => regle.active).map((regle) => ({
+        tipo: regle.rule_type,
+        producto: produits.find((produit) => memeId(produit.id, regle.product_id))?.nom || regle.product_id,
+        despues_de: regle.after_product_id ? produits.find((produit) => memeId(produit.id, regle.after_product_id))?.nom || regle.after_product_id : null,
+        peso: regle.priority,
+        multiplicador_objetivo: regle.target_multiplier,
+        fecha_limite: regle.due_date,
+        nota: regle.note,
+      })),
+    };
+  };
+
+  const consulterAldoIA = async (question) => {
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    if (supabase) {
+      const { data } = await supabase.auth.getSession();
+      if (data.session?.access_token) headers.Authorization = `Bearer ${data.session.access_token}`;
+    }
+    const response = await fetch("/api/aldo", {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        question,
+        contexte: construireContexteAldo(),
+        historique: aldoMessages.slice(-6),
+      }),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.error || "Aldo IA no está disponible.");
+    return data.texte;
+  };
+
+  const repondreAldo = async (questionBrute = "") => {
     const question = questionBrute.trim();
-    if (!question) return;
+    if (!question || aldoChargement) return;
     const q = question.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
     let reponse = "";
     const consignes = appliquerConsignesAldo(question, q);
+    const ordrePlanification = /\b(optimizar|optimiser|optimize|completa|complete|rellena|remplis|remplir|fill)\b/.test(q);
+    const commandeLocale = consignes.actions.length > 0 ||
+      ordrePlanification ||
+      /\b(importar|importer|cargar stocks?|charger les stocks?|borrar|limpiar|effacer|vider)\b/.test(q);
+    if (!commandeLocale) {
+      setAldoTexte("");
+      setAldoOuvert(true);
+      setAldoChargement(true);
+      setAldoMessages((m) => [...m, { role: "user", texte: question }, { role: "aldo", texte: "Analizando los datos del planning..." }].slice(-10));
+      try {
+        const texteIA = await consulterAldoIA(question);
+        setAldoMessages((m) => [...m.slice(0, -1), { role: "aldo", texte: texteIA }].slice(-10));
+        setAldoChargement(false);
+        return;
+      } catch (_error) {
+        setAldoMessages((m) => m.slice(0, -2));
+        setAldoChargement(false);
+      }
+    }
     if (consignes.actions.length > 0 || (consignes.veutRemplir && (consignes.lundiCible || consignes.dateFin))) {
       if (consignes.veutRemplir || q.includes("complete") || q.includes("rempl") || q.includes("calend")) {
         setTimeout(() => optimiser(consignes.lundiCible, { respecterDateExacte: consignes.dateExacte, dateFin: consignes.dateFin }), 0);
@@ -2774,11 +3142,13 @@ export default function PlanificateurChocolat() {
         <div className="flex gap-2 mb-4 flex-wrap bg-white/90 border border-violet-100 rounded-xl shadow-sm p-2">
           <button onClick={() => setOnglet("calendrier")} className={"px-4 py-2 rounded-lg text-sm font-medium transition " + (onglet === "calendrier" ? "bg-violet-800 text-white shadow" : "bg-white text-violet-800 hover:bg-violet-100")}>📅 Calendario</button>
           <button onClick={() => setOnglet("dashboard")} className={"px-4 py-2 rounded-lg text-sm font-medium transition " + (onglet === "dashboard" ? "bg-violet-800 text-white shadow" : "bg-white text-violet-800 hover:bg-violet-100")}>📈 Dashboard</button>
+          <button onClick={() => setOnglet("simulations")} className={"px-4 py-2 rounded-lg text-sm font-medium transition " + (onglet === "simulations" ? "bg-violet-800 text-white shadow" : "bg-white text-violet-800 hover:bg-violet-100")}>◫ Simulaciones</button>
           <button onClick={() => setOnglet("stocks")} className={"px-4 py-2 rounded-lg text-sm font-medium transition " + (onglet === "stocks" ? "bg-violet-800 text-white shadow" : "bg-white text-violet-800 hover:bg-violet-100")}>📦 Estado de Stocks</button>
           <button onClick={() => setOnglet("produits")} className={"px-4 py-2 rounded-lg text-sm font-medium transition " + (onglet === "produits" ? "bg-violet-800 text-white shadow" : "bg-white text-violet-800 hover:bg-violet-100")}>⚙️ Productos y Líneas{produitsNonAssignes.length > 0 ? " (" + produitsNonAssignes.length + ")" : ""}</button>
           <button onClick={() => setOnglet("materias")} className={"px-4 py-2 rounded-lg text-sm font-medium transition " + (onglet === "materias" ? "bg-violet-800 text-white shadow" : "bg-white text-violet-800 hover:bg-violet-100")}>🧾 Materias primas</button>
           <button onClick={() => setOnglet("diagnostic")} className={"px-4 py-2 rounded-lg text-sm font-medium transition " + (onglet === "diagnostic" ? "bg-violet-800 text-white shadow" : "bg-white text-violet-800 hover:bg-violet-100")}>📊 Diagnóstico</button>
           <button onClick={() => { setOnglet("versions"); chargerVersions(); }} className={"px-4 py-2 rounded-lg text-sm font-medium transition " + (onglet === "versions" ? "bg-emerald-700 text-white shadow" : "bg-white text-emerald-800 hover:bg-emerald-50")}>🔒 Versiones</button>
+          <button onClick={() => { setOnglet("prioridades"); chargerPriorites(); }} className={"px-4 py-2 rounded-lg text-sm font-medium transition " + (onglet === "prioridades" ? "bg-emerald-700 text-white shadow" : "bg-white text-emerald-800 hover:bg-emerald-50")}>★ Prioridades</button>
           {profil?.role === "admin" && <button onClick={() => { setOnglet("usuarios"); chargerUtilisateurs(); }} className={"px-4 py-2 rounded-lg text-sm font-medium transition " + (onglet === "usuarios" ? "bg-emerald-700 text-white shadow" : "bg-white text-emerald-800 hover:bg-emerald-50")}>👤 Usuarios</button>}
               <button onClick={() => setOnglet("import")} className={"px-4 py-2 rounded-lg text-sm font-medium transition " + (onglet === "import" ? "bg-violet-800 text-white shadow" : "bg-white text-violet-800 hover:bg-violet-100")}>🔄 Importar / Exportar</button>
         </div>
@@ -2847,6 +3217,245 @@ export default function PlanificateurChocolat() {
               </table>
             </div>
           </section>
+        )}
+
+        {onglet === "prioridades" && (
+          <section className="bg-white border border-violet-100 rounded-xl shadow-sm p-4 md:p-6 mb-4">
+            <div className="flex flex-wrap items-start justify-between gap-3 mb-5">
+              <div>
+                <h2 className="text-xl font-semibold text-violet-950">Prioridades de producción</h2>
+                <p className="text-sm text-slate-500 mt-1">Reglas administrativas aplicadas por el optimizador. Aldo puede analizarlas, pero no modificarlas.</p>
+              </div>
+              <button type="button" onClick={() => chargerPriorites()} className="px-3 py-2 border border-violet-200 rounded-lg text-sm text-violet-800 hover:bg-violet-50">Actualizar lista</button>
+            </div>
+
+            <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-4 mb-5 text-xs">
+              <div className="border-l-4 border-red-500 bg-red-50 p-3 rounded-r-lg"><strong className="block text-red-900">Nunca en ruptura</strong><span className="text-slate-600">Mantiene una protección reforzada del stock.</span></div>
+              <div className="border-l-4 border-violet-500 bg-violet-50 p-3 rounded-r-lg"><strong className="block text-violet-900">Secuencia A → B</strong><span className="text-slate-600">Después de A, prioriza B en la misma línea.</span></div>
+              <div className="border-l-4 border-amber-500 bg-amber-50 p-3 rounded-r-lg"><strong className="block text-amber-900">Fecha límite</strong><span className="text-slate-600">Aumenta la urgencia al acercarse la fecha.</span></div>
+              <div className="border-l-4 border-emerald-500 bg-emerald-50 p-3 rounded-r-lg"><strong className="block text-emerald-900">Objetivo reforzado</strong><span className="text-slate-600">Eleva temporalmente el stock objetivo.</span></div>
+            </div>
+
+            {peutGererPriorites && (
+              <div className="border border-emerald-200 bg-emerald-50/60 rounded-lg p-4 mb-5">
+                <h3 className="font-semibold text-emerald-950 mb-3">Agregar una prioridad</h3>
+                <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                  <label className="text-xs font-medium text-slate-600">Tipo de regla
+                    <select value={nouvellePriorite.rule_type} onChange={(e) => setNouvellePriorite((r) => ({ ...r, rule_type: e.target.value }))} className="mt-1 w-full border border-slate-300 rounded-lg bg-white px-3 py-2 text-sm">
+                      <option value="never_stockout">Nunca en ruptura</option>
+                      <option value="sequence">Secuencia A → B</option>
+                      <option value="due_date">Fecha límite</option>
+                      <option value="boosted_target">Objetivo reforzado</option>
+                    </select>
+                  </label>
+                  {nouvellePriorite.rule_type === "sequence" && (
+                    <label className="text-xs font-medium text-slate-600">Después de producir
+                      <select value={nouvellePriorite.after_product_id} onChange={(e) => setNouvellePriorite((r) => ({ ...r, after_product_id: e.target.value, product_id: "" }))} className="mt-1 w-full border border-slate-300 rounded-lg bg-white px-3 py-2 text-sm">
+                        <option value="">Seleccionar producto A</option>
+                        {produitsUsine.filter((produit) => produit.ligne).sort((a, b) => a.nom.localeCompare(b.nom)).map((produit) => <option key={produit.id} value={produit.id}>{produit.nom}{!estConfigure(produit) ? " · sin min/max" : ""}</option>)}
+                      </select>
+                    </label>
+                  )}
+                  <label className="text-xs font-medium text-slate-600">{nouvellePriorite.rule_type === "sequence" ? "Priorizar producto B" : "Producto prioritario"}
+                    <select value={nouvellePriorite.product_id} onChange={(e) => setNouvellePriorite((r) => ({ ...r, product_id: e.target.value }))} className="mt-1 w-full border border-slate-300 rounded-lg bg-white px-3 py-2 text-sm">
+                      <option value="">Seleccionar producto</option>
+                      {produitsUsine.filter((produit) => {
+                        if (!produit.ligne) return false;
+                        if (nouvellePriorite.rule_type !== "sequence" || !nouvellePriorite.after_product_id) return true;
+                        const source = produits.find((item) => memeId(item.id, nouvellePriorite.after_product_id));
+                        return produit.ligne === source?.ligne && !memeId(produit.id, source?.id);
+                      }).sort((a, b) => a.nom.localeCompare(b.nom)).map((produit) => <option key={produit.id} value={produit.id}>{produit.nom}{!estConfigure(produit) ? " · sin min/max" : ""}</option>)}
+                    </select>
+                  </label>
+                  {nouvellePriorite.rule_type === "due_date" && (
+                    <label className="text-xs font-medium text-slate-600">Fecha límite
+                      <input type="date" value={nouvellePriorite.due_date} onChange={(e) => setNouvellePriorite((r) => ({ ...r, due_date: e.target.value }))} className="mt-1 w-full border border-slate-300 rounded-lg bg-white px-3 py-2 text-sm" />
+                    </label>
+                  )}
+                  <label className="text-xs font-medium text-slate-600">Peso de prioridad: {nouvellePriorite.priority}
+                    <input type="range" min="1" max="100" value={nouvellePriorite.priority} onChange={(e) => setNouvellePriorite((r) => ({ ...r, priority: Number(e.target.value) }))} className="mt-3 w-full accent-emerald-700" />
+                  </label>
+                  {nouvellePriorite.rule_type !== "sequence" && (
+                    <label className="text-xs font-medium text-slate-600">Objetivo sobre mín.: x{nouvellePriorite.target_multiplier}
+                      <input type="range" min="1.5" max="3" step="0.1" value={nouvellePriorite.target_multiplier} onChange={(e) => setNouvellePriorite((r) => ({ ...r, target_multiplier: Number(e.target.value) }))} className="mt-3 w-full accent-emerald-700" />
+                    </label>
+                  )}
+                  <label className="text-xs font-medium text-slate-600 md:col-span-2">Nota / motivo
+                    <input maxLength={300} value={nouvellePriorite.note} onChange={(e) => setNouvellePriorite((r) => ({ ...r, note: e.target.value }))} placeholder="Ej.: cliente estratégico, campaña, compromiso comercial..." className="mt-1 w-full border border-slate-300 rounded-lg bg-white px-3 py-2 text-sm" />
+                  </label>
+                </div>
+                <button type="button" onClick={enregistrerPriorite} className="mt-3 px-4 py-2 bg-emerald-700 text-white rounded-lg text-sm font-medium hover:bg-emerald-800">Guardar prioridad</button>
+              </div>
+            )}
+
+            {messagePriorites && <p className="mb-3 text-sm text-emerald-800">{messagePriorites}</p>}
+            <div className="overflow-x-auto border border-slate-200 rounded-lg">
+              <table className="w-full text-sm">
+                <thead className="bg-slate-50 text-left text-slate-600"><tr>
+                  <th className="p-3">Regla</th><th className="p-3">Producto</th><th className="p-3">Parámetros</th><th className="p-3">Motivo</th><th className="p-3">Estado</th><th className="p-3"></th>
+                </tr></thead>
+                <tbody>
+                  {prioritesProduction.map((regle) => {
+                    const produit = produits.find((item) => memeId(item.id, regle.product_id));
+                    const apres = produits.find((item) => memeId(item.id, regle.after_product_id));
+                    const libelle = regle.rule_type === "never_stockout" ? "Nunca en ruptura" : regle.rule_type === "sequence" ? "Secuencia" : regle.rule_type === "due_date" ? "Fecha límite" : "Objetivo reforzado";
+                    return (
+                      <tr key={regle.id} className={"border-t border-slate-100 " + (!regle.active ? "opacity-55 bg-slate-50" : "")}>
+                        <td className="p-3 font-semibold text-slate-800">{libelle}</td>
+                        <td className="p-3"><span className="font-medium">{produit?.nom || regle.product_id}</span>{apres && <span className="block text-xs text-slate-500">después de {apres.nom}</span>}</td>
+                        <td className="p-3 text-xs text-slate-600">Peso {regle.priority}{regle.rule_type !== "sequence" ? " · objetivo x" + regle.target_multiplier : ""}{regle.due_date ? " · " + regle.due_date : ""}</td>
+                        <td className="p-3 text-xs text-slate-500 max-w-64">{regle.note || "—"}</td>
+                        <td className="p-3">{peutGererPriorites ? <button type="button" onClick={() => modifierPriorite(regle.id, { active: !regle.active })} className={"px-3 py-1 rounded-full text-xs font-semibold " + (regle.active ? "bg-emerald-100 text-emerald-800" : "bg-slate-200 text-slate-600")}>{regle.active ? "Activa" : "Inactiva"}</button> : <span className="text-xs">{regle.active ? "Activa" : "Inactiva"}</span>}</td>
+                        <td className="p-3 text-right">{peutGererPriorites && <button type="button" onClick={() => supprimerPriorite(regle)} className="px-2.5 py-1.5 border border-red-200 text-red-700 rounded-lg hover:bg-red-50">Eliminar</button>}</td>
+                      </tr>
+                    );
+                  })}
+                  {prioritesProduction.length === 0 && <tr><td colSpan={6} className="p-8 text-center text-slate-400">No hay prioridades administrativas para esta fábrica.</td></tr>}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        )}
+
+        {onglet === "simulations" && (
+          <div className="space-y-4">
+            <section className="bg-white rounded-lg shadow-sm border border-slate-200 p-4 md:p-6">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <h2 className="text-xl font-semibold text-violet-950">Simulador de capacidad — {usineActive?.nom}</h2>
+                  <p className="text-sm text-slate-500 mt-1">Prueba escenarios sin modificar el planning ni las capacidades registradas.</p>
+                </div>
+                <button type="button" onClick={() => { setSimulationSemaines(12); setSimulationDemandePct(20); setSimulationEfficacitePct(90); setSimulationTurnosExtra({}); setSimulationVue("global"); setSimulationLigneId(""); setSimulationProduitId(""); }} className="px-3 py-2 border border-slate-300 rounded-lg text-sm text-slate-700 hover:bg-slate-50">Restablecer escenario</button>
+              </div>
+
+              <div className="mt-5 flex flex-wrap items-end gap-3 border-y border-slate-100 py-4">
+                <label className="text-xs font-medium text-slate-600">
+                  Nivel de simulación
+                  <select value={simulationVue} onChange={(e) => {
+                    setSimulationVue(e.target.value);
+                    setSimulationLigneId("");
+                    setSimulationProduitId("");
+                    setSimulationTurnosExtra({});
+                  }} className="mt-1 block min-w-44 border border-slate-300 rounded-lg bg-white px-3 py-2 text-sm text-slate-800">
+                    <option value="global">Fábrica completa</option>
+                    <option value="ligne">Una línea</option>
+                    <option value="produit">Un producto / SKU</option>
+                  </select>
+                </label>
+                {simulationVue === "ligne" && (
+                  <label className="text-xs font-medium text-slate-600">
+                    Línea a simular
+                    <select value={simulationLigneId} onChange={(e) => { setSimulationLigneId(e.target.value); setSimulationTurnosExtra({}); }} className="mt-1 block min-w-60 border border-slate-300 rounded-lg bg-white px-3 py-2 text-sm text-slate-800">
+                      <option value="">Todas las líneas</option>
+                      {lignesUsine.map((ligne) => <option key={ligne.id} value={ligne.id}>{ligne.nom}</option>)}
+                    </select>
+                  </label>
+                )}
+                {simulationVue === "produit" && (
+                  <label className="text-xs font-medium text-slate-600 grow max-w-xl">
+                    Producto / SKU a simular
+                    <select value={simulationProduitId} onChange={(e) => { setSimulationProduitId(e.target.value); setSimulationTurnosExtra({}); }} className="mt-1 block w-full border border-slate-300 rounded-lg bg-white px-3 py-2 text-sm text-slate-800">
+                      <option value="">Todos los productos</option>
+                      {produitsUsine.filter(estConfigure).sort((a, b) => a.nom.localeCompare(b.nom)).map((produit) => <option key={produit.id} value={produit.id}>{produit.nom}</option>)}
+                    </select>
+                  </label>
+                )}
+              </div>
+
+              <div className="mt-5 grid gap-5 lg:grid-cols-3">
+                <label className="text-sm font-medium text-slate-700">
+                  Horizonte: <strong>{simulationSemaines} semanas</strong>
+                  <input type="range" min="4" max="26" step="1" value={simulationSemaines} onChange={(e) => setSimulationSemaines(Number(e.target.value))} className="mt-3 w-full accent-violet-700" />
+                  <span className="mt-1 flex justify-between text-[11px] font-normal text-slate-400"><span>4</span><span>26</span></span>
+                </label>
+                <label className="text-sm font-medium text-slate-700">
+                  Variación de demanda al final: <strong className={simulationDemandePct >= 0 ? "text-orange-700" : "text-emerald-700"}>{simulationDemandePct > 0 ? "+" : ""}{simulationDemandePct}%</strong>
+                  <input type="range" min="-30" max="100" step="5" value={simulationDemandePct} onChange={(e) => setSimulationDemandePct(Number(e.target.value))} className="mt-3 w-full accent-orange-600" />
+                  <span className="mt-1 flex justify-between text-[11px] font-normal text-slate-400"><span>-30%</span><span>+100%</span></span>
+                </label>
+                <label className="text-sm font-medium text-slate-700">
+                  Eficiencia productiva: <strong>{simulationEfficacitePct}%</strong>
+                  <input type="range" min="60" max="100" step="5" value={simulationEfficacitePct} onChange={(e) => setSimulationEfficacitePct(Number(e.target.value))} className="mt-3 w-full accent-sky-600" />
+                  <span className="mt-1 flex justify-between text-[11px] font-normal text-slate-400"><span>60%</span><span>100%</span></span>
+                </label>
+              </div>
+            </section>
+
+            <section className={"border-l-4 rounded-lg p-4 shadow-sm " + (donneesSimulation.margeFinale >= 0 ? "bg-emerald-50 border-emerald-500" : "bg-red-50 border-red-500")}>
+              <div className="flex flex-wrap items-center justify-between gap-4">
+                <div>
+                  <h3 className={"font-bold " + (donneesSimulation.margeFinale >= 0 ? "text-emerald-900" : "text-red-900")}>
+                    {donneesSimulation.margeFinale >= 0 ? "Capacidad suficiente en este escenario" : "Capacidad insuficiente en este escenario"}
+                  </h3>
+                  <p className="text-sm text-slate-700 mt-1">
+                    Semana final: demanda {fmtNb(donneesSimulation.demandeFinale)} kg · capacidad {fmtNb(donneesSimulation.capaciteFinale)} kg · margen {donneesSimulation.margeFinale > 0 ? "+" : ""}{fmtNb(donneesSimulation.margeFinale)} kg.
+                  </p>
+                </div>
+                <div className="text-right">
+                  <strong className="block text-2xl text-slate-900">{donneesSimulation.turnosRecommandes}</strong>
+                  <span className="text-xs text-slate-500">turno(s) adicional(es)/sem. recomendados</span>
+                </div>
+              </div>
+            </section>
+
+            <section className="bg-white rounded-lg shadow-sm border border-slate-200 p-4">
+              <div className="mb-3">
+                  <h3 className="font-semibold text-violet-950">Proyección demanda y capacidad</h3>
+                  <p className="text-xs text-slate-500">La demanda evoluciona progresivamente hasta la variación seleccionada. La capacidad incluye eficiencia y turnos extra.{simulationVue === "produit" && simulationProduitId ? " Para el SKU, se descuenta primero la demanda normal de los otros productos de su línea." : ""}</p>
+              </div>
+              <div className="h-80 min-w-0">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={donneesSimulation.projection} margin={{ top: 8, right: 16, left: 8, bottom: 8 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                    <XAxis dataKey="semaine" tick={{ fontSize: 11 }} />
+                    <YAxis tick={{ fontSize: 11 }} />
+                    <Tooltip formatter={(value: any) => fmtNb(Number(value)) + " kg/sem."} />
+                    <Legend />
+                    <Line type="monotone" dataKey="demande" name="Demanda proyectada" stroke="#f97316" strokeWidth={3} dot={false} />
+                    <Line type="monotone" dataKey="capaciteBase" name="Capacidad efectiva sin extras" stroke="#64748b" strokeWidth={2} strokeDasharray="6 4" dot={false} />
+                    <Line type="monotone" dataKey="capaciteScenario" name="Capacidad con escenario" stroke="#16a34a" strokeWidth={3} dot={false} />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            </section>
+
+            <section className="bg-white rounded-lg shadow-sm border border-slate-200 p-4 overflow-x-auto">
+              <div className="mb-3">
+                <h3 className="font-semibold text-violet-950">Simulación por línea</h3>
+                <p className="text-xs text-slate-500">Agrega turnos virtuales por semana y observa inmediatamente si la línea cubre la demanda proyectada.</p>
+              </div>
+              <table className="w-full text-sm">
+                <thead><tr className="border-b text-left text-slate-500">
+                  <th className="py-2 pr-3">Línea</th>
+                  <th className="py-2 text-right">Capacidad base</th>
+                  <th className="py-2 text-right">Demanda final</th>
+                  <th className="py-2 text-center">Turnos extra / sem.</th>
+                  <th className="py-2 text-right">Capacidad escenario</th>
+                  <th className="py-2 text-right">Margen</th>
+                  <th className="py-2 text-right">Recomendación</th>
+                </tr></thead>
+                <tbody>
+                  {donneesSimulation.lignes.map((ligne) => (
+                    <tr key={ligne.id} className="border-b border-slate-100">
+                      <td className="py-3 pr-3 font-medium text-slate-800">{ligne.ligne}</td>
+                      <td className="py-3 text-right">{fmtNb(ligne.capaciteBase)} kg</td>
+                      <td className="py-3 text-right text-orange-700">{fmtNb(ligne.demandeFinale)} kg</td>
+                      <td className="py-3">
+                        <div className="mx-auto flex w-28 items-center justify-between rounded-lg border border-slate-300 bg-white">
+                          <button type="button" aria-label={"Quitar turno extra a " + ligne.ligne} onClick={() => setSimulationTurnosExtra((actuel) => ({ ...actuel, [ligne.id]: Math.max(0, (actuel[ligne.id] || 0) - 1) }))} className="h-9 w-9 text-lg text-slate-600 hover:bg-slate-100">−</button>
+                          <strong>{ligne.turnosExtra}</strong>
+                          <button type="button" aria-label={"Agregar turno extra a " + ligne.ligne} onClick={() => setSimulationTurnosExtra((actuel) => ({ ...actuel, [ligne.id]: Math.min(14, (actuel[ligne.id] || 0) + 1) }))} className="h-9 w-9 text-lg text-slate-600 hover:bg-slate-100">+</button>
+                        </div>
+                      </td>
+                      <td className="py-3 text-right text-emerald-700">{fmtNb(ligne.capaciteScenario)} kg</td>
+                      <td className={"py-3 text-right font-semibold " + (ligne.margeFinale >= 0 ? "text-emerald-700" : "text-red-700")}>{ligne.margeFinale > 0 ? "+" : ""}{fmtNb(ligne.margeFinale)} kg</td>
+                      <td className="py-3 text-right">{ligne.turnosRecommandes > 0 ? "+" + ligne.turnosRecommandes + " turno(s)" : "Capacidad OK"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </section>
+          </div>
         )}
 
         {onglet === "dashboard" && (
@@ -3776,13 +4385,13 @@ export default function PlanificateurChocolat() {
             <div className="bg-emerald-700 text-white px-4 py-3 flex items-center justify-between">
               <div>
                 <div className="font-bold">Aldo</div>
-                <div className="text-xs text-emerald-100">Assistant planning local</div>
+                <div className="text-xs text-emerald-100">Maestro de planificación y análisis</div>
               </div>
               <button className="text-emerald-100 hover:text-white text-xl leading-none" onClick={() => setAldoOuvert(false)}>×</button>
             </div>
             <div className="p-3 max-h-72 overflow-y-auto space-y-2 bg-emerald-50">
               {aldoMessages.map((m, idx) => (
-                <div key={idx} className={"text-sm rounded-lg px-3 py-2 " + (m.role === "user" ? "bg-white border border-emerald-200 text-emerald-950 ml-8" : "bg-emerald-100 text-emerald-950 mr-8")}>
+                <div key={idx} className={"text-sm whitespace-pre-wrap rounded-lg px-3 py-2 " + (m.role === "user" ? "bg-white border border-emerald-200 text-emerald-950 ml-8" : "bg-emerald-100 text-emerald-950 mr-8")}>
                   {m.texte}
                 </div>
               ))}
@@ -3792,15 +4401,16 @@ export default function PlanificateurChocolat() {
                 <input
                   className="flex-1 border rounded-lg px-3 py-2 text-sm"
                   placeholder="Pregunta a Aldo..."
+                  disabled={aldoChargement}
                   value={aldoTexte}
                   onChange={(e) => setAldoTexte(e.target.value)}
                   onKeyDown={(e) => { if (e.key === "Enter") repondreAldo(aldoTexte); }}
                 />
-                <button className="px-3 py-2 bg-emerald-700 text-white rounded-lg text-sm hover:bg-emerald-800" onClick={() => repondreAldo(aldoTexte)}>Enviar</button>
+                <button disabled={aldoChargement} className="px-3 py-2 bg-emerald-700 disabled:bg-slate-300 text-white rounded-lg text-sm hover:bg-emerald-800" onClick={() => repondreAldo(aldoTexte)}>{aldoChargement ? "Analizando..." : "Enviar"}</button>
               </div>
               <div className="flex flex-wrap gap-1 mt-2">
-                {["Optimizar", "Criticos", "Importar", "Colores"].map((txt) => (
-                  <button key={txt} className="px-2 py-1 rounded-full bg-emerald-100 text-emerald-800 text-xs hover:bg-emerald-200" onClick={() => repondreAldo(txt)}>{txt}</button>
+                {["Resumen de alertas", "Carga por línea", "SKU críticos", "Demanda vs real"].map((txt) => (
+                  <button disabled={aldoChargement} key={txt} className="px-2 py-1 rounded-full bg-emerald-100 disabled:bg-slate-100 text-emerald-800 text-xs hover:bg-emerald-200" onClick={() => repondreAldo(txt)}>{txt}</button>
                 ))}
               </div>
             </div>

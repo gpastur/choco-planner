@@ -1,7 +1,11 @@
 import { useState, useEffect, useMemo } from "react";
 import { supabase, supabaseConfigured } from "./supabase";
+import {
+  BarChart, Bar, CartesianGrid, Cell, Legend, Line, LineChart, Pie, PieChart,
+  ResponsiveContainer, Tooltip, XAxis, YAxis,
+} from "recharts";
 
-const APP_VERSION = "2026.07.17-versiones-seguras";
+const APP_VERSION = "2026.07.17-dashboard-v1";
 
 const PALETTE = [
   { couleur: "bg-violet-600", clair: "bg-violet-100", bordure: "border-violet-600", texte: "text-violet-800" },
@@ -1250,6 +1254,118 @@ export default function PlanificateurChocolat() {
     return resultat;
   }, [joursSemaine, lignesUsine, plan, produits, produitsUsine]);
 
+  const donneesDashboard = useMemo(() => {
+    const debutCle = cleDate(periodeOpti.debut);
+    const finCle = cleDate(periodeOpti.fin);
+    const dates = [];
+    for (let d = new Date(periodeOpti.debut); d <= periodeOpti.fin; d.setDate(d.getDate() + 1)) dates.push(new Date(d));
+
+    const parLigne = {};
+    lignesUsine.forEach((ligne) => {
+      parLigne[ligne.id] = {
+        id: ligne.id,
+        ligne: ligne.nom,
+        capacite: dates.reduce((s, date) => s + capaciteJourPlanning(ligne, date), 0),
+        planifie: 0,
+        reel: 0,
+        planifieRenseigne: 0,
+        turnosPlanifies: 0,
+        turnosRenseignes: 0,
+      };
+    });
+    const parJour = {};
+    dates.forEach((date) => {
+      parJour[cleDate(date)] = { date: fmtDate(date), planifie: 0, reel: 0, capacite: 0, renseignes: 0 };
+      lignesUsine.forEach((ligne) => { parJour[cleDate(date)].capacite += capaciteJourPlanning(ligne, date); });
+    });
+    const kgParProduitPlan = {};
+    let notes = 0;
+
+    Object.entries(plan).forEach(([cle, cellule]) => {
+      const [dateCle, ligneId] = cle.split("|");
+      if (dateCle < debutCle || dateCle > finCle || !parLigne[ligneId]) return;
+      const ligne = lignes.find((l) => l.id === ligneId);
+      const bloc = lireBloc(cellule, ligne);
+      if (!bloc || bloc.p == null) return;
+      const planifie = Number(bloc.kg) || 0;
+      const reelRenseigne = bloc.realKg != null && bloc.realKg !== "";
+      const reel = reelRenseigne ? Number(bloc.realKg) || 0 : 0;
+      parLigne[ligneId].planifie += planifie;
+      parLigne[ligneId].turnosPlanifies++;
+      parJour[dateCle].planifie += planifie;
+      kgParProduitPlan[bloc.p] = (kgParProduitPlan[bloc.p] || 0) + planifie;
+      if (reelRenseigne) {
+        parLigne[ligneId].reel += reel;
+        parLigne[ligneId].planifieRenseigne += planifie;
+        parLigne[ligneId].turnosRenseignes++;
+        parJour[dateCle].reel += reel;
+        parJour[dateCle].renseignes++;
+      }
+      if (bloc.note) notes++;
+    });
+
+    const lignesStats = Object.values(parLigne).map((d: any) => ({
+      ...d,
+      charge: d.capacite > 0 ? (d.planifie / d.capacite) * 100 : 0,
+      execution: d.planifieRenseigne > 0 ? (d.reel / d.planifieRenseigne) * 100 : null,
+    }));
+    const totalCapacite = lignesStats.reduce((s: number, d: any) => s + d.capacite, 0);
+    const totalPlanifie = lignesStats.reduce((s: number, d: any) => s + d.planifie, 0);
+    const totalReel = lignesStats.reduce((s: number, d: any) => s + d.reel, 0);
+    const totalPlanifieRenseigne = lignesStats.reduce((s: number, d: any) => s + d.planifieRenseigne, 0);
+    const turnosPlanifies = lignesStats.reduce((s: number, d: any) => s + d.turnosPlanifies, 0);
+    const turnosRenseignes = lignesStats.reduce((s: number, d: any) => s + d.turnosRenseignes, 0);
+
+    const etatStocks = [
+      { nom: "Bajo mínimo", valeur: 0, couleur: "#ef4444" },
+      { nom: "Alerta", valeur: 0, couleur: "#f59e0b" },
+      { nom: "Verde", valeur: 0, couleur: "#22c55e" },
+      { nom: "Sobrestock", valeur: 0, couleur: "#8b5cf6" },
+    ];
+    const risquesStock = [];
+    produitsUsine.filter(estConfigure).forEach((produit) => {
+      const s = seuils(produit);
+      const kgPlan = kgParProduitPlan[produit.id] || 0;
+      const kgBulto = kgParBulto(produit);
+      const projete = produit.stock + (kgBulto ? kgPlan / kgBulto : 0) - demandeJour(produit) * periodeOpti.jours;
+      const statut = statutStock(projete, s.min, s.max);
+      const index = statut.badge.includes("red") ? 0 : statut.badge.includes("yellow") ? 1 : statut.badge.includes("green") ? 2 : 3;
+      etatStocks[index].valeur++;
+      if (index < 2) risquesStock.push({ nom: produit.nom, stock: projete, min: s.min, statut: statut.label });
+    });
+    risquesStock.sort((a, b) => (a.stock / Math.max(a.min, 1)) - (b.stock / Math.max(b.min, 1)));
+
+    const topProduits = Object.entries(kgParProduitPlan)
+      .map(([id, kg]) => ({ produit: produits.find((p) => memeId(p.id, id))?.nom || String(id), kg: Number(kg) }))
+      .sort((a, b) => b.kg - a.kg)
+      .slice(0, 8);
+
+    const alertes = [];
+    lignesStats.filter((d: any) => d.charge > 95).forEach((d: any) => alertes.push({ niveau: "danger", texte: d.ligne + " está cargada al " + Math.round(d.charge) + "% de su capacidad." }));
+    lignesStats.filter((d: any) => d.execution != null && d.execution < 90).forEach((d: any) => alertes.push({ niveau: "warning", texte: d.ligne + " produjo " + Math.round(d.execution) + "% de lo planificado en turnos informados." }));
+    if (risquesStock.length) alertes.push({ niveau: "danger", texte: risquesStock.length + " producto(s) terminarían bajo mínimo o en alerta al final del periodo." });
+    if (turnosPlanifies > turnosRenseignes) alertes.push({ niveau: "info", texte: (turnosPlanifies - turnosRenseignes) + " turno(s) planificado(s) todavía no tienen producción real informada." });
+    if (!alertes.length) alertes.push({ niveau: "ok", texte: "No se detectan alertas importantes en el periodo seleccionado." });
+
+    return {
+      lignesStats,
+      quotidien: Object.values(parJour).map((jour: any) => ({ ...jour, reel: jour.renseignes > 0 ? jour.reel : null })),
+      etatStocks: etatStocks.filter((d) => d.valeur > 0),
+      risquesStock: risquesStock.slice(0, 6),
+      topProduits,
+      alertes: alertes.slice(0, 6),
+      totalCapacite,
+      totalPlanifie,
+      totalReel,
+      chargeGlobale: totalCapacite > 0 ? (totalPlanifie / totalCapacite) * 100 : 0,
+      execution: totalPlanifieRenseigne > 0 ? (totalReel / totalPlanifieRenseigne) * 100 : null,
+      couvertureReel: turnosPlanifies > 0 ? (turnosRenseignes / turnosPlanifies) * 100 : 0,
+      turnosPlanifies,
+      turnosRenseignes,
+      notes,
+    };
+  }, [plan, lignes, lignesUsine, produits, produitsUsine, usine, periodeOpti, reglesCapaciteAldo]);
+
   const restaurerPeriode = (data) => {
     const debutSauve = data && data.dateDebutOpti ? String(data.dateDebutOpti) : (data && data.lundi ? cleDate(lundiDeLaSemaine(new Date(data.lundi))) : null);
     const finSauvee = data && data.dateFinOpti ? String(data.dateFinOpti) : null;
@@ -2445,6 +2561,7 @@ export default function PlanificateurChocolat() {
 
         <div className="flex gap-2 mb-4 flex-wrap bg-white/90 border border-violet-100 rounded-xl shadow-sm p-2">
           <button onClick={() => setOnglet("calendrier")} className={"px-4 py-2 rounded-lg text-sm font-medium transition " + (onglet === "calendrier" ? "bg-violet-800 text-white shadow" : "bg-white text-violet-800 hover:bg-violet-100")}>📅 Calendario</button>
+          <button onClick={() => setOnglet("dashboard")} className={"px-4 py-2 rounded-lg text-sm font-medium transition " + (onglet === "dashboard" ? "bg-violet-800 text-white shadow" : "bg-white text-violet-800 hover:bg-violet-100")}>📈 Dashboard</button>
           <button onClick={() => setOnglet("stocks")} className={"px-4 py-2 rounded-lg text-sm font-medium transition " + (onglet === "stocks" ? "bg-violet-800 text-white shadow" : "bg-white text-violet-800 hover:bg-violet-100")}>📦 Estado de Stocks</button>
           <button onClick={() => setOnglet("produits")} className={"px-4 py-2 rounded-lg text-sm font-medium transition " + (onglet === "produits" ? "bg-violet-800 text-white shadow" : "bg-white text-violet-800 hover:bg-violet-100")}>⚙️ Productos y Líneas{produitsNonAssignes.length > 0 ? " (" + produitsNonAssignes.length + ")" : ""}</button>
           <button onClick={() => setOnglet("materias")} className={"px-4 py-2 rounded-lg text-sm font-medium transition " + (onglet === "materias" ? "bg-violet-800 text-white shadow" : "bg-white text-violet-800 hover:bg-violet-100")}>🧾 Materias primas</button>
@@ -2452,6 +2569,171 @@ export default function PlanificateurChocolat() {
           <button onClick={() => { setOnglet("versions"); chargerVersions(); }} className={"px-4 py-2 rounded-lg text-sm font-medium transition " + (onglet === "versions" ? "bg-emerald-700 text-white shadow" : "bg-white text-emerald-800 hover:bg-emerald-50")}>🔒 Versiones</button>
               <button onClick={() => setOnglet("import")} className={"px-4 py-2 rounded-lg text-sm font-medium transition " + (onglet === "import" ? "bg-violet-800 text-white shadow" : "bg-white text-violet-800 hover:bg-violet-100")}>🔄 Importar / Exportar</button>
         </div>
+
+        {onglet === "dashboard" && (
+          <div className="space-y-4">
+            <section className="bg-white rounded-lg shadow-sm border border-slate-200 p-4">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <h2 className="text-xl font-semibold text-violet-950">Dashboard de producción — {usineActive?.nom}</h2>
+                  <p className="text-sm text-slate-500 mt-1">Periodo: <strong>{fmtDate(periodeOpti.debut)} al {fmtDate(periodeOpti.fin)}</strong> · datos del planning abierto</p>
+                </div>
+                <button onClick={() => setOnglet("calendrier")} className="px-3 py-2 border border-violet-200 rounded-lg text-sm text-violet-800 hover:bg-violet-50">Cambiar periodo en Calendario</button>
+              </div>
+            </section>
+
+            <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+              {[
+                { titre: "Capacidad disponible", valeur: fmtNb(donneesDashboard.totalCapacite) + " kg", detail: "según horarios del periodo", couleur: "border-sky-500" },
+                { titre: "Producción planificada", valeur: fmtNb(donneesDashboard.totalPlanifie) + " kg", detail: fmtNb(donneesDashboard.chargeGlobale) + "% de carga", couleur: "border-violet-500" },
+                { titre: "Producción real", valeur: fmtNb(donneesDashboard.totalReel) + " kg", detail: donneesDashboard.execution == null ? "sin turnos informados" : fmtNb(donneesDashboard.execution) + "% de cumplimiento", couleur: "border-emerald-500" },
+                { titre: "Reales informados", valeur: donneesDashboard.turnosRenseignes + " / " + donneesDashboard.turnosPlanifies, detail: fmtNb(donneesDashboard.couvertureReel) + "% de los turnos", couleur: "border-amber-500" },
+                { titre: "Notas de producción", valeur: String(donneesDashboard.notes), detail: "incidentes y comentarios", couleur: "border-rose-500" },
+              ].map((kpi) => (
+                <div key={kpi.titre} className={"bg-white border border-slate-200 border-l-4 " + kpi.couleur + " rounded-md p-3 shadow-sm min-h-28"}>
+                  <p className="text-xs text-slate-500">{kpi.titre}</p>
+                  <p className="text-xl font-bold text-slate-900 mt-2">{kpi.valeur}</p>
+                  <p className="text-xs text-slate-500 mt-1">{kpi.detail}</p>
+                </div>
+              ))}
+            </section>
+
+            <section className="bg-white rounded-lg shadow-sm border border-slate-200 p-4">
+              <h3 className="font-semibold text-violet-950 mb-3">Atención requerida</h3>
+              <div className="grid gap-2 md:grid-cols-2">
+                {donneesDashboard.alertes.map((alerte, index) => (
+                  <div key={index} className={"border-l-4 rounded-r-md px-3 py-2 text-sm " + (
+                    alerte.niveau === "danger" ? "border-red-500 bg-red-50 text-red-800" :
+                    alerte.niveau === "warning" ? "border-amber-500 bg-amber-50 text-amber-800" :
+                    alerte.niveau === "ok" ? "border-emerald-500 bg-emerald-50 text-emerald-800" :
+                    "border-sky-500 bg-sky-50 text-sky-800"
+                  )}>{alerte.texte}</div>
+                ))}
+              </div>
+            </section>
+
+            <section className="grid gap-4 xl:grid-cols-2">
+              <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-4">
+                <div className="mb-3">
+                  <h3 className="font-semibold text-violet-950">Capacidad y carga por línea</h3>
+                  <p className="text-xs text-slate-500">Kilogramos disponibles, planificados y realmente producidos.</p>
+                </div>
+                <div className="h-80 min-w-0">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={donneesDashboard.lignesStats} margin={{ top: 8, right: 10, left: 4, bottom: 42 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                      <XAxis dataKey="ligne" angle={-25} textAnchor="end" interval={0} height={62} tick={{ fontSize: 11 }} />
+                      <YAxis tick={{ fontSize: 11 }} />
+                      <Tooltip formatter={(value: any) => fmtNb(Number(value)) + " kg"} />
+                      <Legend />
+                      <Bar dataKey="capacite" name="Capacidad" fill="#38bdf8" radius={[3, 3, 0, 0]} />
+                      <Bar dataKey="planifie" name="Planificado" fill="#7c3aed" radius={[3, 3, 0, 0]} />
+                      <Bar dataKey="reel" name="Real informado" fill="#16a34a" radius={[3, 3, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+
+              <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-4">
+                <div className="mb-3">
+                  <h3 className="font-semibold text-violet-950">Planificado vs. real por día</h3>
+                  <p className="text-xs text-slate-500">El real aparece únicamente cuando el turno fue informado.</p>
+                </div>
+                <div className="h-80 min-w-0">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={donneesDashboard.quotidien} margin={{ top: 8, right: 12, left: 4, bottom: 8 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                      <XAxis dataKey="date" tick={{ fontSize: 10 }} />
+                      <YAxis tick={{ fontSize: 11 }} />
+                      <Tooltip formatter={(value: any) => fmtNb(Number(value)) + " kg"} />
+                      <Legend />
+                      <Line type="monotone" dataKey="capacite" name="Capacidad" stroke="#0ea5e9" strokeWidth={2} dot={false} />
+                      <Line type="monotone" dataKey="planifie" name="Planificado" stroke="#7c3aed" strokeWidth={3} dot={{ r: 2 }} />
+                      <Line type="monotone" dataKey="reel" name="Real informado" stroke="#16a34a" strokeWidth={3} dot={{ r: 2 }} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+            </section>
+
+            <section className="grid gap-4 xl:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]">
+              <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-4">
+                <h3 className="font-semibold text-violet-950">Stock proyectado al final del periodo</h3>
+                <p className="text-xs text-slate-500 mb-2">Incluye producción planificada y demanda estimada.</p>
+                {donneesDashboard.etatStocks.length > 0 ? (
+                  <div className="h-64 min-w-0">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie data={donneesDashboard.etatStocks} dataKey="valeur" nameKey="nom" innerRadius={52} outerRadius={88} paddingAngle={2}>
+                          {donneesDashboard.etatStocks.map((entree) => <Cell key={entree.nom} fill={entree.couleur} />)}
+                        </Pie>
+                        <Tooltip formatter={(value: any) => String(value) + " producto(s)"} />
+                        <Legend />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
+                ) : <div className="h-64 grid place-items-center text-sm text-slate-400">Importa stocks mín./máx. para ver la proyección.</div>}
+                {donneesDashboard.risquesStock.length > 0 && (
+                  <div className="border-t border-slate-100 pt-3">
+                    <p className="text-xs font-semibold text-red-700 mb-1">Prioridades de stock</p>
+                    {donneesDashboard.risquesStock.map((r) => <p key={r.nom} className="text-xs text-slate-600 truncate" title={r.nom}>{r.nom} · {fmtNb(r.stock)} / mín. {fmtNb(r.min)}</p>)}
+                  </div>
+                )}
+              </div>
+
+              <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-4">
+                <h3 className="font-semibold text-violet-950">Productos con mayor volumen planificado</h3>
+                <p className="text-xs text-slate-500 mb-3">Los ocho productos que más ocupan las líneas en el periodo.</p>
+                {donneesDashboard.topProduits.length > 0 ? (
+                  <div className="space-y-3">
+                    {donneesDashboard.topProduits.map((item, index) => {
+                      const maxKg = donneesDashboard.topProduits[0]?.kg || 1;
+                      return (
+                        <div key={item.produit}>
+                          <div className="flex justify-between gap-3 text-xs mb-1">
+                            <span className="font-medium text-slate-700 truncate" title={item.produit}>{index + 1}. {item.produit}</span>
+                            <span className="text-slate-500 shrink-0">{fmtNb(item.kg)} kg</span>
+                          </div>
+                          <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                            <div className="h-full bg-violet-600 rounded-full" style={{ width: Math.max(2, item.kg / maxKg * 100) + "%" }}></div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : <div className="h-56 grid place-items-center text-sm text-slate-400">No hay producción planificada en el periodo.</div>}
+              </div>
+            </section>
+
+            <section className="bg-white rounded-lg shadow-sm border border-slate-200 p-4 overflow-x-auto">
+              <h3 className="font-semibold text-violet-950 mb-3">Detalle ejecutivo por línea</h3>
+              <table className="w-full text-sm">
+                <thead><tr className="text-left text-slate-500 border-b">
+                  <th className="py-2 pr-3">Línea</th>
+                  <th className="py-2 text-right">Capacidad</th>
+                  <th className="py-2 text-right">Planificado</th>
+                  <th className="py-2 text-right">Carga</th>
+                  <th className="py-2 text-right">Real</th>
+                  <th className="py-2 text-right">Cumplimiento</th>
+                  <th className="py-2 text-right">Turnos informados</th>
+                </tr></thead>
+                <tbody>
+                  {donneesDashboard.lignesStats.map((d: any) => (
+                    <tr key={d.id} className="border-b border-slate-100">
+                      <td className="py-2 pr-3 font-medium text-slate-800">{d.ligne}</td>
+                      <td className="py-2 text-right">{fmtNb(d.capacite)} kg</td>
+                      <td className="py-2 text-right">{fmtNb(d.planifie)} kg</td>
+                      <td className={"py-2 text-right font-semibold " + (d.charge > 95 ? "text-red-700" : d.charge > 75 ? "text-amber-700" : "text-emerald-700")}>{fmtNb(d.charge)}%</td>
+                      <td className="py-2 text-right">{fmtNb(d.reel)} kg</td>
+                      <td className={"py-2 text-right font-semibold " + (d.execution == null ? "text-slate-400" : d.execution < 90 ? "text-red-700" : "text-emerald-700")}>{d.execution == null ? "—" : fmtNb(d.execution) + "%"}</td>
+                      <td className="py-2 text-right">{d.turnosRenseignes} / {d.turnosPlanifies}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </section>
+          </div>
+        )}
 
         {onglet === "calendrier" && (
           <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-4">

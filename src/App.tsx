@@ -5,7 +5,7 @@ import {
   ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts";
 
-const APP_VERSION = "2026.07.17-gestion-versiones-v1";
+const APP_VERSION = "2026.07.17-dashboard-analytique-v1";
 
 const PALETTE = [
   { couleur: "bg-violet-600", clair: "bg-violet-100", bordure: "border-violet-600", texte: "text-violet-800" },
@@ -785,6 +785,10 @@ export default function PlanificateurChocolat() {
   const [utilisateurs, setUtilisateurs] = useState<any[]>([]);
   const [utilisateursLoading, setUtilisateursLoading] = useState(false);
   const [messageUtilisateurs, setMessageUtilisateurs] = useState("");
+  const [dashboardVue, setDashboardVue] = useState("global");
+  const [dashboardLigneId, setDashboardLigneId] = useState("");
+  const [dashboardProduitId, setDashboardProduitId] = useState("");
+  const [dashboardSecteurStock, setDashboardSecteurStock] = useState("");
   const [versionsPlanning, setVersionsPlanning] = useState<any[]>([]);
   const [versionActive, setVersionActive] = useState<any>(null);
   const [nomVersion, setNomVersion] = useState("");
@@ -1276,13 +1280,25 @@ export default function PlanificateurChocolat() {
     const finCle = cleDate(periodeOpti.fin);
     const dates = [];
     for (let d = new Date(periodeOpti.debut); d <= periodeOpti.fin; d.setDate(d.getDate() + 1)) dates.push(new Date(d));
+    const produitsFiltres = produitsUsine.filter((produit) => {
+      if (dashboardVue === "ligne") return !dashboardLigneId || produit.ligne === dashboardLigneId;
+      if (dashboardVue === "produit") return !dashboardProduitId || memeId(produit.id, dashboardProduitId);
+      return true;
+    });
+    const idsProduitsFiltres = new Set(produitsFiltres.map((produit) => String(produit.id)));
+    const lignesFiltrees = lignesUsine.filter((ligne) => {
+      if (dashboardVue === "ligne") return !dashboardLigneId || ligne.id === dashboardLigneId;
+      if (dashboardVue === "produit" && dashboardProduitId) return produitsFiltres.some((produit) => produit.ligne === ligne.id);
+      return true;
+    });
 
     const parLigne = {};
-    lignesUsine.forEach((ligne) => {
+    lignesFiltrees.forEach((ligne) => {
       parLigne[ligne.id] = {
         id: ligne.id,
         ligne: ligne.nom,
         capacite: dates.reduce((s, date) => s + capaciteJourPlanning(ligne, date), 0),
+        demande: produitsFiltres.filter((produit) => produit.ligne === ligne.id).reduce((s, produit) => s + demandeJour(produit) * (kgParBulto(produit) || 0) * periodeOpti.jours, 0),
         planifie: 0,
         reel: 0,
         planifieRenseigne: 0,
@@ -1292,10 +1308,18 @@ export default function PlanificateurChocolat() {
     });
     const parJour = {};
     dates.forEach((date) => {
-      parJour[cleDate(date)] = { date: fmtDate(date), planifie: 0, reel: 0, capacite: 0, renseignes: 0 };
-      lignesUsine.forEach((ligne) => { parJour[cleDate(date)].capacite += capaciteJourPlanning(ligne, date); });
+      parJour[cleDate(date)] = {
+        date: fmtDate(date),
+        demande: produitsFiltres.reduce((s, produit) => s + demandeJour(produit) * (kgParBulto(produit) || 0), 0),
+        planifie: 0,
+        reel: 0,
+        capacite: 0,
+        renseignes: 0,
+      };
+      lignesFiltrees.forEach((ligne) => { parJour[cleDate(date)].capacite += capaciteJourPlanning(ligne, date); });
     });
     const kgParProduitPlan = {};
+    const kgParProduitReel = {};
     let notes = 0;
 
     Object.entries(plan).forEach(([cle, cellule]) => {
@@ -1304,6 +1328,7 @@ export default function PlanificateurChocolat() {
       const ligne = lignes.find((l) => l.id === ligneId);
       const bloc = lireBloc(cellule, ligne);
       if (!bloc || bloc.p == null) return;
+      if (!idsProduitsFiltres.has(String(bloc.p))) return;
       const planifie = Number(bloc.kg) || 0;
       const reelRenseigne = bloc.realKg != null && bloc.realKg !== "";
       const reel = reelRenseigne ? Number(bloc.realKg) || 0 : 0;
@@ -1317,6 +1342,7 @@ export default function PlanificateurChocolat() {
         parLigne[ligneId].turnosRenseignes++;
         parJour[dateCle].reel += reel;
         parJour[dateCle].renseignes++;
+        kgParProduitReel[bloc.p] = (kgParProduitReel[bloc.p] || 0) + reel;
       }
       if (bloc.note) notes++;
     });
@@ -1327,6 +1353,7 @@ export default function PlanificateurChocolat() {
       execution: d.planifieRenseigne > 0 ? (d.reel / d.planifieRenseigne) * 100 : null,
     }));
     const totalCapacite = lignesStats.reduce((s: number, d: any) => s + d.capacite, 0);
+    const totalDemande = lignesStats.reduce((s: number, d: any) => s + d.demande, 0);
     const totalPlanifie = lignesStats.reduce((s: number, d: any) => s + d.planifie, 0);
     const totalReel = lignesStats.reduce((s: number, d: any) => s + d.reel, 0);
     const totalPlanifieRenseigne = lignesStats.reduce((s: number, d: any) => s + d.planifieRenseigne, 0);
@@ -1334,13 +1361,13 @@ export default function PlanificateurChocolat() {
     const turnosRenseignes = lignesStats.reduce((s: number, d: any) => s + d.turnosRenseignes, 0);
 
     const etatStocks = [
-      { nom: "Bajo mínimo", valeur: 0, couleur: "#ef4444" },
-      { nom: "Alerta", valeur: 0, couleur: "#f59e0b" },
-      { nom: "Verde", valeur: 0, couleur: "#22c55e" },
-      { nom: "Sobrestock", valeur: 0, couleur: "#8b5cf6" },
+      { nom: "Bajo mínimo", valeur: 0, couleur: "#ef4444", produits: [] as any[] },
+      { nom: "Alerta", valeur: 0, couleur: "#f59e0b", produits: [] as any[] },
+      { nom: "Verde", valeur: 0, couleur: "#22c55e", produits: [] as any[] },
+      { nom: "Sobrestock", valeur: 0, couleur: "#8b5cf6", produits: [] as any[] },
     ];
     const risquesStock = [];
-    produitsUsine.filter(estConfigure).forEach((produit) => {
+    produitsFiltres.filter(estConfigure).forEach((produit) => {
       const s = seuils(produit);
       const kgPlan = kgParProduitPlan[produit.id] || 0;
       const kgBulto = kgParBulto(produit);
@@ -1348,14 +1375,43 @@ export default function PlanificateurChocolat() {
       const statut = statutStock(projete, s.min, s.max);
       const index = statut.badge.includes("red") ? 0 : statut.badge.includes("yellow") ? 1 : statut.badge.includes("green") ? 2 : 3;
       etatStocks[index].valeur++;
+      etatStocks[index].produits.push({ id: produit.id, nom: produit.nom, ligne: lignes.find((l) => l.id === produit.ligne)?.nom || "Sin línea", stock: projete, min: s.min, max: s.max });
       if (index < 2) risquesStock.push({ nom: produit.nom, stock: projete, min: s.min, statut: statut.label });
     });
     risquesStock.sort((a, b) => (a.stock / Math.max(a.min, 1)) - (b.stock / Math.max(b.min, 1)));
 
     const topProduits = Object.entries(kgParProduitPlan)
-      .map(([id, kg]) => ({ produit: produits.find((p) => memeId(p.id, id))?.nom || String(id), kg: Number(kg) }))
+      .map(([id, kg]) => {
+        const produit = produits.find((p) => memeId(p.id, id));
+        return {
+          id,
+          produit: produit?.nom || String(id),
+          ligne: lignes.find((l) => l.id === produit?.ligne)?.nom || "Sin línea",
+          kg: Number(kg),
+          demande: produit ? demandeJour(produit) * (kgParBulto(produit) || 0) * periodeOpti.jours : 0,
+          reel: Number(kgParProduitReel[id] || 0),
+        };
+      })
       .sort((a, b) => b.kg - a.kg)
       .slice(0, 8);
+    const produitsAnalyse = produitsFiltres.filter(estConfigure).map((produit) => {
+      const s = seuils(produit);
+      const planifie = Number(kgParProduitPlan[produit.id] || 0);
+      const reel = Number(kgParProduitReel[produit.id] || 0);
+      const demande = demandeJour(produit) * (kgParBulto(produit) || 0) * periodeOpti.jours;
+      const kgBulto = kgParBulto(produit) || 0;
+      const projete = produit.stock + (kgBulto ? planifie / kgBulto : 0) - demandeJour(produit) * periodeOpti.jours;
+      return {
+        id: produit.id,
+        produit: produit.nom,
+        ligne: lignes.find((l) => l.id === produit.ligne)?.nom || "Sin línea",
+        demande,
+        planifie,
+        reel,
+        projete,
+        statut: statutStock(projete, s.min, s.max).label,
+      };
+    }).sort((a, b) => b.demande - a.demande);
 
     const alertes = [];
     lignesStats.filter((d: any) => d.charge > 95).forEach((d: any) => alertes.push({ niveau: "danger", texte: d.ligne + " está cargada al " + Math.round(d.charge) + "% de su capacidad." }));
@@ -1370,8 +1426,10 @@ export default function PlanificateurChocolat() {
       etatStocks: etatStocks.filter((d) => d.valeur > 0),
       risquesStock: risquesStock.slice(0, 6),
       topProduits,
+      produitsAnalyse,
       alertes: alertes.slice(0, 6),
       totalCapacite,
+      totalDemande,
       totalPlanifie,
       totalReel,
       chargeGlobale: totalCapacite > 0 ? (totalPlanifie / totalCapacite) * 100 : 0,
@@ -1381,7 +1439,11 @@ export default function PlanificateurChocolat() {
       turnosRenseignes,
       notes,
     };
-  }, [plan, lignes, lignesUsine, produits, produitsUsine, usine, periodeOpti, reglesCapaciteAldo]);
+  }, [plan, lignes, lignesUsine, produits, produitsUsine, usine, periodeOpti, reglesCapaciteAldo, dashboardVue, dashboardLigneId, dashboardProduitId]);
+
+  useEffect(() => {
+    setDashboardSecteurStock("");
+  }, [dashboardVue, dashboardLigneId, dashboardProduitId, usine]);
 
   const restaurerPeriode = (data) => {
     const debutSauve = data && data.dateDebutOpti ? String(data.dateDebutOpti) : (data && data.lundi ? cleDate(lundiDeLaSemaine(new Date(data.lundi))) : null);
@@ -2797,11 +2859,44 @@ export default function PlanificateurChocolat() {
                 </div>
                 <button onClick={() => setOnglet("calendrier")} className="px-3 py-2 border border-violet-200 rounded-lg text-sm text-violet-800 hover:bg-violet-50">Cambiar periodo en Calendario</button>
               </div>
+              <div className="mt-4 flex flex-wrap items-end gap-3 border-t border-slate-100 pt-4">
+                <label className="text-xs font-medium text-slate-600">
+                  Nivel de análisis
+                  <select value={dashboardVue} onChange={(e) => {
+                    setDashboardVue(e.target.value);
+                    if (e.target.value !== "ligne") setDashboardLigneId("");
+                    if (e.target.value !== "produit") setDashboardProduitId("");
+                  }} className="mt-1 block min-w-40 border border-slate-300 rounded-lg bg-white px-3 py-2 text-sm text-slate-800">
+                    <option value="global">Vista global</option>
+                    <option value="ligne">Por línea</option>
+                    <option value="produit">Por producto / SKU</option>
+                  </select>
+                </label>
+                {dashboardVue === "ligne" && (
+                  <label className="text-xs font-medium text-slate-600">
+                    Línea
+                    <select value={dashboardLigneId} onChange={(e) => setDashboardLigneId(e.target.value)} className="mt-1 block min-w-56 border border-slate-300 rounded-lg bg-white px-3 py-2 text-sm text-slate-800">
+                      <option value="">Todas las líneas</option>
+                      {lignesUsine.map((ligne) => <option key={ligne.id} value={ligne.id}>{ligne.nom}</option>)}
+                    </select>
+                  </label>
+                )}
+                {dashboardVue === "produit" && (
+                  <label className="text-xs font-medium text-slate-600 grow max-w-xl">
+                    Producto / SKU
+                    <select value={dashboardProduitId} onChange={(e) => setDashboardProduitId(e.target.value)} className="mt-1 block w-full border border-slate-300 rounded-lg bg-white px-3 py-2 text-sm text-slate-800">
+                      <option value="">Todos los productos</option>
+                      {produitsUsine.filter(estConfigure).sort((a, b) => a.nom.localeCompare(b.nom)).map((produit) => <option key={produit.id} value={produit.id}>{produit.nom}</option>)}
+                    </select>
+                  </label>
+                )}
+              </div>
             </section>
 
-            <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+            <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
               {[
                 { titre: "Capacidad disponible", valeur: fmtNb(donneesDashboard.totalCapacite) + " kg", detail: "según horarios del periodo", couleur: "border-sky-500" },
+                { titre: "Demanda proyectada", valeur: fmtNb(donneesDashboard.totalDemande) + " kg", detail: "consumo estimado del periodo", couleur: "border-orange-500" },
                 { titre: "Producción planificada", valeur: fmtNb(donneesDashboard.totalPlanifie) + " kg", detail: fmtNb(donneesDashboard.chargeGlobale) + "% de carga", couleur: "border-violet-500" },
                 { titre: "Producción real", valeur: fmtNb(donneesDashboard.totalReel) + " kg", detail: donneesDashboard.execution == null ? "sin turnos informados" : fmtNb(donneesDashboard.execution) + "% de cumplimiento", couleur: "border-emerald-500" },
                 { titre: "Reales informados", valeur: donneesDashboard.turnosRenseignes + " / " + donneesDashboard.turnosPlanifies, detail: fmtNb(donneesDashboard.couvertureReel) + "% de los turnos", couleur: "border-amber-500" },
@@ -2833,7 +2928,7 @@ export default function PlanificateurChocolat() {
               <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-4">
                 <div className="mb-3">
                   <h3 className="font-semibold text-violet-950">Capacidad y carga por línea</h3>
-                  <p className="text-xs text-slate-500">Kilogramos disponibles, planificados y realmente producidos.</p>
+                  <p className="text-xs text-slate-500">Capacidad, demanda proyectada, planificación y producción real.</p>
                 </div>
                 <div className="h-80 min-w-0">
                   <ResponsiveContainer width="100%" height="100%">
@@ -2844,6 +2939,7 @@ export default function PlanificateurChocolat() {
                       <Tooltip formatter={(value: any) => fmtNb(Number(value)) + " kg"} />
                       <Legend />
                       <Bar dataKey="capacite" name="Capacidad" fill="#38bdf8" radius={[3, 3, 0, 0]} />
+                      <Bar dataKey="demande" name="Demanda proyectada" fill="#f97316" radius={[3, 3, 0, 0]} />
                       <Bar dataKey="planifie" name="Planificado" fill="#7c3aed" radius={[3, 3, 0, 0]} />
                       <Bar dataKey="reel" name="Real informado" fill="#16a34a" radius={[3, 3, 0, 0]} />
                     </BarChart>
@@ -2853,8 +2949,8 @@ export default function PlanificateurChocolat() {
 
               <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-4">
                 <div className="mb-3">
-                  <h3 className="font-semibold text-violet-950">Planificado vs. real por día</h3>
-                  <p className="text-xs text-slate-500">El real aparece únicamente cuando el turno fue informado.</p>
+                  <h3 className="font-semibold text-violet-950">Demanda vs. planificado vs. real por día</h3>
+                  <p className="text-xs text-slate-500">La demanda es una proyección; el real aparece cuando el turno fue informado.</p>
                 </div>
                 <div className="h-80 min-w-0">
                   <ResponsiveContainer width="100%" height="100%">
@@ -2865,6 +2961,7 @@ export default function PlanificateurChocolat() {
                       <Tooltip formatter={(value: any) => fmtNb(Number(value)) + " kg"} />
                       <Legend />
                       <Line type="monotone" dataKey="capacite" name="Capacidad" stroke="#0ea5e9" strokeWidth={2} dot={false} />
+                      <Line type="monotone" dataKey="demande" name="Demanda proyectada" stroke="#f97316" strokeWidth={2} strokeDasharray="6 4" dot={false} />
                       <Line type="monotone" dataKey="planifie" name="Planificado" stroke="#7c3aed" strokeWidth={3} dot={{ r: 2 }} />
                       <Line type="monotone" dataKey="reel" name="Real informado" stroke="#16a34a" strokeWidth={3} dot={{ r: 2 }} />
                     </LineChart>
@@ -2881,7 +2978,16 @@ export default function PlanificateurChocolat() {
                   <div className="h-64 min-w-0">
                     <ResponsiveContainer width="100%" height="100%">
                       <PieChart>
-                        <Pie data={donneesDashboard.etatStocks} dataKey="valeur" nameKey="nom" innerRadius={52} outerRadius={88} paddingAngle={2}>
+                        <Pie
+                          data={donneesDashboard.etatStocks}
+                          dataKey="valeur"
+                          nameKey="nom"
+                          innerRadius={52}
+                          outerRadius={88}
+                          paddingAngle={2}
+                          cursor="pointer"
+                          onClick={(entree: any) => setDashboardSecteurStock(entree?.nom || entree?.payload?.nom || "")}
+                        >
                           {donneesDashboard.etatStocks.map((entree) => <Cell key={entree.nom} fill={entree.couleur} />)}
                         </Pie>
                         <Tooltip formatter={(value: any) => String(value) + " producto(s)"} />
@@ -2890,7 +2996,27 @@ export default function PlanificateurChocolat() {
                     </ResponsiveContainer>
                   </div>
                 ) : <div className="h-64 grid place-items-center text-sm text-slate-400">Importa stocks mín./máx. para ver la proyección.</div>}
-                {donneesDashboard.risquesStock.length > 0 && (
+                <p className="text-center text-[11px] text-slate-400 -mt-2 mb-3">Haz clic en un sector para identificar los productos.</p>
+                {dashboardSecteurStock && (() => {
+                  const secteur = donneesDashboard.etatStocks.find((item) => item.nom === dashboardSecteurStock);
+                  return secteur ? (
+                    <div className="border-t border-slate-100 pt-3">
+                      <div className="flex items-center justify-between gap-2 mb-2">
+                        <p className="text-xs font-semibold text-slate-800">{secteur.nom} · {secteur.valeur} producto(s)</p>
+                        <button type="button" onClick={() => setDashboardSecteurStock("")} className="text-xs text-violet-700 hover:text-violet-950">Cerrar</button>
+                      </div>
+                      <div className="max-h-52 overflow-y-auto divide-y divide-slate-100 border border-slate-100 rounded-lg">
+                        {secteur.produits.map((producto) => (
+                          <button key={producto.id} type="button" onClick={() => { setDashboardVue("produit"); setDashboardProduitId(String(producto.id)); }} className="w-full px-3 py-2 text-left hover:bg-violet-50">
+                            <span className="block text-xs font-medium text-slate-800">{producto.nom}</span>
+                            <span className="block text-[11px] text-slate-500">{producto.ligne} · proyección {fmtNb(producto.stock)} · mín. {fmtNb(producto.min)} · máx. {fmtNb(producto.max)}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null;
+                })()}
+                {!dashboardSecteurStock && donneesDashboard.risquesStock.length > 0 && (
                   <div className="border-t border-slate-100 pt-3">
                     <p className="text-xs font-semibold text-red-700 mb-1">Prioridades de stock</p>
                     {donneesDashboard.risquesStock.map((r) => <p key={r.nom} className="text-xs text-slate-600 truncate" title={r.nom}>{r.nom} · {fmtNb(r.stock)} / mín. {fmtNb(r.min)}</p>)}
@@ -2909,7 +3035,7 @@ export default function PlanificateurChocolat() {
                         <div key={item.produit}>
                           <div className="flex justify-between gap-3 text-xs mb-1">
                             <span className="font-medium text-slate-700 truncate" title={item.produit}>{index + 1}. {item.produit}</span>
-                            <span className="text-slate-500 shrink-0">{fmtNb(item.kg)} kg</span>
+                            <span className="text-slate-500 shrink-0">Dem. {fmtNb(item.demande)} · Plan {fmtNb(item.kg)} · Real {fmtNb(item.reel)} kg</span>
                           </div>
                           <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
                             <div className="h-full bg-violet-600 rounded-full" style={{ width: Math.max(2, item.kg / maxKg * 100) + "%" }}></div>
@@ -2928,6 +3054,7 @@ export default function PlanificateurChocolat() {
                 <thead><tr className="text-left text-slate-500 border-b">
                   <th className="py-2 pr-3">Línea</th>
                   <th className="py-2 text-right">Capacidad</th>
+                  <th className="py-2 text-right">Demanda</th>
                   <th className="py-2 text-right">Planificado</th>
                   <th className="py-2 text-right">Carga</th>
                   <th className="py-2 text-right">Real</th>
@@ -2939,6 +3066,7 @@ export default function PlanificateurChocolat() {
                     <tr key={d.id} className="border-b border-slate-100">
                       <td className="py-2 pr-3 font-medium text-slate-800">{d.ligne}</td>
                       <td className="py-2 text-right">{fmtNb(d.capacite)} kg</td>
+                      <td className="py-2 text-right text-orange-700">{fmtNb(d.demande)} kg</td>
                       <td className="py-2 text-right">{fmtNb(d.planifie)} kg</td>
                       <td className={"py-2 text-right font-semibold " + (d.charge > 95 ? "text-red-700" : d.charge > 75 ? "text-amber-700" : "text-emerald-700")}>{fmtNb(d.charge)}%</td>
                       <td className="py-2 text-right">{fmtNb(d.reel)} kg</td>
@@ -2946,6 +3074,38 @@ export default function PlanificateurChocolat() {
                       <td className="py-2 text-right">{d.turnosRenseignes} / {d.turnosPlanifies}</td>
                     </tr>
                   ))}
+                </tbody>
+              </table>
+            </section>
+
+            <section className="bg-white rounded-lg shadow-sm border border-slate-200 p-4 overflow-x-auto">
+              <div className="mb-3">
+                <h3 className="font-semibold text-violet-950">Detalle por producto / SKU</h3>
+                <p className="text-xs text-slate-500">Demanda proyectada, producción planificada, producción real y stock final.</p>
+              </div>
+              <table className="w-full text-sm">
+                <thead><tr className="text-left text-slate-500 border-b">
+                  <th className="py-2 pr-3">Producto / SKU</th>
+                  <th className="py-2 pr-3">Línea</th>
+                  <th className="py-2 text-right">Demanda</th>
+                  <th className="py-2 text-right">Planificado</th>
+                  <th className="py-2 text-right">Real</th>
+                  <th className="py-2 text-right">Proyección stock</th>
+                  <th className="py-2 pl-3">Estado</th>
+                </tr></thead>
+                <tbody>
+                  {donneesDashboard.produitsAnalyse.map((item) => (
+                    <tr key={item.id} className="border-b border-slate-100 hover:bg-slate-50">
+                      <td className="py-2 pr-3 font-medium text-slate-800">{item.produit}</td>
+                      <td className="py-2 pr-3 text-slate-500">{item.ligne}</td>
+                      <td className="py-2 text-right text-orange-700">{fmtNb(item.demande)} kg</td>
+                      <td className="py-2 text-right text-violet-700">{fmtNb(item.planifie)} kg</td>
+                      <td className="py-2 text-right text-emerald-700">{fmtNb(item.reel)} kg</td>
+                      <td className="py-2 text-right">{fmtNb(item.projete)} bultos</td>
+                      <td className="py-2 pl-3 text-xs">{item.statut}</td>
+                    </tr>
+                  ))}
+                  {donneesDashboard.produitsAnalyse.length === 0 && <tr><td colSpan={7} className="py-8 text-center text-slate-400">No hay productos configurados en esta selección.</td></tr>}
                 </tbody>
               </table>
             </section>

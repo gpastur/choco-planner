@@ -5,7 +5,7 @@ import {
   ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts";
 
-const APP_VERSION = "2026.07.17-usuarios-admin-v1";
+const APP_VERSION = "2026.07.17-gestion-versiones-v1";
 
 const PALETTE = [
   { couleur: "bg-violet-600", clair: "bg-violet-100", bordure: "border-violet-600", texte: "text-violet-800" },
@@ -789,6 +789,8 @@ export default function PlanificateurChocolat() {
   const [versionActive, setVersionActive] = useState<any>(null);
   const [nomVersion, setNomVersion] = useState("");
   const [msgVersions, setMsgVersions] = useState("");
+  const [versionEnEdition, setVersionEnEdition] = useState<string | null>(null);
+  const [nomVersionEdition, setNomVersionEdition] = useState("");
 
   useEffect(() => {
     if (!supabase) return;
@@ -1544,6 +1546,53 @@ export default function PlanificateurChocolat() {
       .order("version_no", { ascending: false });
     setVersionsPlanning(data || []);
     setMsgVersions(error ? error.message : "");
+  };
+
+  const gererVersion = async (version, action, name = null) => {
+    if (!supabase || !session?.user) return;
+    const estAdmin = profil?.role === "admin";
+    const peutGererBrouillon = profil?.role === "planner" && version.status === "draft" && version.created_by === session.user.id;
+    if (action === "delete" && !estAdmin) {
+      setMsgVersions("Solo un administrador puede eliminar una versión.");
+      return;
+    }
+    if (!estAdmin && !peutGererBrouillon) {
+      setMsgVersions("No tienes permiso para gestionar esta versión.");
+      return;
+    }
+    if (action === "delete") {
+      const avertissement = version.status === "draft"
+        ? `¿Eliminar definitivamente el borrador "${version.name}"?`
+        : `ATENCIÓN: "${version.name}" está ${version.status}. Se eliminarán también sus datos reales y notas. ¿Continuar?`;
+      if (!window.confirm(avertissement)) return;
+    }
+    setMsgVersions("Guardando cambios...");
+    const { error } = await supabase.rpc("manage_planning_version", {
+      p_version_id: version.id,
+      p_action: action,
+      p_name: name,
+    });
+    if (error) {
+      setMsgVersions(error.message);
+      return;
+    }
+    if (versionActive?.id === version.id) {
+      if (action === "delete") {
+        setVersionActive(null);
+      } else {
+        setVersionActive((activa) => activa ? {
+          ...activa,
+          ...(action === "rename" ? { name } : {}),
+          ...(action === "archive" ? { status: "archived" } : {}),
+          ...(action === "restore" ? { status: "approved" } : {}),
+        } : activa);
+        if (action === "rename") setNomVersion(name || "");
+      }
+    }
+    setVersionEnEdition(null);
+    setNomVersionEdition("");
+    await chargerVersions();
+    setMsgVersions(action === "delete" ? "Versión eliminada." : action === "rename" ? "Nombre actualizado." : action === "archive" ? "Versión archivada." : "Versión restaurada.");
   };
 
   useEffect(() => {
@@ -3080,16 +3129,45 @@ export default function PlanificateurChocolat() {
                       </tr>
                     </thead>
                     <tbody>
-                      {versionsPlanning.map((version) => (
+                      {versionsPlanning.map((version) => {
+                        const peutGerer = profil?.role === "admin" || (profil?.role === "planner" && version.status === "draft" && version.created_by === session?.user?.id);
+                        const edition = versionEnEdition === version.id;
+                        return (
                         <tr key={version.id} className={"border-t border-slate-100 " + (versionActive?.id === version.id ? "bg-emerald-50" : "")}>
-                          <td className="p-3 font-medium text-slate-800">{version.name}</td>
+                          <td className="p-3 font-medium text-slate-800">
+                            {edition ? (
+                              <div className="flex min-w-64 items-center gap-2">
+                                <input autoFocus className="w-full border border-violet-300 rounded-lg px-2 py-1.5 font-normal" value={nomVersionEdition} onChange={(e) => setNomVersionEdition(e.target.value)} onKeyDown={(e) => {
+                                  if (e.key === "Enter") gererVersion(version, "rename", nomVersionEdition.trim());
+                                  if (e.key === "Escape") setVersionEnEdition(null);
+                                }} />
+                                <button type="button" onClick={() => gererVersion(version, "rename", nomVersionEdition.trim())} className="px-2 py-1.5 rounded-lg bg-emerald-700 text-white text-xs">Guardar</button>
+                                <button type="button" onClick={() => setVersionEnEdition(null)} className="px-2 py-1.5 rounded-lg border border-slate-300 text-xs">Cancelar</button>
+                              </div>
+                            ) : version.name}
+                          </td>
                           <td className="p-3 text-slate-600">{version.period_start} → {version.period_end}</td>
                           <td className="p-3 text-center font-semibold">V{version.version_no}</td>
                           <td className="p-3 text-center"><span className={"px-2 py-1 rounded-full text-xs font-semibold " + (version.status === "approved" ? "bg-emerald-100 text-emerald-800" : version.status === "draft" ? "bg-amber-100 text-amber-800" : "bg-slate-100 text-slate-600")}>{version.status}</span></td>
                           <td className="p-3 text-slate-500">{new Date(version.updated_at || version.created_at).toLocaleString()}</td>
-                          <td className="p-3 text-right"><button onClick={() => ouvrirVersion(version)} className="px-3 py-1.5 border border-violet-200 text-violet-800 rounded-lg hover:bg-violet-50">Abrir</button></td>
+                          <td className="p-3">
+                            <div className="flex min-w-max items-center justify-end gap-1.5">
+                              <button onClick={() => ouvrirVersion(version)} className="px-3 py-1.5 border border-violet-200 text-violet-800 rounded-lg hover:bg-violet-50">Abrir</button>
+                              {peutGerer && !edition && (
+                                <>
+                                  <button type="button" onClick={() => { setVersionEnEdition(version.id); setNomVersionEdition(version.name); }} className="px-2.5 py-1.5 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50">Renombrar</button>
+                                  {profil?.role === "admin" && version.status !== "draft" && (
+                                    <button type="button" onClick={() => gererVersion(version, version.status === "archived" ? "restore" : "archive")} className="px-2.5 py-1.5 border border-amber-300 text-amber-800 rounded-lg hover:bg-amber-50">
+                                      {version.status === "archived" ? "Restaurar" : "Archivar"}
+                                    </button>
+                                  )}
+                                  {profil?.role === "admin" && <button type="button" onClick={() => gererVersion(version, "delete")} className="px-2.5 py-1.5 border border-red-200 text-red-700 rounded-lg hover:bg-red-50">Eliminar</button>}
+                                </>
+                              )}
+                            </div>
+                          </td>
                         </tr>
-                      ))}
+                      );})}
                       {versionsPlanning.length === 0 && <tr><td colSpan={6} className="p-6 text-center text-slate-400">No hay versiones guardadas para esta fábrica.</td></tr>}
                     </tbody>
                   </table>

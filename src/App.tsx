@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
+import { supabase, supabaseConfigured } from "./supabase";
 
-const APP_VERSION = "2026.07.16-notas-google";
+const APP_VERSION = "2026.07.17-versiones-seguras";
 
 const PALETTE = [
   { couleur: "bg-violet-600", clair: "bg-violet-100", bordure: "border-violet-600", texte: "text-violet-800" },
@@ -762,6 +763,41 @@ export default function PlanificateurChocolat() {
   const [aldoMessages, setAldoMessages] = useState([
     { role: "aldo", texte: "¿Cómo puedo ayudarte?" },
   ]);
+  const [session, setSession] = useState<any>(null);
+  const [profil, setProfil] = useState<any>(null);
+  const [authReady, setAuthReady] = useState(!supabaseConfigured);
+  const [authEmail, setAuthEmail] = useState("");
+  const [authPassword, setAuthPassword] = useState("");
+  const [authMessage, setAuthMessage] = useState("");
+  const [versionsPlanning, setVersionsPlanning] = useState<any[]>([]);
+  const [versionActive, setVersionActive] = useState<any>(null);
+  const [nomVersion, setNomVersion] = useState("");
+  const [msgVersions, setMsgVersions] = useState("");
+
+  useEffect(() => {
+    if (!supabase) return;
+    let actif = true;
+    const chargerProfil = async (nouvelleSession) => {
+      if (!actif) return;
+      setSession(nouvelleSession);
+      if (!nouvelleSession?.user) {
+        setProfil(null);
+        setAuthReady(true);
+        return;
+      }
+      const { data } = await supabase.from("profiles").select("id, full_name, role, active").eq("id", nouvelleSession.user.id).maybeSingle();
+      if (actif) {
+        setProfil(data || { id: nouvelleSession.user.id, full_name: nouvelleSession.user.email, role: "viewer", active: true });
+        setAuthReady(true);
+      }
+    };
+    supabase.auth.getSession().then(({ data }) => chargerProfil(data.session));
+    const { data: abonnement } = supabase.auth.onAuthStateChange((_event, nouvelleSession) => chargerProfil(nouvelleSession));
+    return () => {
+      actif = false;
+      abonnement.subscription.unsubscribe();
+    };
+  }, []);
 
   const lignesUsine = useMemo(() => lignes.filter((l) => l.usine === usine), [lignes, usine]);
   const produitsUsine = useMemo(() => produits.filter((p) => p.usine === usine && !(usine === "esandi" && estNomFatimaProtege(p.nom))), [produits, usine]);
@@ -1284,12 +1320,212 @@ export default function PlanificateurChocolat() {
     dateFinOpti,
   });
 
+  const peutPlanifier = !supabaseConfigured || ["admin", "planner"].includes(profil?.role);
+  const peutSaisirReel = !supabaseConfigured || ["admin", "planner", "production"].includes(profil?.role);
+  const planningFige = versionActive?.status === "approved" || versionActive?.status === "replaced" || versionActive?.status === "archived";
+
+  const connecter = async (e) => {
+    e.preventDefault();
+    if (!supabase) return;
+    setAuthMessage("Conectando...");
+    const { error } = await supabase.auth.signInWithPassword({ email: authEmail.trim(), password: authPassword });
+    setAuthMessage(error ? error.message : "");
+  };
+
+  const deconnecter = async () => {
+    if (supabase) await supabase.auth.signOut();
+    setUsine(null);
+    setVersionActive(null);
+    setVersionsPlanning([]);
+  };
+
+  const chargerVersions = async (usineCible = usine) => {
+    if (!supabase || !usineCible || !session) return;
+    setMsgVersions("Cargando versiones...");
+    const { data, error } = await supabase
+      .from("planning_versions")
+      .select("id, factory_id, name, period_start, period_end, version_no, status, created_at, updated_at, approved_at, created_by, approved_by")
+      .eq("factory_id", usineCible)
+      .order("period_start", { ascending: false })
+      .order("version_no", { ascending: false });
+    setVersionsPlanning(data || []);
+    setMsgVersions(error ? error.message : "");
+  };
+
+  useEffect(() => {
+    if (supabase && session && usine) chargerVersions(usine);
+  }, [session?.user?.id, usine]);
+
+  const prochainNumeroVersion = async () => {
+    if (!supabase) return 1;
+    const { data } = await supabase
+      .from("planning_versions")
+      .select("version_no")
+      .eq("factory_id", usine)
+      .eq("period_start", dateDebutOpti)
+      .eq("period_end", dateFinOpti)
+      .order("version_no", { ascending: false })
+      .limit(1);
+    return (data?.[0]?.version_no || 0) + 1;
+  };
+
+  const enregistrerAudit = async (action, versionId, details = {}) => {
+    if (!supabase || !session?.user) return;
+    await supabase.from("audit_events").insert({
+      user_id: session.user.id,
+      planning_version_id: versionId || null,
+      action,
+      details,
+    });
+  };
+
+  const sauvegarderVersion = async ({ approuver = false } = {}) => {
+    if (!supabase) {
+      guardarPlanificacion();
+      setMsgVersions("Modo local: planificación guardada solamente en este navegador.");
+      return;
+    }
+    if (!peutPlanifier || !session?.user) {
+      setMsgVersions("Tu perfil no puede guardar ni aprobar planificaciones.");
+      return;
+    }
+    if (planningFige) {
+      setMsgVersions("Esta versión está congelada. Crea una revisión para modificarla.");
+      return;
+    }
+    setMsgVersions(approuver ? "Aprobando y congelando..." : "Guardando borrador...");
+    const snapshot = estadoActual();
+    let resultat;
+    if (versionActive?.id && versionActive.status === "draft") {
+      resultat = await supabase
+        .from("planning_versions")
+        .update({
+          name: nomVersion.trim() || versionActive.name,
+          snapshot,
+          status: approuver ? "approved" : "draft",
+          approved_by: approuver ? session.user.id : null,
+          approved_at: approuver ? new Date().toISOString() : null,
+        })
+        .eq("id", versionActive.id)
+        .select()
+        .single();
+    } else {
+      const numero = await prochainNumeroVersion();
+      resultat = await supabase
+        .from("planning_versions")
+        .insert({
+          factory_id: usine,
+          name: nomVersion.trim() || ((usineActive?.nom || usine) + " " + dateDebutOpti + " / " + dateFinOpti),
+          period_start: dateDebutOpti,
+          period_end: dateFinOpti,
+          version_no: numero,
+          status: approuver ? "approved" : "draft",
+          snapshot,
+          created_by: session.user.id,
+          approved_by: approuver ? session.user.id : null,
+          approved_at: approuver ? new Date().toISOString() : null,
+        })
+        .select()
+        .single();
+    }
+    if (resultat.error) {
+      setMsgVersions(resultat.error.message);
+      return;
+    }
+    setVersionActive(resultat.data);
+    setNomVersion(resultat.data.name);
+    await enregistrerAudit(approuver ? "planning_approved" : "planning_saved", resultat.data.id, { factory_id: usine });
+    await chargerVersions();
+    setMsgVersions(approuver ? "Planificación aprobada y congelada." : "Borrador guardado.");
+  };
+
+  const ouvrirVersion = async (version) => {
+    if (!supabase) return;
+    setMsgVersions("Abriendo versión...");
+    const [{ data, error }, { data: reels }] = await Promise.all([
+      supabase.from("planning_versions").select("*").eq("id", version.id).single(),
+      supabase.from("planning_actuals").select("slot_key, actual_kg, note").eq("planning_version_id", version.id),
+    ]);
+    if (error || !data?.snapshot) {
+      setMsgVersions(error?.message || "No se pudo abrir la versión.");
+      return;
+    }
+    const snapshot = data.snapshot;
+    const planCharge = { ...(snapshot.plan || {}) };
+    (reels || []).forEach((reel) => {
+      const bloc = lireBloc(planCharge[reel.slot_key], null);
+      if (bloc) planCharge[reel.slot_key] = { ...bloc, realKg: reel.actual_kg, note: reel.note || "" };
+    });
+    if (Array.isArray(snapshot.lignes)) setLignes(fusionAvecBase(LIGNES_INIT, snapshot.lignes));
+    if (Array.isArray(snapshot.produits)) setProduits(fusionAvecBase(PRODUITS_INIT, snapshot.produits));
+    setPlan(planCharge);
+    setDateDebutOpti(snapshot.dateDebutOpti || data.period_start);
+    setDateFinOpti(snapshot.dateFinOpti || data.period_end);
+    setLundi(lundiDeLaSemaine(dateDepuisCle(snapshot.dateDebutOpti || data.period_start)));
+    setVersionActive(data);
+    setNomVersion(data.name);
+    setOnglet("calendrier");
+    await enregistrerAudit("planning_opened", data.id);
+    setMsgVersions("Versión abierta: " + data.name + " · V" + data.version_no + ".");
+  };
+
+  useEffect(() => {
+    if (!supabase || !session?.user || versionActive) return;
+    const versionId = new URLSearchParams(window.location.search).get("version");
+    if (!versionId) return;
+    supabase.from("planning_versions").select("id, factory_id, name, period_start, period_end, version_no, status").eq("id", versionId).single()
+      .then(({ data }) => {
+        if (!data) return;
+        setUsine(data.factory_id);
+        ouvrirVersion(data);
+      });
+  }, [session?.user?.id]);
+
+  const creerRevision = async () => {
+    if (!supabase || !versionActive || !peutPlanifier || !session?.user) return;
+    const numero = await prochainNumeroVersion();
+    const { data, error } = await supabase
+      .from("planning_versions")
+      .insert({
+        factory_id: usine,
+        name: versionActive.name + " - revisión " + numero,
+        period_start: dateDebutOpti,
+        period_end: dateFinOpti,
+        version_no: numero,
+        status: "draft",
+        snapshot: estadoActual(),
+        created_by: session.user.id,
+      })
+      .select()
+      .single();
+    if (error) {
+      setMsgVersions(error.message);
+      return;
+    }
+    setVersionActive(data);
+    setNomVersion(data.name);
+    await enregistrerAudit("revision_created", data.id, { source_version_id: versionActive.id });
+    await chargerVersions();
+    setMsgVersions("Revisión V" + numero + " creada como borrador.");
+  };
+
   const guardarPlanificacion = () => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(estadoActual()));
     setMsgPartage("Planificación guardada en este navegador.");
   };
 
   const compartirPlanificacion = async () => {
+    if (supabaseConfigured && versionActive?.id) {
+      const urlVersion = new URL(window.location.origin + window.location.pathname);
+      urlVersion.searchParams.set("version", versionActive.id);
+      try {
+        await navigator.clipboard.writeText(urlVersion.toString());
+        setMsgPartage("Enlace estable de la versión copiado.");
+      } catch (e) {
+        setMsgPartage("Copia este enlace: " + urlVersion.toString());
+      }
+      return;
+    }
     const idsPlanificados = new Set(Object.values(plan).map((cell) => lireBloc(cell, null)).filter(Boolean).map((b) => b.p));
     const payload = {
       version: 1,
@@ -1313,6 +1549,10 @@ export default function PlanificateurChocolat() {
   };
 
   const assigner = (cle, pid) => {
+    if (planningFige || !peutPlanifier) {
+      setMsgVersions("La planificación está congelada o tu perfil es de solo lectura.");
+      return;
+    }
     const ligne = lignes.find((l) => l.id === cle.split("|")[1]);
     const turno = turnoDepuisCle(cle, ligne);
     const date = dateDepuisCle(cle.split("|")[0]);
@@ -1328,31 +1568,70 @@ export default function PlanificateurChocolat() {
   };
 
   const majRealKg = (cle, valeur) => {
+    if (planningFige && !peutSaisirReel) {
+      setMsgVersions("Tu perfil no puede registrar la producción real.");
+      return;
+    }
     const ligne = lignes.find((l) => l.id === cle.split("|")[1]);
     const b = lireBloc(plan[cle], ligne);
     if (!b) return;
+    const nouvelleValeur = valeur === "" ? null : Math.max(0, Number(valeur) || 0);
     setPlan((p) => {
       const np = { ...p };
       const actuel = lireBloc(np[cle], ligne);
       if (!actuel) return np;
-      if (valeur === "") np[cle] = { ...(np[cle] as any), p: actuel.p, kg: actuel.kg, realKg: null };
-      else np[cle] = { ...(np[cle] as any), p: actuel.p, kg: actuel.kg, realKg: Math.max(0, Number(valeur) || 0) };
+      np[cle] = { ...(np[cle] as any), p: actuel.p, kg: actuel.kg, realKg: nouvelleValeur };
       return np;
     });
+    if (planningFige && supabase && versionActive?.id && session?.user) {
+      supabase.from("planning_actuals").upsert({
+        planning_version_id: versionActive.id,
+        slot_key: cle,
+        actual_kg: nouvelleValeur,
+        note: b.note || "",
+        updated_by: session.user.id,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: "planning_version_id,slot_key" }).then(({ error }) => {
+        setMsgVersions(error ? error.message : "Producción real guardada.");
+      });
+    }
   };
 
   const majNoteTurno = (cle, valeur) => {
+    if (planningFige && !peutSaisirReel) {
+      setMsgVersions("Tu perfil no puede registrar notas de producción.");
+      return;
+    }
     const ligne = lignes.find((l) => l.id === cle.split("|")[1]);
+    const nouvelleNote = String(valeur || "").slice(0, 500);
+    const b = lireBloc(plan[cle], ligne);
     setPlan((p) => {
       const np = { ...p };
       const actuel = lireBloc(np[cle], ligne);
       if (!actuel) return np;
-      np[cle] = { ...(np[cle] as any), p: actuel.p, kg: actuel.kg, note: String(valeur || "").slice(0, 500) };
+      np[cle] = { ...(np[cle] as any), p: actuel.p, kg: actuel.kg, note: nouvelleNote };
       return np;
     });
+    if (b && planningFige && supabase && versionActive?.id && session?.user) {
+      supabase.from("planning_actuals").upsert({
+        planning_version_id: versionActive.id,
+        slot_key: cle,
+        actual_kg: b.realKg ?? null,
+        note: nouvelleNote,
+        updated_by: session.user.id,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: "planning_version_id,slot_key" }).then(({ error }) => {
+        setMsgVersions(error ? error.message : "Nota guardada.");
+      });
+    }
   };
 
   const onDrop = (cleDest) => {
+    if (planningFige || !peutPlanifier) {
+      setMsgVersions("La planificación está congelada o tu perfil es de solo lectura.");
+      setDragKey(null);
+      return;
+    }
     if (!dragKey || dragKey === cleDest) { setDragKey(null); return; }
     if (dragKey.split("|")[1] !== cleDest.split("|")[1]) { setDragKey(null); return; }
     setPlan((p) => { const np = { ...p }; const vS = np[dragKey], vD = np[cleDest]; if (vD != null) np[dragKey] = vD; else delete np[dragKey]; np[cleDest] = vS; return np; });
@@ -1361,6 +1640,10 @@ export default function PlanificateurChocolat() {
 
   // ====== OPTIMIZADOR: producción DIVISIBLE, 1 producto por turno ======
   const optimiser = (lundiForce = null, options: any = {}) => {
+    if (planningFige || !peutPlanifier) {
+      setMsgVersions("Crea una revisión antes de modificar una planificación aprobada.");
+      return;
+    }
     const lundiBase = lundiForce || lundi;
     const lignesIdsUsine = new Set(lignesUsine.map((l) => l.id));
     const planningUsineVide = !Object.entries(plan).some(([k, v]) => {
@@ -1474,6 +1757,10 @@ export default function PlanificateurChocolat() {
   };
 
   const viderHorizon = () => {
+    if (planningFige || !peutPlanifier) {
+      setMsgVersions("Crea una revisión antes de borrar una planificación aprobada.");
+      return;
+    }
     const datesSet = new Set();
     for (let dt = new Date(periodeOpti.debut); dt <= periodeOpti.fin; dt.setDate(dt.getDate() + 1)) datesSet.add(cleDate(dt));
     joursSemaine.forEach((j) => datesSet.add(j.cle));
@@ -1990,6 +2277,32 @@ export default function PlanificateurChocolat() {
     </div>
   );
 
+  if (supabaseConfigured && !authReady) {
+    return <div className="min-h-screen bg-violet-50 grid place-items-center text-violet-900">Cargando acceso seguro...</div>;
+  }
+
+  if (supabaseConfigured && !session) {
+    return (
+      <div className="min-h-screen bg-violet-50 grid place-items-center p-4 font-sans text-slate-800">
+        <form onSubmit={connecter} className="w-full max-w-sm bg-white border border-violet-100 shadow-lg rounded-xl p-6">
+          <div className="text-3xl mb-2">🍫</div>
+          <h1 className="text-2xl font-bold text-violet-950">Choco Planner</h1>
+          <p className="text-sm text-slate-500 mt-1 mb-5">Acceso reservado a usuarios autorizados.</p>
+          <label className="block text-sm font-medium text-slate-700 mb-3">
+            Email
+            <input type="email" required autoComplete="email" className="mt-1 w-full border border-slate-300 rounded-lg px-3 py-2" value={authEmail} onChange={(e) => setAuthEmail(e.target.value)} />
+          </label>
+          <label className="block text-sm font-medium text-slate-700 mb-4">
+            Contraseña
+            <input type="password" required autoComplete="current-password" className="mt-1 w-full border border-slate-300 rounded-lg px-3 py-2" value={authPassword} onChange={(e) => setAuthPassword(e.target.value)} />
+          </label>
+          <button type="submit" className="w-full bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg px-4 py-2 font-medium">Ingresar</button>
+          {authMessage && <p className="mt-3 text-sm text-red-700">{authMessage}</p>}
+        </form>
+      </div>
+    );
+  }
+
   if (!usine) {
     return (
       <div className="min-h-screen bg-violet-50 p-4 md:p-6 font-sans text-slate-800 overflow-hidden">
@@ -2118,7 +2431,16 @@ export default function PlanificateurChocolat() {
               {produitsNonAssignes.length > 0 && <span className="px-2 py-1 rounded-full bg-orange-50 text-orange-700 border border-orange-100">{produitsNonAssignes.length} sin línea</span>}
             </div>
           </div>
-          <button onClick={() => setUsine(null)} className="px-3 py-2 bg-white border border-violet-300 rounded-lg text-sm text-violet-800 hover:bg-violet-100">⇄ Cambiar fábrica</button>
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            {supabaseConfigured && profil && (
+              <span className="text-xs text-slate-500 text-right">
+                <strong className="block text-slate-700">{profil.full_name || session?.user?.email}</strong>
+                {profil.role}
+              </span>
+            )}
+            <button onClick={() => setUsine(null)} className="px-3 py-2 bg-white border border-violet-300 rounded-lg text-sm text-violet-800 hover:bg-violet-100">⇄ Cambiar fábrica</button>
+            {supabaseConfigured && <button onClick={deconnecter} className="px-3 py-2 bg-white border border-slate-300 rounded-lg text-sm text-slate-600 hover:bg-slate-100">Salir</button>}
+          </div>
         </header>
 
         <div className="flex gap-2 mb-4 flex-wrap bg-white/90 border border-violet-100 rounded-xl shadow-sm p-2">
@@ -2127,6 +2449,7 @@ export default function PlanificateurChocolat() {
           <button onClick={() => setOnglet("produits")} className={"px-4 py-2 rounded-lg text-sm font-medium transition " + (onglet === "produits" ? "bg-violet-800 text-white shadow" : "bg-white text-violet-800 hover:bg-violet-100")}>⚙️ Productos y Líneas{produitsNonAssignes.length > 0 ? " (" + produitsNonAssignes.length + ")" : ""}</button>
           <button onClick={() => setOnglet("materias")} className={"px-4 py-2 rounded-lg text-sm font-medium transition " + (onglet === "materias" ? "bg-violet-800 text-white shadow" : "bg-white text-violet-800 hover:bg-violet-100")}>🧾 Materias primas</button>
           <button onClick={() => setOnglet("diagnostic")} className={"px-4 py-2 rounded-lg text-sm font-medium transition " + (onglet === "diagnostic" ? "bg-violet-800 text-white shadow" : "bg-white text-violet-800 hover:bg-violet-100")}>📊 Diagnóstico</button>
+          <button onClick={() => { setOnglet("versions"); chargerVersions(); }} className={"px-4 py-2 rounded-lg text-sm font-medium transition " + (onglet === "versions" ? "bg-emerald-700 text-white shadow" : "bg-white text-emerald-800 hover:bg-emerald-50")}>🔒 Versiones</button>
               <button onClick={() => setOnglet("import")} className={"px-4 py-2 rounded-lg text-sm font-medium transition " + (onglet === "import" ? "bg-violet-800 text-white shadow" : "bg-white text-violet-800 hover:bg-violet-100")}>🔄 Importar / Exportar</button>
         </div>
 
@@ -2138,20 +2461,25 @@ export default function PlanificateurChocolat() {
               <button onClick={() => changerSemaine(1)} className="px-3 py-1 bg-violet-100 rounded-lg hover:bg-violet-200 text-violet-900">Semana sig. →</button>
             </div>
             <div className="flex items-center gap-2 mb-3 flex-wrap">
-              <button onClick={() => { setLundi(lundiDeLaSemaine(periodeOpti.debut)); optimiser(periodeOpti.debut, { respecterDateExacte: true, dateFin: periodeOpti.fin }); }} className="px-4 py-2 bg-green-700 text-white rounded-lg text-sm font-medium hover:bg-green-800 shadow">✨ Optimizar la planificación</button>
+              <button disabled={planningFige || !peutPlanifier} onClick={() => { setLundi(lundiDeLaSemaine(periodeOpti.debut)); optimiser(periodeOpti.debut, { respecterDateExacte: true, dateFin: periodeOpti.fin }); }} className="px-4 py-2 bg-green-700 disabled:bg-slate-300 text-white rounded-lg text-sm font-medium hover:bg-green-800 shadow">✨ Optimizar la planificación</button>
               <label className="flex items-center gap-2 px-3 py-2 bg-green-50 border border-green-200 rounded-lg text-sm text-green-900">
                 Desde
-                <input type="date" className="bg-white border border-green-300 rounded-md px-2 py-1 text-sm font-semibold text-green-900" value={dateDebutOpti} onChange={(e) => { const valeur = e.target.value; const nouvelleFin = dateFinOpti < valeur ? valeur : dateFinOpti; setDateDebutOpti(valeur); setDateFinOpti(nouvelleFin); setLundi(lundiDeLaSemaine(dateDepuisCle(valeur))); nettoyerPlanningHorsPeriode(dateDepuisCle(valeur), dateDepuisCle(nouvelleFin)); }} />
+                <input disabled={planningFige || !peutPlanifier} type="date" className="bg-white disabled:bg-slate-100 border border-green-300 rounded-md px-2 py-1 text-sm font-semibold text-green-900" value={dateDebutOpti} onChange={(e) => { const valeur = e.target.value; const nouvelleFin = dateFinOpti < valeur ? valeur : dateFinOpti; setDateDebutOpti(valeur); setDateFinOpti(nouvelleFin); setLundi(lundiDeLaSemaine(dateDepuisCle(valeur))); nettoyerPlanningHorsPeriode(dateDepuisCle(valeur), dateDepuisCle(nouvelleFin)); }} />
               </label>
               <label className="flex items-center gap-2 px-3 py-2 bg-green-50 border border-green-200 rounded-lg text-sm text-green-900">
                 Hasta
-                <input type="date" className="bg-white border border-green-300 rounded-md px-2 py-1 text-sm font-semibold text-green-900" value={dateFinOpti} min={dateDebutOpti} onChange={(e) => { const valeur = e.target.value; setDateFinOpti(valeur); nettoyerPlanningHorsPeriode(dateDepuisCle(dateDebutOpti), dateDepuisCle(valeur)); }} />
+                <input disabled={planningFige || !peutPlanifier} type="date" className="bg-white disabled:bg-slate-100 border border-green-300 rounded-md px-2 py-1 text-sm font-semibold text-green-900" value={dateFinOpti} min={dateDebutOpti} onChange={(e) => { const valeur = e.target.value; setDateFinOpti(valeur); nettoyerPlanningHorsPeriode(dateDepuisCle(dateDebutOpti), dateDepuisCle(valeur)); }} />
               </label>
-              <button onClick={viderHorizon} className="px-3 py-2 bg-white border border-gray-300 text-gray-600 rounded-lg text-sm hover:bg-gray-100">Borrar horizonte</button>
-              <button onClick={guardarPlanificacion} className="px-3 py-2 bg-violet-800 text-white rounded-lg text-sm hover:bg-violet-900">Guardar</button>
+              <button disabled={planningFige || !peutPlanifier} onClick={viderHorizon} className="px-3 py-2 bg-white disabled:bg-slate-100 border border-gray-300 text-gray-600 rounded-lg text-sm hover:bg-gray-100">Borrar horizonte</button>
+              {!supabaseConfigured && <button onClick={guardarPlanificacion} className="px-3 py-2 bg-violet-800 text-white rounded-lg text-sm hover:bg-violet-900">Guardar local</button>}
+              {supabaseConfigured && !planningFige && peutPlanifier && <button onClick={() => sauvegarderVersion()} className="px-3 py-2 bg-violet-800 text-white rounded-lg text-sm hover:bg-violet-900">Guardar borrador</button>}
+              {supabaseConfigured && !planningFige && peutPlanifier && <button onClick={() => sauvegarderVersion({ approuver: true })} className="px-3 py-2 bg-emerald-700 text-white rounded-lg text-sm hover:bg-emerald-800">Aprobar y congelar</button>}
+              {supabaseConfigured && planningFige && peutPlanifier && <button onClick={creerRevision} className="px-3 py-2 bg-amber-600 text-white rounded-lg text-sm hover:bg-amber-700">Crear revisión</button>}
               <button onClick={compartirPlanificacion} className="px-3 py-2 bg-sky-700 text-white rounded-lg text-sm hover:bg-sky-800">Compartir</button>
+              {versionActive && <span className={"px-2 py-1 rounded-full text-xs font-semibold " + (planningFige ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-800")}>V{versionActive.version_no} · {versionActive.status}</span>}
               {msgOpti && <span className="text-sm text-green-800">{msgOpti}</span>}
               {msgPartage && <span className="text-sm text-sky-800">{msgPartage}</span>}
+              {msgVersions && <span className="text-sm text-emerald-800">{msgVersions}</span>}
             </div>
             {lignesUsine.length === 0 ? (
               <p className="text-center text-gray-500 py-8">No hay líneas en esta fábrica. Agrega una en Productos y Líneas.</p>
@@ -2202,7 +2530,7 @@ export default function PlanificateurChocolat() {
                                   <div key={turno.id} className="mb-1" onDragOver={(e) => e.preventDefault()} onDrop={() => onDrop(cle)}>
                                     {enEdition ? (
                                       <div className="rounded-lg border border-violet-300 bg-white p-1.5 shadow-sm">
-                                        <select autoFocus className="w-full text-xs border rounded p-1" value={b ? b.p : ""} onChange={(e) => assigner(cle, e.target.value)}>
+                                        <select autoFocus disabled={planningFige || !peutPlanifier} className="w-full disabled:bg-slate-100 text-xs border rounded p-1" value={b ? b.p : ""} onChange={(e) => assigner(cle, e.target.value)}>
                                           <option value="">— vacío —</option>
                                           {produits.filter((p) => p.ligne === ligne.id && estConfigure(p)).map((p) => <option key={p.id} value={p.id}>{optionProduitPlanning(p)}</option>)}
                                         </select>
@@ -2211,7 +2539,7 @@ export default function PlanificateurChocolat() {
                                             <div className="grid grid-cols-[1fr_auto] gap-1 items-end">
                                               <label className="text-[10px] text-slate-500">
                                                 Real kg
-                                                <input className="mt-0.5 w-full text-xs border rounded p-1" type="number" min="0" step="1" placeholder={fmtNb(b.kg)} value={b.realKg ?? ""} onChange={(e) => majRealKg(cle, e.target.value)} />
+                                                <input disabled={!peutSaisirReel} className="mt-0.5 w-full disabled:bg-slate-100 text-xs border rounded p-1" type="number" min="0" step="1" placeholder={fmtNb(b.kg)} value={b.realKg ?? ""} onChange={(e) => majRealKg(cle, e.target.value)} />
                                               </label>
                                               <button type="button" onClick={() => setSelection(null)} className="px-2 py-1 rounded bg-violet-800 text-white text-xs">OK</button>
                                             </div>
@@ -2220,6 +2548,7 @@ export default function PlanificateurChocolat() {
                                               <textarea
                                                 className="mt-0.5 w-full min-h-14 resize-y text-xs border rounded p-1"
                                                 maxLength={500}
+                                                disabled={!peutSaisirReel}
                                                 placeholder="Ej.: parada técnica, falta de insumos, cambio de formato..."
                                                 value={b.note || ""}
                                                 onChange={(e) => majNoteTurno(cle, e.target.value)}
@@ -2229,7 +2558,7 @@ export default function PlanificateurChocolat() {
                                         )}
                                       </div>
                                     ) : (
-                                      <div draggable={!!prod} onDragStart={() => setDragKey(cle)} onClick={() => setSelection(cle)} title={b ? "Plan: " + fmtNb(b.kg) + " kg" + (b.realKg != null && b.realKg !== "" ? " · Real: " + fmtNb(kgEff) + " kg" : "") + (kgpb ? " · ≈ " + fmtNb(bultos) + " bultos" : " · conversión faltante") + (etatBloc ? " · " + (etatBloc.actuel ? "stock actual: " : "stock despues del bloque: ") + fmtNb(etatBloc.stock) + " (" + etatBloc.label + ")" : "") + ((b as any).raison ? " · " + (b as any).raison : "") + (b.note ? " · Nota: " + b.note : "") : ""}
+                                      <div draggable={!!prod && !planningFige && peutPlanifier} onDragStart={() => setDragKey(cle)} onClick={() => setSelection(cle)} title={b ? "Plan: " + fmtNb(b.kg) + " kg" + (b.realKg != null && b.realKg !== "" ? " · Real: " + fmtNb(kgEff) + " kg" : "") + (kgpb ? " · ≈ " + fmtNb(bultos) + " bultos" : " · conversión faltante") + (etatBloc ? " · " + (etatBloc.actuel ? "stock actual: " : "stock despues del bloque: ") + fmtNb(etatBloc.stock) + " (" + etatBloc.label + ")" : "") + ((b as any).raison ? " · " + (b as any).raison : "") + (b.note ? " · Nota: " + b.note : "") : ""}
                                         className={"w-full text-xs rounded p-1.5 border-2 text-left min-h-10 transition cursor-pointer " + (prod ? pal.clair + " " + pal.bordure + " " + pal.texte + " font-medium" : "bg-gray-50 border-dashed border-gray-300 text-gray-400 hover:bg-gray-100") + (dragKey === cle ? " opacity-40" : "")}>
                                         <span className="flex items-center justify-between">
                                           <span className="text-[10px] opacity-60">{turno.nom}</span>
@@ -2258,6 +2587,65 @@ export default function PlanificateurChocolat() {
             )}
             <p className="text-xs text-gray-500 mt-2">Cada turno produce segun los horarios de la fabrica: Fatima trabaja de lunes a viernes un turno completo dividido en medio turno manana y medio turno tarde, y no trabaja sabado ni domingo; Esandi trabaja manana y tarde, con solo manana el sabado; Mitre/VB trabajan 3 turnos base, con solo manana el sabado. Excepcion: Stephan trabaja solo lunes a viernes, manana y tarde. La cantidad es <strong>divisible</strong>. La gomita de color muestra el estado del stock justo despues de ese bloque, simulando la demanda dia por dia.</p>
             <Legende />
+          </div>
+        )}
+
+        {onglet === "versions" && (
+          <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-4">
+            <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
+              <div>
+                <h2 className="text-lg font-semibold text-violet-950">Versiones de planificación</h2>
+                <p className="text-sm text-slate-500">Los planes aprobados quedan congelados. La producción real y las notas se registran por separado.</p>
+              </div>
+              {supabaseConfigured && <button onClick={() => chargerVersions()} className="px-3 py-2 border border-slate-300 rounded-lg text-sm hover:bg-slate-50">Actualizar lista</button>}
+            </div>
+
+            {!supabaseConfigured ? (
+              <div className="border border-amber-200 bg-amber-50 rounded-lg p-4 text-sm text-amber-900">
+                Supabase todavía no está conectado. La aplicación sigue funcionando localmente, pero no puede compartir ni conservar versiones entre usuarios.
+              </div>
+            ) : (
+              <>
+                <div className="grid gap-3 md:grid-cols-[1fr_auto_auto] items-end border border-violet-100 bg-violet-50 rounded-lg p-3 mb-4">
+                  <label className="text-sm text-slate-700">
+                    Nombre de la planificación
+                    <input className="mt-1 w-full bg-white border border-violet-200 rounded-lg px-3 py-2" placeholder={(usineActive?.nom || "") + " - " + dateDebutOpti + " / " + dateFinOpti} value={nomVersion} onChange={(e) => setNomVersion(e.target.value)} />
+                  </label>
+                  {!planningFige && peutPlanifier && <button onClick={() => sauvegarderVersion()} className="px-4 py-2 bg-violet-800 text-white rounded-lg text-sm">Guardar borrador</button>}
+                  {!planningFige && peutPlanifier && <button onClick={() => sauvegarderVersion({ approuver: true })} className="px-4 py-2 bg-emerald-700 text-white rounded-lg text-sm">Aprobar y congelar</button>}
+                  {planningFige && peutPlanifier && <button onClick={creerRevision} className="px-4 py-2 bg-amber-600 text-white rounded-lg text-sm">Crear revisión</button>}
+                </div>
+
+                {msgVersions && <p className="mb-3 text-sm text-emerald-800">{msgVersions}</p>}
+                <div className="overflow-x-auto border border-slate-200 rounded-lg">
+                  <table className="w-full text-sm">
+                    <thead className="bg-slate-50 text-slate-600">
+                      <tr>
+                        <th className="text-left p-3">Planificación</th>
+                        <th className="text-left p-3">Periodo</th>
+                        <th className="text-center p-3">Versión</th>
+                        <th className="text-center p-3">Estado</th>
+                        <th className="text-left p-3">Guardada</th>
+                        <th className="p-3"></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {versionsPlanning.map((version) => (
+                        <tr key={version.id} className={"border-t border-slate-100 " + (versionActive?.id === version.id ? "bg-emerald-50" : "")}>
+                          <td className="p-3 font-medium text-slate-800">{version.name}</td>
+                          <td className="p-3 text-slate-600">{version.period_start} → {version.period_end}</td>
+                          <td className="p-3 text-center font-semibold">V{version.version_no}</td>
+                          <td className="p-3 text-center"><span className={"px-2 py-1 rounded-full text-xs font-semibold " + (version.status === "approved" ? "bg-emerald-100 text-emerald-800" : version.status === "draft" ? "bg-amber-100 text-amber-800" : "bg-slate-100 text-slate-600")}>{version.status}</span></td>
+                          <td className="p-3 text-slate-500">{new Date(version.updated_at || version.created_at).toLocaleString()}</td>
+                          <td className="p-3 text-right"><button onClick={() => ouvrirVersion(version)} className="px-3 py-1.5 border border-violet-200 text-violet-800 rounded-lg hover:bg-violet-50">Abrir</button></td>
+                        </tr>
+                      ))}
+                      {versionsPlanning.length === 0 && <tr><td colSpan={6} className="p-6 text-center text-slate-400">No hay versiones guardadas para esta fábrica.</td></tr>}
+                    </tbody>
+                  </table>
+                </div>
+              </>
+            )}
           </div>
         )}
 

@@ -5,7 +5,7 @@ import {
   ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts";
 
-const APP_VERSION = "2026.07.17-dashboard-v1";
+const APP_VERSION = "2026.07.17-invitaciones-v1";
 
 const PALETTE = [
   { couleur: "bg-violet-600", clair: "bg-violet-100", bordure: "border-violet-600", texte: "text-violet-800" },
@@ -773,6 +773,15 @@ export default function PlanificateurChocolat() {
   const [authEmail, setAuthEmail] = useState("");
   const [authPassword, setAuthPassword] = useState("");
   const [authMessage, setAuthMessage] = useState("");
+  const [doitChoisirMotDePasse, setDoitChoisirMotDePasse] = useState(() => {
+    const hash = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+    const query = new URLSearchParams(window.location.search);
+    const type = hash.get("type") || query.get("type");
+    return type === "invite" || type === "recovery";
+  });
+  const [nouveauMotDePasse, setNouveauMotDePasse] = useState("");
+  const [confirmationMotDePasse, setConfirmationMotDePasse] = useState("");
+  const [messageMotDePasse, setMessageMotDePasse] = useState("");
   const [versionsPlanning, setVersionsPlanning] = useState<any[]>([]);
   const [versionActive, setVersionActive] = useState<any>(null);
   const [nomVersion, setNomVersion] = useState("");
@@ -796,7 +805,10 @@ export default function PlanificateurChocolat() {
       }
     };
     supabase.auth.getSession().then(({ data }) => chargerProfil(data.session));
-    const { data: abonnement } = supabase.auth.onAuthStateChange((_event, nouvelleSession) => chargerProfil(nouvelleSession));
+    const { data: abonnement } = supabase.auth.onAuthStateChange((event, nouvelleSession) => {
+      if (event === "PASSWORD_RECOVERY") setDoitChoisirMotDePasse(true);
+      chargerProfil(nouvelleSession);
+    });
     return () => {
       actif = false;
       abonnement.subscription.unsubscribe();
@@ -1446,6 +1458,42 @@ export default function PlanificateurChocolat() {
     setAuthMessage("Conectando...");
     const { error } = await supabase.auth.signInWithPassword({ email: authEmail.trim(), password: authPassword });
     setAuthMessage(error ? error.message : "");
+  };
+
+  const definirMotDePasse = async (e) => {
+    e.preventDefault();
+    if (!supabase) return;
+    if (nouveauMotDePasse.length < 8) {
+      setMessageMotDePasse("La contraseña debe tener al menos 8 caracteres.");
+      return;
+    }
+    if (nouveauMotDePasse !== confirmationMotDePasse) {
+      setMessageMotDePasse("Las contraseñas no coinciden.");
+      return;
+    }
+    setMessageMotDePasse("Guardando contraseña...");
+    const { error } = await supabase.auth.updateUser({ password: nouveauMotDePasse });
+    if (error) {
+      setMessageMotDePasse(error.message);
+      return;
+    }
+    window.history.replaceState({}, document.title, window.location.pathname);
+    setNouveauMotDePasse("");
+    setConfirmationMotDePasse("");
+    setMessageMotDePasse("");
+    setDoitChoisirMotDePasse(false);
+  };
+
+  const demanderReinitialisation = async () => {
+    if (!supabase) return;
+    if (!authEmail.trim()) {
+      setAuthMessage("Ingresa primero tu email.");
+      return;
+    }
+    setAuthMessage("Enviando enlace seguro...");
+    const redirectTo = `${window.location.origin}${window.location.pathname}`;
+    const { error } = await supabase.auth.resetPasswordForEmail(authEmail.trim(), { redirectTo });
+    setAuthMessage(error ? error.message : "Revisa tu email para crear una nueva contraseña.");
   };
 
   const deconnecter = async () => {
@@ -2397,6 +2445,28 @@ export default function PlanificateurChocolat() {
     return <div className="min-h-screen bg-violet-50 grid place-items-center text-violet-900">Cargando acceso seguro...</div>;
   }
 
+  if (supabaseConfigured && session && doitChoisirMotDePasse) {
+    return (
+      <div className="min-h-screen bg-violet-50 grid place-items-center p-4 font-sans text-slate-800">
+        <form onSubmit={definirMotDePasse} className="w-full max-w-sm bg-white border border-violet-100 shadow-lg rounded-xl p-6">
+          <div className="text-3xl mb-2">🍫</div>
+          <h1 className="text-2xl font-bold text-violet-950">Crea tu contraseña</h1>
+          <p className="text-sm text-slate-500 mt-1 mb-5">Tu invitación fue aceptada. Define una contraseña para acceder a Choco Planner.</p>
+          <label className="block text-sm font-medium text-slate-700 mb-3">
+            Nueva contraseña
+            <input type="password" required minLength={8} autoComplete="new-password" className="mt-1 w-full border border-slate-300 rounded-lg px-3 py-2" value={nouveauMotDePasse} onChange={(e) => setNouveauMotDePasse(e.target.value)} />
+          </label>
+          <label className="block text-sm font-medium text-slate-700 mb-4">
+            Confirmar contraseña
+            <input type="password" required minLength={8} autoComplete="new-password" className="mt-1 w-full border border-slate-300 rounded-lg px-3 py-2" value={confirmationMotDePasse} onChange={(e) => setConfirmationMotDePasse(e.target.value)} />
+          </label>
+          <button type="submit" className="w-full bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg px-4 py-2 font-medium">Guardar y continuar</button>
+          {messageMotDePasse && <p className="mt-3 text-sm text-red-700">{messageMotDePasse}</p>}
+        </form>
+      </div>
+    );
+  }
+
   if (supabaseConfigured && !session) {
     return (
       <div className="min-h-screen bg-violet-50 grid place-items-center p-4 font-sans text-slate-800">
@@ -2413,6 +2483,7 @@ export default function PlanificateurChocolat() {
             <input type="password" required autoComplete="current-password" className="mt-1 w-full border border-slate-300 rounded-lg px-3 py-2" value={authPassword} onChange={(e) => setAuthPassword(e.target.value)} />
           </label>
           <button type="submit" className="w-full bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg px-4 py-2 font-medium">Ingresar</button>
+          <button type="button" onClick={demanderReinitialisation} className="w-full mt-3 text-sm font-medium text-emerald-800 hover:text-emerald-950">¿Olvidaste tu contraseña?</button>
           {authMessage && <p className="mt-3 text-sm text-red-700">{authMessage}</p>}
         </form>
       </div>

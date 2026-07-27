@@ -5,7 +5,7 @@ import {
   ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts";
 
-const APP_VERSION = "2026.07.17-simulations-prioridades-v2";
+const APP_VERSION = "2026.07.27-lineas-activables";
 
 const PALETTE = [
   { couleur: "bg-violet-600", clair: "bg-violet-100", bordure: "border-violet-600", texte: "text-violet-800" },
@@ -766,7 +766,7 @@ export default function PlanificateurChocolat() {
   const [aldoTexte, setAldoTexte] = useState("");
   const [aldoChargement, setAldoChargement] = useState(false);
   const [aldoMessages, setAldoMessages] = useState([
-    { role: "aldo", texte: "¿Cómo puedo ayudarte?" },
+    { role: "aldo", texte: "Soy IAldo. Puedo analizar productos, líneas, stocks, capacidad, planificación, producción real, alertas y dashboards. ¿Qué necesitas decidir?" },
   ]);
   const [session, setSession] = useState<any>(null);
   const [profil, setProfil] = useState<any>(null);
@@ -814,6 +814,8 @@ export default function PlanificateurChocolat() {
   const [msgVersions, setMsgVersions] = useState("");
   const [versionEnEdition, setVersionEnEdition] = useState<string | null>(null);
   const [nomVersionEdition, setNomVersionEdition] = useState("");
+  const [activationLignes, setActivationLignes] = useState<Record<string, boolean>>({});
+  const [msgActivationLignes, setMsgActivationLignes] = useState("");
 
   useEffect(() => {
     if (!supabase) return;
@@ -843,9 +845,40 @@ export default function PlanificateurChocolat() {
     };
   }, []);
 
-  const lignesUsine = useMemo(() => lignes.filter((l) => l.usine === usine), [lignes, usine]);
-  const produitsUsine = useMemo(() => produits.filter((p) => p.usine === usine && !(usine === "esandi" && estNomFatimaProtege(p.nom))), [produits, usine]);
+  const lignesUsineToutes = useMemo(() => lignes.filter((l) => l.usine === usine), [lignes, usine]);
+  const lignesUsine = useMemo(() => lignesUsineToutes.filter((l) => activationLignes[l.id] !== false), [lignesUsineToutes, activationLignes]);
+  const produitsUsineTous = useMemo(() => produits.filter((p) => p.usine === usine && !(usine === "esandi" && estNomFatimaProtege(p.nom))), [produits, usine]);
+  const produitsUsine = useMemo(() => produitsUsineTous.filter((p) => !p.ligne || activationLignes[p.ligne] !== false), [produitsUsineTous, activationLignes]);
   const produitsNonAssignes = useMemo(() => produitsUsine.filter((p) => !p.ligne || !lignes.some((l) => l.id === p.ligne)), [produitsUsine, lignes]);
+
+  useEffect(() => {
+    let actif = true;
+    setMsgActivationLignes("");
+    if (!usine) {
+      setActivationLignes({});
+      return () => { actif = false; };
+    }
+    if (!supabase || !session?.user) {
+      setActivationLignes({});
+      return () => { actif = false; };
+    }
+    supabase
+      .from("production_line_settings")
+      .select("line_id, active")
+      .eq("factory_id", usine)
+      .then(({ data, error }) => {
+        if (!actif) return;
+        if (error) {
+          setActivationLignes({});
+          setMsgActivationLignes("Configuración compartida pendiente: ejecuta el script SQL de líneas activas en Supabase.");
+          return;
+        }
+        const mapa: Record<string, boolean> = {};
+        (data || []).forEach((item) => { mapa[item.line_id] = item.active !== false; });
+        setActivationLignes(mapa);
+      });
+    return () => { actif = false; };
+  }, [usine, session?.user?.id]);
   const periodeOpti = useMemo(() => {
     const debut = debutJour(dateDepuisCle(dateDebutOpti));
     let fin = debutJour(dateDepuisCle(dateFinOpti));
@@ -1271,7 +1304,12 @@ export default function PlanificateurChocolat() {
     const stockSim = {};
     const resultat = {};
     produitsUsine.forEach((p) => { stockSim[p.id] = p.stock; });
-    joursSemaine.forEach((j) => {
+    const clesVisibles = new Set(joursSemaine.map((jour) => jour.cle));
+    const debutVisible = joursSemaine[0]?.date || lundiAffiche;
+    const finVisible = joursSemaine[joursSemaine.length - 1]?.date || debutVisible;
+    const debutSimulation = periodeOpti.debut < debutVisible ? periodeOpti.debut : debutVisible;
+    for (let date = new Date(debutSimulation); date <= finVisible; date.setDate(date.getDate() + 1)) {
+      const j = { date: new Date(date), cle: cleDate(date) };
       produitsUsine.forEach((p) => { if (estConfigure(p)) stockSim[p.id] -= demandeJour(p); });
       lignesUsine.forEach((ligne) => {
         turnosLignePourDate(ligne, j.date).forEach((turno) => {
@@ -1286,13 +1324,13 @@ export default function PlanificateurChocolat() {
             const statut = statutStock(stockSim[b.p] || 0, s.min, s.max);
             const kgpb = kgParBulto(prod);
             const ecartVertKg = kgpb ? ((stockSim[b.p] || 0) - s.min * 1.5) * kgpb : 0;
-            resultat[cle] = { badge: statut.badge, label: statut.label, stock: stockSim[b.p] || 0, ecartVertKg };
+            if (clesVisibles.has(j.cle)) resultat[cle] = { badge: statut.badge, label: statut.label, stock: stockSim[b.p] || 0, ecartVertKg };
           }
         });
       });
-    });
+    }
     return resultat;
-  }, [joursSemaine, lignesUsine, plan, produits, produitsUsine]);
+  }, [joursSemaine, lignesUsine, plan, produits, produitsUsine, periodeOpti.debut, lundiAffiche]);
 
   const donneesDashboard = useMemo(() => {
     const debutCle = cleDate(periodeOpti.debut);
@@ -1607,7 +1645,37 @@ export default function PlanificateurChocolat() {
   const peutPlanifier = !supabaseConfigured || ["admin", "planner"].includes(profil?.role);
   const peutSaisirReel = !supabaseConfigured || ["admin", "planner", "production"].includes(profil?.role);
   const peutGererPriorites = !supabaseConfigured || ["admin", "planner", "production"].includes(profil?.role);
+  const peutConfigurerLignes = !supabaseConfigured || ["admin", "planner"].includes(profil?.role);
   const planningFige = versionActive?.status === "approved" || versionActive?.status === "replaced" || versionActive?.status === "archived";
+
+  const basculerActivationLigne = async (ligne) => {
+    if (!peutConfigurerLignes) {
+      setMsgActivationLignes("Solo administradores y planificadores pueden cambiar las líneas activas.");
+      return;
+    }
+    const prochaineValeur = activationLignes[ligne.id] === false;
+    setMsgActivationLignes("Guardando...");
+    if (!supabase || !session?.user) {
+      setActivationLignes((actuel) => ({ ...actuel, [ligne.id]: prochaineValeur }));
+      setMsgActivationLignes(prochaineValeur ? "Línea activada en esta vista previa." : "Línea desactivada en esta vista previa.");
+      return;
+    }
+    const { error } = await supabase.from("production_line_settings").upsert({
+      factory_id: usine,
+      line_id: ligne.id,
+      active: prochaineValeur,
+      updated_by: session.user.id,
+      updated_at: new Date().toISOString(),
+    }, { onConflict: "factory_id,line_id" });
+    if (error) {
+      setMsgActivationLignes("No se pudo guardar: " + error.message);
+      return;
+    }
+    setActivationLignes((actuel) => ({ ...actuel, [ligne.id]: prochaineValeur }));
+    setMsgActivationLignes(prochaineValeur
+      ? `${ligne.nom} vuelve a participar en la planificación.`
+      : `${ligne.nom} queda fuera de la planificación, sin borrar sus datos.`);
+  };
 
   const connecter = async (e) => {
     e.preventDefault();
@@ -2596,6 +2664,38 @@ export default function PlanificateurChocolat() {
     };
   };
 
+  const produitDepuisTexteIAldo = (questionNormalisee) => {
+    const tokensQuestion = tokensProduit(questionNormalisee).filter((token) => token.length > 1);
+    if (!tokensQuestion.length) return null;
+    const candidats = produitsUsine.map((produit) => {
+      const nomNormalise = produit.nom.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+      const tokensNom = tokensProduit(produit.nom).filter((token) => token.length > 1);
+      const exact = questionNormalisee.includes(nomNormalise);
+      const communs = tokensNom.filter((token) => tokensQuestion.includes(token)).length;
+      const couverture = tokensNom.length ? communs / tokensNom.length : 0;
+      const precision = tokensQuestion.length ? communs / tokensQuestion.length : 0;
+      return { produit, score: exact ? 10 : couverture * 2 + precision };
+    }).sort((a, b) => b.score - a.score);
+    return candidats[0]?.score >= 1.15 ? candidats[0].produit : null;
+  };
+
+  const ficheProduitIAldo = (produit, langue = "fr") => {
+    const s = seuils(produit);
+    const proj = projection(produit);
+    const kgBulto = kgParBulto(produit);
+    const planBultos = Number(productionParProduit[produit.id] || 0);
+    const planKg = kgBulto ? planBultos * kgBulto : 0;
+    const demandePeriodeBultos = demandeJour(produit) * periodeOpti.jours;
+    const objectifVert = s.min * 1.5;
+    const ecartVertBultos = proj - objectifVert;
+    const ecartVertKg = kgBulto ? ecartVertBultos * kgBulto : null;
+    const ligne = lignes.find((item) => item.id === produit.ligne)?.nom || "Sin línea";
+    const statut = statutStock(proj, s.min, s.max).label;
+    if (langue === "es") return `${produit.nom} — línea ${ligne}. Stock actual: ${fmtNb(produit.stock)} bultos; min/máx: ${fmtNb(s.min)}/${fmtNb(s.max)}; planificación: ${fmtNb(planKg)} kg (${fmtNb(planBultos)} bultos); demanda del período: ${fmtNb(demandePeriodeBultos)} bultos; proyección al ${fmtDate(periodeOpti.fin)}: ${fmtNb(proj)} bultos, estado ${statut}. ${ecartVertKg == null ? "Falta kg/bulto para convertir el desvío a kg." : ecartVertKg < 0 ? `Faltan ${fmtNb(Math.abs(ecartVertKg))} kg para alcanzar la zona verde.` : `Queda un margen de ${fmtNb(ecartVertKg)} kg sobre el inicio de la zona verde.`}`;
+    if (langue === "en") return `${produit.nom} — line ${ligne}. Current stock: ${fmtNb(produit.stock)} cases; min/max: ${fmtNb(s.min)}/${fmtNb(s.max)}; planned: ${fmtNb(planKg)} kg (${fmtNb(planBultos)} cases); period demand: ${fmtNb(demandePeriodeBultos)} cases; projected at ${fmtDate(periodeOpti.fin)}: ${fmtNb(proj)} cases, status ${statut}. ${ecartVertKg == null ? "Kg/case is missing, so the gap cannot be converted to kg." : ecartVertKg < 0 ? `${fmtNb(Math.abs(ecartVertKg))} kg are still needed to reach green.` : `${fmtNb(ecartVertKg)} kg remain above the green threshold.`}`;
+    return `${produit.nom} — ligne ${ligne}. Stock actuel : ${fmtNb(produit.stock)} bultos ; min/max : ${fmtNb(s.min)}/${fmtNb(s.max)} ; production planifiée : ${fmtNb(planKg)} kg (${fmtNb(planBultos)} bultos) ; demande sur la période : ${fmtNb(demandePeriodeBultos)} bultos ; projection au ${fmtDate(periodeOpti.fin)} : ${fmtNb(proj)} bultos, statut ${statut}. ${ecartVertKg == null ? "Le kg/bulto manque, donc l’écart ne peut pas être converti en kg." : ecartVertKg < 0 ? `Il manque ${fmtNb(Math.abs(ecartVertKg))} kg pour atteindre la zone verte.` : `La marge au-dessus du début de la zone verte est de ${fmtNb(ecartVertKg)} kg.`}`;
+  };
+
   const moisDepuisTexteAldo = (q) => {
     const mois = [
       ["janvier", "enero", "january"],
@@ -2763,6 +2863,10 @@ export default function PlanificateurChocolat() {
         demanda_periodo_kg: demandaDiaKg * periodeOpti.jours,
         planificado_kg: planKg,
         real_informado_kg: realKg,
+        diferencia_real_vs_plan_kg: realKg - planKg,
+        cumplimiento_real_pct: planKg > 0 ? realKg / planKg * 100 : null,
+        cobertura_actual_dias: demandeJour(produit) > 0 ? produit.stock / demandeJour(produit) : null,
+        faltante_zona_verde_kg: Math.max(0, s.min * 1.5 - proyectado) * (kgBulto || 0),
         stock_proyectado_bultos: proyectado,
         estado_proyectado: statutStock(proyectado, s.min, s.max).label,
       };
@@ -2781,6 +2885,9 @@ export default function PlanificateurChocolat() {
         demanda_periodo_kg: productosLinea.reduce((s, producto) => s + producto.demanda_periodo_kg, 0),
         planificado_kg: productosLinea.reduce((s, producto) => s + producto.planificado_kg, 0),
         real_informado_kg: productosLinea.reduce((s, producto) => s + producto.real_informado_kg, 0),
+        carga_plan_pct: capacidadPeriodo > 0 ? productosLinea.reduce((s, producto) => s + producto.planificado_kg, 0) / capacidadPeriodo * 100 : null,
+        carga_demanda_pct: capacidadPeriodo > 0 ? productosLinea.reduce((s, producto) => s + producto.demanda_periodo_kg, 0) / capacidadPeriodo * 100 : null,
+        capacidad_libre_kg: Math.max(0, capacidadPeriodo - productosLinea.reduce((s, producto) => s + producto.planificado_kg, 0)),
         productos: productosLinea.length,
       };
     });
@@ -2814,6 +2921,8 @@ export default function PlanificateurChocolat() {
         fecha_limite: regle.due_date,
         nota: regle.note,
       })),
+      version_planificacion: versionActive ? { nombre: versionActive.name, numero: versionActive.version_no, estado: versionActive.status } : null,
+      lineas_inactivas: lignesUsineToutes.filter((linea) => activationLignes[linea.id] === false).map((linea) => linea.nom),
     };
   };
 
@@ -2833,7 +2942,8 @@ export default function PlanificateurChocolat() {
       }),
     });
     const data = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(data.error || "Aldo IA no está disponible.");
+    if (!response.ok) throw new Error(data.error || "IAldo no está disponible.");
+    if (!data.texte || typeof data.texte !== "string") throw new Error("IAldo no está disponible dans cet aperçu local.");
     return data.texte;
   };
 
@@ -2842,6 +2952,25 @@ export default function PlanificateurChocolat() {
     if (!question || aldoChargement) return;
     const q = question.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
     let reponse = "";
+    const produitCible = produitDepuisTexteIAldo(q);
+    const langueQuestion = /\b(show|what|which|how|forecast|projection)\b/.test(q) ? "en" : /\b(muestra|dime|cual|como|proyeccion|producto)\b/.test(q) ? "es" : "fr";
+    if (q.includes("dashboard") || q.includes("tablero") || q.includes("graph") || q.includes("grafico") || q.includes("gráfico")) {
+      const ligneDemandee = ligneDepuisTexteAldo(q);
+      const produitDemande = produitsUsine.find((produit) => {
+        const nom = produit.nom.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+        return nom.length > 4 && q.includes(nom);
+      });
+      setOnglet("dashboard");
+      if (produitDemande) {
+        setDashboardVue("produit");
+        setDashboardProduitId(String(produitDemande.id));
+      } else if (ligneDemandee) {
+        setDashboardVue("ligne");
+        setDashboardLigneId(ligneDemandee.id);
+      } else {
+        setDashboardVue("global");
+      }
+    }
     const consignes = appliquerConsignesAldo(question, q);
     const ordrePlanification = /\b(optimizar|optimiser|optimize|completa|complete|rellena|remplis|remplir|fill)\b/.test(q);
     const commandeLocale = consignes.actions.length > 0 ||
@@ -2870,6 +2999,9 @@ export default function PlanificateurChocolat() {
       reponse = "Entendido. " + (consignes.actions.length ? consignes.actions.join("; ") + ". " : "") +
         (consignes.veutRemplir ? "Completo el calendario con estas consignas y mantengo las restricciones de stock/capacidad." : "Guardo esta consigna para las próximas optimizaciones.") +
         " Después puedes pedirme una corrección, por ejemplo: baja Stephan en julio, o fuerza Frutilla después de Framboise.";
+    } else if (produitCible && (q.includes("projection") || q.includes("proyeccion") || q.includes("stock") || q.includes("produit") || q.includes("producto") || q.includes("montre") || q.includes("muestra") || q.includes("show") || q.includes("analyse") || q.includes("analiza"))) {
+      setOnglet("stocks");
+      reponse = ficheProduitIAldo(produitCible, langueQuestion);
     } else if (q.includes("analys") || q.includes("analyse") || q.includes("analiza") || q.includes("resumen") || q.includes("situation") || q.includes("estado")) {
       const a = analyseAldo();
       setOnglet("diagnostic");
@@ -3023,11 +3155,12 @@ export default function PlanificateurChocolat() {
           }
           .home-gloss { animation: glossMove 3.8s ease-in-out infinite; }
           .home-belt { background-image: repeating-linear-gradient(90deg, rgba(49,46,129,.20) 0 12px, rgba(255,255,255,.68) 12px 22px, rgba(49,46,129,.12) 22px 46px); animation: beltMove 2.2s linear infinite; }
-          .home-bars { animation: barMove 7.2s linear infinite; }
-          .home-choco { position: relative; width: 4rem; height: 3rem; flex: 0 0 auto; filter: drop-shadow(0 7px 7px rgba(68,32,14,.28)); }
+          .home-bars { animation: barMove 13s linear infinite; }
+          .home-choco { position: relative; width: 3.5rem; height: 3rem; flex: 0 0 auto; filter: drop-shadow(0 7px 7px rgba(68,32,14,.28)); }
           .home-tablet { border-radius: .5rem; background: linear-gradient(135deg, #8a4a28, #663017 55%, #3b1c10); border: 1px solid #4a2412; overflow: hidden; box-shadow: inset 0 1px 0 rgba(255,255,255,.22); }
           .home-tablet:before { content: ""; position: absolute; left: .55rem; right: .55rem; top: .45rem; height: .34rem; border-radius: 99px; background: rgba(255,255,255,.24); }
           .home-tablet:after { content: ""; position: absolute; inset: 1rem .55rem .55rem; background: repeating-linear-gradient(90deg, rgba(75,34,17,.58) 0 .55rem, transparent .55rem .82rem), repeating-linear-gradient(0deg, rgba(75,34,17,.58) 0 .55rem, transparent .55rem .82rem); border-radius: .25rem; opacity: .55; }
+          .home-tablet-r { position: absolute; inset: 0; z-index: 2; display: grid; place-items: center; padding-top: .35rem; color: #d79a70; font-size: 1.45rem; font-weight: 900; line-height: 1; text-shadow: 0 1px 0 #32160b, 0 -1px 0 rgba(255,255,255,.18); }
           .home-bear:before { content: ""; position: absolute; left: .55rem; top: .6rem; width: 2.9rem; height: 2.05rem; border-radius: 48% 48% 44% 44%; background: linear-gradient(135deg, #8a4a28, #5b2d18); border: 1px solid #4a2412; box-shadow: inset .25rem .25rem 0 rgba(255,255,255,.12); }
           .home-bear:after { content: ""; position: absolute; left: .88rem; top: .25rem; width: .75rem; height: .75rem; border-radius: 50%; background: #6b341b; box-shadow: 1.55rem 0 0 #6b341b, .78rem 1.58rem 0 -.18rem rgba(255,255,255,.22), 1.02rem .85rem 0 -.24rem #2d140a, 1.42rem .85rem 0 -.24rem #2d140a; border: 1px solid #4a2412; }
           .home-status-dot { animation: statusPulse 2.4s ease-in-out infinite; }
@@ -3064,10 +3197,11 @@ export default function PlanificateurChocolat() {
                     <div className="absolute inset-2 rounded-xl home-belt"></div>
                     <div className="absolute left-0 right-0 top-1/2 h-px bg-white/70"></div>
                     <div className="absolute left-4 right-4 bottom-3 h-2 rounded-full bg-violet-900/15 blur-sm"></div>
-                    <div className="home-bars absolute inset-y-0 left-0 flex w-[200%] items-center gap-3 px-3">
-                      {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13].map((n) => (
-                        <span key={n} className={"home-choco " + (n % 2 === 0 ? "home-tablet" : "home-bear")}>
+                    <div className="home-bars absolute inset-y-0 left-0 flex w-[200%] items-center gap-2 px-3">
+                      {["R", "A", "P", "A", "N", "U", "I", "bear", "bear", "bear", "R", "A", "P", "A", "N", "U", "I", "bear", "bear", "bear"].map((forme, n) => (
+                        <span key={n} className={"home-choco " + (forme === "bear" ? "home-bear" : "home-tablet")}>
                           <span className="home-gloss absolute -left-8 top-0 h-16 w-8 bg-white/35 blur-sm"></span>
+                          {forme !== "bear" && <span className="home-tablet-r" aria-hidden="true">{forme}</span>}
                         </span>
                       ))}
                     </div>
@@ -3224,7 +3358,7 @@ export default function PlanificateurChocolat() {
             <div className="flex flex-wrap items-start justify-between gap-3 mb-5">
               <div>
                 <h2 className="text-xl font-semibold text-violet-950">Prioridades de producción</h2>
-                <p className="text-sm text-slate-500 mt-1">Reglas administrativas aplicadas por el optimizador. Aldo puede analizarlas, pero no modificarlas.</p>
+                <p className="text-sm text-slate-500 mt-1">Reglas administrativas aplicadas por el optimizador. IAldo puede analizarlas, pero no modificarlas.</p>
               </div>
               <button type="button" onClick={() => chargerPriorites()} className="px-3 py-2 border border-violet-200 rounded-lg text-sm text-violet-800 hover:bg-violet-50">Actualizar lista</button>
             </div>
@@ -4019,6 +4153,31 @@ export default function PlanificateurChocolat() {
 
         {onglet === "produits" && (
           <div className="grid gap-4 md:grid-cols-2">
+            <div className="md:col-span-2 bg-white rounded-lg shadow-sm border border-slate-200 p-4">
+              <div className="flex flex-wrap items-start justify-between gap-3 mb-3">
+                <div>
+                  <h2 className="font-semibold text-violet-900">Líneas consideradas en la planificación</h2>
+                  <p className="text-sm text-slate-500 mt-1">Una línea inactiva conserva sus productos y datos, pero no participa en el calendario, la optimización, los diagnósticos, el dashboard ni las simulaciones.</p>
+                </div>
+                <span className="px-3 py-1 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 text-sm font-semibold">{lignesUsine.length} / {lignesUsineToutes.length} activas</span>
+              </div>
+              <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+                {lignesUsineToutes.map((l) => {
+                  const active = activationLignes[l.id] !== false;
+                  return (
+                    <label key={l.id} className={"flex items-center justify-between gap-3 p-3 border rounded-lg transition " + (active ? "border-emerald-200 bg-emerald-50" : "border-slate-200 bg-slate-50 text-slate-500")}>
+                      <span className="min-w-0"><span className="block text-sm font-semibold truncate">{l.nom}</span><span className="block text-xs mt-0.5">{fmtNb(l.capacite)} kg/turno</span></span>
+                      <span className="flex items-center gap-2 shrink-0">
+                        <span className={"text-xs font-medium " + (active ? "text-emerald-700" : "text-slate-500")}>{active ? "Activa" : "Inactiva"}</span>
+                        <input type="checkbox" className="h-5 w-5 accent-emerald-700" checked={active} disabled={!peutConfigurerLignes} onChange={() => basculerActivationLigne(l)} aria-label={(active ? "Desactivar " : "Activar ") + l.nom} />
+                      </span>
+                    </label>
+                  );
+                })}
+              </div>
+              {msgActivationLignes && <p className="text-sm text-emerald-800 mt-3">{msgActivationLignes}</p>}
+              {!peutConfigurerLignes && <p className="text-xs text-slate-500 mt-2">Tu perfil puede consultar esta configuración, pero no modificarla.</p>}
+            </div>
             <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-4">
               <h2 className="font-semibold text-violet-900 mb-3">Líneas de producción — {usineActive ? usineActive.nom : ""}</h2>
               <div className="flex gap-2 mb-3 flex-wrap">
@@ -4028,14 +4187,16 @@ export default function PlanificateurChocolat() {
               </div>
               {msgLigne && <p className="text-sm text-red-600 mb-2">{msgLigne}</p>}
               <div className="space-y-2">
-                {lignesUsine.map((l) => {
+                {lignesUsineToutes.map((l) => {
                   const pal = getPal(l);
+                  const active = activationLignes[l.id] !== false;
                   return (
-                    <div key={l.id} className="flex items-center gap-2 p-2 bg-gray-50 rounded-lg">
+                    <div key={l.id} className={"flex items-center gap-2 p-2 rounded-lg " + (active ? "bg-gray-50" : "bg-slate-100 opacity-70")}>
                       <span className={"w-3 h-3 rounded-full " + pal.couleur}></span>
                       <input className="flex-1 bg-transparent border-b border-transparent focus:border-violet-400 outline-none text-sm font-medium" value={l.nom} onChange={(e) => majLigne(l.id, "nom", e.target.value)} />
                       <input type="number" className="w-20 border rounded p-1 text-sm text-right" value={l.capacite} onChange={(e) => majLigne(l.id, "capacite", parseFloat(e.target.value) || 0)} />
                       <span className="text-xs text-gray-500">kg/turno - {turnosBaseAffiches(l)} turno(s)/dia base</span>
+                      {!active && <span className="text-[11px] px-2 py-0.5 rounded-full bg-slate-200 text-slate-600">Inactiva</span>}
                       <button onClick={() => supprimerLigne(l.id)} className="text-red-500 hover:text-red-700 text-sm px-1">✕</button>
                     </div>
                   );
@@ -4048,20 +4209,20 @@ export default function PlanificateurChocolat() {
                 <input className="flex-1 border rounded-lg p-2 text-sm" placeholder="Nombre del nuevo producto" value={nouveauNom} onChange={(e) => setNouveauNom(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") ajouterProduit(); }} />
                 <select className="border rounded-lg p-2 text-sm" value={nouvelleLigneProd} onChange={(e) => setNouvelleLigneProd(e.target.value)}>
                   <option value="">Línea...</option>
-                  {lignesUsine.map((l) => <option key={l.id} value={l.id}>{l.nom}</option>)}
+                  {lignesUsineToutes.map((l) => <option key={l.id} value={l.id}>{l.nom}{activationLignes[l.id] === false ? " (inactiva)" : ""}</option>)}
                 </select>
                 <button onClick={ajouterProduit} className="px-3 py-2 bg-violet-800 text-white rounded-lg text-sm hover:bg-violet-900">+ Agregar</button>
               </div>
               {produitsNonAssignes.length > 0 && <p className="text-sm text-orange-600 mb-2">⚠️ {produitsNonAssignes.length} producto(s) sin línea: asígnalos abajo.</p>}
               <div className="space-y-1 max-h-96 overflow-y-auto">
-                {produitsUsine.map((p) => {
+                {produitsUsineTous.map((p) => {
                   const ligne = lignes.find((l) => l.id === p.ligne); const pal = ligne ? getPal(ligne) : null; const nonAssigne = !ligne;
                   return (
                     <div key={p.id} className={"flex items-center gap-2 p-2 rounded-lg " + (nonAssigne ? "bg-orange-50 border border-orange-300" : "bg-gray-50")}>
                       <input className="flex-1 bg-transparent border-b border-transparent focus:border-violet-400 outline-none text-sm" value={p.nom} onChange={(e) => majProduit(p.id, "nom", e.target.value)} />
                       <select className={"text-xs border rounded p-1 " + (nonAssigne ? "border-orange-400 text-orange-700" : "")} value={p.ligne || ""} onChange={(e) => majProduit(p.id, "ligne", e.target.value || null)}>
                         <option value="">Por asignar...</option>
-                        {lignesUsine.map((l) => <option key={l.id} value={l.id}>{l.nom}</option>)}
+                        {lignesUsineToutes.map((l) => <option key={l.id} value={l.id}>{l.nom}{activationLignes[l.id] === false ? " (inactiva)" : ""}</option>)}
                       </select>
                       <span className={"w-2 h-2 rounded-full " + (pal ? pal.couleur : "bg-orange-400")}></span>
                       <button onClick={() => supprimerProduit(p.id)} className="text-red-500 hover:text-red-700 text-sm px-1">✕</button>
@@ -4384,8 +4545,8 @@ export default function PlanificateurChocolat() {
           <div className="mb-3 w-[min(360px,calc(100vw-2rem))] bg-white border border-emerald-200 rounded-lg shadow-xl overflow-hidden">
             <div className="bg-emerald-700 text-white px-4 py-3 flex items-center justify-between">
               <div>
-                <div className="font-bold">Aldo</div>
-                <div className="text-xs text-emerald-100">Maestro de planificación y análisis</div>
+                <div className="font-bold">IAldo</div>
+                <div className="text-xs text-emerald-100">Maestro de análisis y planificación</div>
               </div>
               <button className="text-emerald-100 hover:text-white text-xl leading-none" onClick={() => setAldoOuvert(false)}>×</button>
             </div>
@@ -4400,7 +4561,7 @@ export default function PlanificateurChocolat() {
               <div className="flex gap-2">
                 <input
                   className="flex-1 border rounded-lg px-3 py-2 text-sm"
-                  placeholder="Pregunta a Aldo..."
+                  placeholder="Pregunta a IAldo..."
                   disabled={aldoChargement}
                   value={aldoTexte}
                   onChange={(e) => setAldoTexte(e.target.value)}
@@ -4417,7 +4578,7 @@ export default function PlanificateurChocolat() {
           </div>
         )}
         <button onClick={() => setAldoOuvert((v) => !v)} className="rounded-full bg-emerald-700 text-white shadow-lg px-4 py-3 font-semibold hover:bg-emerald-800">
-          Aldo
+          IAldo
         </button>
       </div>
     </div>

@@ -67,6 +67,15 @@ create table if not exists public.production_priorities (
   updated_at timestamptz not null default now()
 );
 
+create table if not exists public.production_line_settings (
+  factory_id text not null,
+  line_id text not null,
+  active boolean not null default true,
+  updated_by uuid not null references auth.users(id),
+  updated_at timestamptz not null default now(),
+  primary key (factory_id, line_id)
+);
+
 create or replace function public.current_app_role()
 returns text
 language sql
@@ -215,6 +224,7 @@ alter table public.planning_versions enable row level security;
 alter table public.planning_actuals enable row level security;
 alter table public.audit_events enable row level security;
 alter table public.production_priorities enable row level security;
+alter table public.production_line_settings enable row level security;
 
 drop policy if exists "Authenticated users read profiles" on public.profiles;
 create policy "Authenticated users read profiles"
@@ -300,9 +310,26 @@ create policy "Editors delete production priorities"
   on public.production_priorities for delete to authenticated
   using (public.current_app_role() in ('admin', 'planner', 'production'));
 
+drop policy if exists "Authenticated users read production line settings" on public.production_line_settings;
+create policy "Authenticated users read production line settings"
+  on public.production_line_settings for select to authenticated using (true);
+
+drop policy if exists "Planners create production line settings" on public.production_line_settings;
+create policy "Planners create production line settings"
+  on public.production_line_settings for insert to authenticated
+  with check (public.current_app_role() in ('admin', 'planner') and updated_by = auth.uid());
+
+drop policy if exists "Planners update production line settings" on public.production_line_settings;
+create policy "Planners update production line settings"
+  on public.production_line_settings for update to authenticated
+  using (public.current_app_role() in ('admin', 'planner'))
+  with check (public.current_app_role() in ('admin', 'planner') and updated_by = auth.uid());
+
 create index if not exists planning_versions_factory_period_idx
   on public.planning_versions(factory_id, period_start desc, period_end desc);
 create index if not exists planning_actuals_version_idx
   on public.planning_actuals(planning_version_id);
 create index if not exists production_priorities_factory_idx
   on public.production_priorities(factory_id, active, priority desc);
+create index if not exists production_line_settings_factory_idx
+  on public.production_line_settings(factory_id, active, line_id);

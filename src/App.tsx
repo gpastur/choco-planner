@@ -7,7 +7,7 @@ import {
   ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts";
 
-const APP_VERSION = "2026.07.28-couvertures-produits";
+const APP_VERSION = "2026.07.28-couverture-projetee";
 const PORTAIL_EMAIL_ACTIF = false;
 
 const PALETTE = [
@@ -1536,11 +1536,12 @@ export default function PlanificateurChocolat() {
       const kgPlan = kgParProduitPlan[produit.id] || 0;
       const kgBulto = kgParBulto(produit);
       const projete = produit.stock + (kgBulto ? kgPlan / kgBulto : 0) - demandeJour(produit) * periodeOpti.jours;
+      const couvertureJours = demandeJour(produit) > 0 ? Math.max(0, projete) / demandeJour(produit) : null;
       const statut = statutStock(projete, s.min, s.max);
       const index = statut.badge.includes("red") ? 0 : statut.badge.includes("yellow") ? 1 : statut.badge.includes("green") ? 2 : 3;
       etatStocks[index].valeur++;
-      etatStocks[index].produits.push({ id: produit.id, nom: produit.nom, ligne: lignes.find((l) => l.id === produit.ligne)?.nom || "Sin línea", stock: projete, min: s.min, max: s.max });
-      if (index < 2) risquesStock.push({ nom: produit.nom, stock: projete, min: s.min, statut: statut.label });
+      etatStocks[index].produits.push({ id: produit.id, nom: produit.nom, ligne: lignes.find((l) => l.id === produit.ligne)?.nom || "Sin línea", stock: projete, min: s.min, max: s.max, couvertureJours, couvertureMin: joursMinCouverture(produit) });
+      if (index < 2) risquesStock.push({ nom: produit.nom, stock: projete, min: s.min, statut: statut.label, couvertureJours });
     });
     risquesStock.sort((a, b) => (a.stock / Math.max(a.min, 1)) - (b.stock / Math.max(b.min, 1)));
 
@@ -1565,6 +1566,7 @@ export default function PlanificateurChocolat() {
       const demande = demandeJour(produit) * (kgParBulto(produit) || 0) * periodeOpti.jours;
       const kgBulto = kgParBulto(produit) || 0;
       const projete = produit.stock + (kgBulto ? planifie / kgBulto : 0) - demandeJour(produit) * periodeOpti.jours;
+      const couvertureJours = demandeJour(produit) > 0 ? Math.max(0, projete) / demandeJour(produit) : null;
       return {
         id: produit.id,
         produit: produit.nom,
@@ -1573,9 +1575,16 @@ export default function PlanificateurChocolat() {
         planifie,
         reel,
         projete,
+        couvertureJours,
+        couvertureMin: joursMinCouverture(produit),
+        couvertureMax: joursMaxCouverture(produit),
         statut: statutStock(projete, s.min, s.max).label,
       };
     }).sort((a, b) => b.demande - a.demande);
+    const couverturesValides = produitsAnalyse.filter((item) => item.couvertureJours != null);
+    const couvertureMoyenne = couverturesValides.length ? couverturesValides.reduce((s, item) => s + item.couvertureJours, 0) / couverturesValides.length : null;
+    const couvertureMinimale = couverturesValides.length ? Math.min(...couverturesValides.map((item) => item.couvertureJours)) : null;
+    const produitsSousCouverture = couverturesValides.filter((item) => item.couvertureJours < item.couvertureMin).length;
 
     const alertes = [];
     lignesStats.filter((d: any) => d.charge > 95).forEach((d: any) => alertes.push({ niveau: "danger", texte: d.ligne + " está cargada al " + Math.round(d.charge) + "% de su capacidad." }));
@@ -1602,6 +1611,9 @@ export default function PlanificateurChocolat() {
       turnosPlanifies,
       turnosRenseignes,
       notes,
+      couvertureMoyenne,
+      couvertureMinimale,
+      produitsSousCouverture,
     };
   }, [plan, lignes, lignesUsine, produits, produitsUsine, usine, periodeOpti, reglesCapaciteAldo, dashboardVue, dashboardLigneId, dashboardProduitId]);
 
@@ -3766,7 +3778,7 @@ export default function PlanificateurChocolat() {
               </div>
             </section>
 
-            <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
+            <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
               {[
                 { titre: "Capacidad disponible", valeur: fmtNb(donneesDashboard.totalCapacite) + " kg", detail: "según horarios del periodo", couleur: "border-sky-500" },
                 { titre: "Demanda proyectada", valeur: fmtNb(donneesDashboard.totalDemande) + " kg", detail: "consumo estimado del periodo", couleur: "border-orange-500" },
@@ -3774,6 +3786,7 @@ export default function PlanificateurChocolat() {
                 { titre: "Producción real", valeur: fmtNb(donneesDashboard.totalReel) + " kg", detail: donneesDashboard.execution == null ? "sin turnos informados" : fmtNb(donneesDashboard.execution) + "% de cumplimiento", couleur: "border-emerald-500" },
                 { titre: "Reales informados", valeur: donneesDashboard.turnosRenseignes + " / " + donneesDashboard.turnosPlanifies, detail: fmtNb(donneesDashboard.couvertureReel) + "% de los turnos", couleur: "border-amber-500" },
                 { titre: "Notas de producción", valeur: String(donneesDashboard.notes), detail: "incidentes y comentarios", couleur: "border-rose-500" },
+                { titre: "Cobertura proyectada", valeur: donneesDashboard.couvertureMoyenne == null ? "—" : fmtNb(donneesDashboard.couvertureMoyenne) + " días", detail: donneesDashboard.couvertureMinimale == null ? "sin demanda calculada" : "mínimo " + fmtNb(donneesDashboard.couvertureMinimale) + " días · " + donneesDashboard.produitsSousCouverture + " bajo objetivo", couleur: donneesDashboard.produitsSousCouverture > 0 ? "border-red-500" : "border-emerald-500" },
               ].map((kpi) => (
                 <div key={kpi.titre} className={"bg-white border border-slate-200 border-l-4 " + kpi.couleur + " rounded-md p-3 shadow-sm min-h-28"}>
                   <p className="text-xs text-slate-500">{kpi.titre}</p>
@@ -3882,7 +3895,7 @@ export default function PlanificateurChocolat() {
                         {secteur.produits.map((producto) => (
                           <button key={producto.id} type="button" onClick={() => { setDashboardVue("produit"); setDashboardProduitId(String(producto.id)); }} className="w-full px-3 py-2 text-left hover:bg-violet-50">
                             <span className="block text-xs font-medium text-slate-800">{producto.nom}</span>
-                            <span className="block text-[11px] text-slate-500">{producto.ligne} · proyección {fmtNb(producto.stock)} · mín. {fmtNb(producto.min)} · máx. {fmtNb(producto.max)}</span>
+                            <span className="block text-[11px] text-slate-500">{producto.ligne} · proyección {fmtNb(producto.stock)} · cobertura {producto.couvertureJours == null ? "—" : fmtNb(producto.couvertureJours) + " días"} · objetivo mín. {producto.couvertureMin} días</span>
                           </button>
                         ))}
                       </div>
@@ -3892,7 +3905,7 @@ export default function PlanificateurChocolat() {
                 {!dashboardSecteurStock && donneesDashboard.risquesStock.length > 0 && (
                   <div className="border-t border-slate-100 pt-3">
                     <p className="text-xs font-semibold text-red-700 mb-1">Prioridades de stock</p>
-                    {donneesDashboard.risquesStock.map((r) => <p key={r.nom} className="text-xs text-slate-600 truncate" title={r.nom}>{r.nom} · {fmtNb(r.stock)} / mín. {fmtNb(r.min)}</p>)}
+                    {donneesDashboard.risquesStock.map((r) => <p key={r.nom} className="text-xs text-slate-600 truncate" title={r.nom}>{r.nom} · {fmtNb(r.stock)} / mín. {fmtNb(r.min)} · {r.couvertureJours == null ? "sin cobertura" : fmtNb(r.couvertureJours) + " días"}</p>)}
                   </div>
                 )}
               </div>
@@ -3964,6 +3977,7 @@ export default function PlanificateurChocolat() {
                   <th className="py-2 text-right">Planificado</th>
                   <th className="py-2 text-right">Real</th>
                   <th className="py-2 text-right">Proyección stock</th>
+                  <th className="py-2 text-right">Cobertura proy.</th>
                   <th className="py-2 pl-3">Estado</th>
                 </tr></thead>
                 <tbody>
@@ -3975,10 +3989,11 @@ export default function PlanificateurChocolat() {
                       <td className="py-2 text-right text-violet-700">{fmtNb(item.planifie)} kg</td>
                       <td className="py-2 text-right text-emerald-700">{fmtNb(item.reel)} kg</td>
                       <td className="py-2 text-right">{fmtNb(item.projete)} bultos</td>
+                      <td className={"py-2 text-right font-semibold " + (item.couvertureJours == null ? "text-slate-400" : item.couvertureJours < item.couvertureMin ? "text-red-700" : item.couvertureJours > item.couvertureMax ? "text-violet-700" : "text-emerald-700")}>{item.couvertureJours == null ? "—" : fmtNb(item.couvertureJours) + " días"}</td>
                       <td className="py-2 pl-3 text-xs">{item.statut}</td>
                     </tr>
                   ))}
-                  {donneesDashboard.produitsAnalyse.length === 0 && <tr><td colSpan={7} className="py-8 text-center text-slate-400">No hay productos configurados en esta selección.</td></tr>}
+                  {donneesDashboard.produitsAnalyse.length === 0 && <tr><td colSpan={8} className="py-8 text-center text-slate-400">No hay productos configurados en esta selección.</td></tr>}
                 </tbody>
               </table>
             </section>
@@ -4236,13 +4251,15 @@ export default function PlanificateurChocolat() {
                             <th className="py-1 pr-2">Producto</th><th className="py-1 text-right">kg/bulto</th>
                             <th className="py-1 text-right">Min</th><th className="py-1 text-right">Max</th><th className="py-1 text-right">Dem/d</th>
                             <th className="py-1 text-right">Stock</th><th className="py-1 text-center">Indicador</th><th className="py-1 text-center">Estado</th>
-                            <th className="py-1 text-right">Prod (blt)</th><th className="py-1 text-right">Proyectado</th><th className="py-1 text-center">Estado proy.</th>
+                            <th className="py-1 text-right">Prod (blt)</th><th className="py-1 text-right">Proyectado</th><th className="py-1 text-right">Cobertura proy.</th><th className="py-1 text-center">Estado proy.</th>
                           </tr>
                         </thead>
                         <tbody>
                           {g.prods.map((p) => {
                             const config = estConfigure(p); const s = seuils(p);
                             const prodB = productionParProduit[p.id] || 0; const projB = projection(p);
+                            const couvertureProjetee = demandeJour(p) > 0 ? Math.max(0, projB) / demandeJour(p) : null;
+                            const objectifMinJours = joursMinCouverture(p); const objectifMaxJours = joursMaxCouverture(p);
                             const stA = statutStock(p.stock, s.min, s.max); const stP = statutStock(projB, s.min, s.max);
                             const gris = config ? "" : "text-gray-400 bg-gray-50";
                             const zone = etiquetaZonaProducto(p);
@@ -4267,6 +4284,7 @@ export default function PlanificateurChocolat() {
                                 <td className="py-2 text-center">{config ? <span className={"inline-block px-2 py-0.5 rounded-full border text-xs font-medium " + stA.fond}>{stA.label}</span> : <span className="inline-block px-2 py-0.5 rounded-full border text-xs bg-gray-100 text-gray-400 border-gray-300">No configurado</span>}</td>
                                 <td className="py-2 text-right text-blue-700">{prodB > 0 ? "+" + fmtNb(prodB) : "—"}</td>
                                 <td className="py-2 text-right font-bold">{config ? fmtNb(projB) : "—"}</td>
+                                <td className={"py-2 text-right font-semibold " + (!config || couvertureProjetee == null ? "text-gray-400" : couvertureProjetee < objectifMinJours ? "text-red-700" : couvertureProjetee > objectifMaxJours ? "text-violet-700" : "text-emerald-700")} title={config ? "Objetivo: " + objectifMinJours + " a " + objectifMaxJours + " días" : ""}>{config && couvertureProjetee != null ? fmtNb(couvertureProjetee) + " días" : "—"}</td>
                                 <td className="py-2 text-center">{config ? <span className={"inline-block px-2 py-0.5 rounded-full border text-xs font-medium " + stP.fond}>{stP.label}</span> : "—"}</td>
                               </tr>
                             );

@@ -7,7 +7,7 @@ import {
   ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts";
 
-const APP_VERSION = "2026.07.28-optimiseur-full";
+const APP_VERSION = "2026.07.28-acceso-email";
 
 const PALETTE = [
   { couleur: "bg-violet-600", clair: "bg-violet-100", bordure: "border-violet-600", texte: "text-violet-800" },
@@ -939,7 +939,15 @@ export default function PlanificateurChocolat() {
       }
       const { data } = await supabase.from("profiles").select("id, full_name, role, active").eq("id", nouvelleSession.user.id).maybeSingle();
       if (actif) {
-        setProfil(data || { id: nouvelleSession.user.id, full_name: nouvelleSession.user.email, role: "viewer", active: true });
+        if (!data || data.active === false) {
+          setSession(null);
+          setProfil(null);
+          setAuthMessage("Esta dirección no está autorizada para acceder a Choco Planner.");
+          setAuthReady(true);
+          window.setTimeout(() => { void supabase.auth.signOut(); }, 0);
+          return;
+        }
+        setProfil(data);
         setAuthReady(true);
       }
     };
@@ -1803,9 +1811,14 @@ export default function PlanificateurChocolat() {
   const connecter = async (e) => {
     e.preventDefault();
     if (!supabase) return;
-    setAuthMessage("Conectando...");
-    const { error } = await supabase.auth.signInWithPassword({ email: authEmail.trim(), password: authPassword });
-    setAuthMessage(error ? error.message : "");
+    if (!authEmail.trim()) return;
+    setAuthMessage("Enviando enlace seguro...");
+    const emailRedirectTo = `${window.location.origin}${window.location.pathname}`;
+    const { error } = await supabase.auth.signInWithOtp({
+      email: authEmail.trim(),
+      options: { emailRedirectTo, shouldCreateUser: false },
+    });
+    setAuthMessage(error ? error.message : "Revisa tu email y abre el enlace para entrar. No necesitas contraseña.");
   };
 
   const definirMotDePasse = async (e) => {
@@ -2384,7 +2397,6 @@ export default function PlanificateurChocolat() {
 
     let blocsUtilises = 0;
     let blocsSansBesoin = 0;
-    let blocsPartiels = 0;
     const derniereFamilleParLigne = {};
     const prioritesActives = prioritesProduction.filter((regle) => regle.active && regle.factory_id === usine);
     datesHorizon.forEach((jour, jourIndex) => {
@@ -2416,8 +2428,6 @@ export default function PlanificateurChocolat() {
             const stockProjeteFin = stockSim[p.id] - demandeJour(p) * joursRestantsHorizon;
             const urgence = plancher - stockProjeteFin; // anticipe le risque jusqu'à la fin de période
             if (urgence <= 0) return;
-            const kgPossible = Math.min(kgb_ligne, Math.max(0, (s.max - stockSim[p.id]) * kgParBulto(p)));
-            if (kgPossible <= 0) return;
             const deficitMax = Math.max(0, s.max - stockSim[p.id]);
             const bonusRouge = stockSim[p.id] < s.min ? 1000000000 + (s.min - stockSim[p.id]) * 100000 : 0;
             const bonusRougeFin = stockProjeteFin < s.min ? 100000000 + (s.min - stockProjeteFin) * 10000 : 0;
@@ -2450,16 +2460,13 @@ export default function PlanificateurChocolat() {
           }
           const s = seuils(meilleur);
           const kgpb = kgParBulto(meilleur);
-          const kgAvantMaximum = Math.max(0, (s.max - stockSim[meilleur.id]) * kgpb);
-          const kgProduit = Math.min(kgb_ligne, kgAvantMaximum);
-          if (kgProduit <= 0) return;
-          if (kgProduit < kgb_ligne - 0.01) blocsPartiels++;
+          const kgProduit = kgb_ligne;
           const famille = familleProduit(meilleur);
           const raison = (derniereFamilleParLigne[ligne.id] === famille)
             ? "Agrupado por familia similar (" + famille + ")"
             : (meilleureRegle
               ? "Prioridad admin: " + (meilleureRegle.rule_type === "never_stockout" ? "producto crítico" : meilleureRegle.rule_type === "sequence" ? "secuencia obligatoria" : meilleureRegle.rule_type === "due_date" ? "fecha límite" : "stock objetivo reforzado")
-              : (stockSim[meilleur.id] < s.min ? "Prioridad: salir de zona roja" : kgProduit < kgb_ligne - 0.01 ? "Cantidad limitada para no superar el máximo" : "Producción completa para proteger el stock"));
+              : (stockSim[meilleur.id] < s.min ? "Prioridad: salir de zona roja a capacidad completa" : "Producción completa para proteger el stock final"));
           nouveauPlan[jour.cle + "|" + ligne.id + "|" + turno.id] = { p: meilleur.id, kg: kgProduit, raison };
           stockSim[meilleur.id] += kgProduit / kgpb;
           derniereFamilleParLigne[ligne.id] = famille;
@@ -2474,7 +2481,7 @@ export default function PlanificateurChocolat() {
     const sansConv = configures.filter((p) => !kgParBulto(p)).length;
     const enVert = configures.filter((p) => { const s = seuils(p); if (s.max <= 0) return true; return stockSim[p.id] >= s.min * 1.5 && stockSim[p.id] <= s.max; }).length;
     const sousMin = configures.filter((p) => stockSim[p.id] < seuils(p).min).length;
-    setMsgOpti("✓ " + blocsUtilises + " turno(s) utilizado(s) del " + fmtDate(lundiDepart) + (dateFin ? " al " + fmtDate(dateFin) : " en " + horizonOpti + " sem.") + " · producción a capacidad completa por defecto · " + blocsPartiels + " turno(s) parciales solo para no superar el máximo · " + blocsSansBesoin + " turno(s) libres sin necesidad de producción · prioridad absoluta a productos bajo mínimo y riesgo al final del período · " + enVert + "/" + configures.length + " en zona verde al final del horizonte" + (sousMin > 0 ? " · ⚠️ " + sousMin + " todavía bajo el mínimo por falta de capacidad, turnos o conversión" : "") + (sansConv > 0 ? " · " + sansConv + " sin conversión no planificados" : "") + ".");
+    setMsgOpti("✓ " + blocsUtilises + " turno(s) utilizado(s) del " + fmtDate(lundiDepart) + (dateFin ? " al " + fmtDate(dateFin) : " en " + horizonOpti + " sem.") + " · todos los turnos planificados producen al 100% de la capacidad · se acepta sobrestock para evitar productos bajo mínimo al final · " + blocsSansBesoin + " turno(s) libres sin necesidad de producción · prioridad absoluta a productos bajo mínimo y riesgo al final del período · " + enVert + "/" + configures.length + " en zona verde al final del horizonte" + (sousMin > 0 ? " · ⚠️ " + sousMin + " todavía bajo el mínimo por falta real de capacidad, turnos o conversión" : "") + (sansConv > 0 ? " · " + sansConv + " sin conversión no planificados" : "") + ".");
   };
 
   const viderHorizon = () => {
@@ -3242,17 +3249,12 @@ export default function PlanificateurChocolat() {
         <form onSubmit={connecter} className="w-full max-w-sm bg-white border border-violet-100 shadow-lg rounded-xl p-6">
           <div className="text-3xl mb-2">🍫</div>
           <h1 className="text-2xl font-bold text-violet-950">Choco Planner</h1>
-          <p className="text-sm text-slate-500 mt-1 mb-5">Acceso reservado a usuarios autorizados.</p>
+          <p className="text-sm text-slate-500 mt-1 mb-5">Acceso sin contraseña, reservado a usuarios previamente autorizados.</p>
           <label className="block text-sm font-medium text-slate-700 mb-3">
             Email
             <input type="email" required autoComplete="email" className="mt-1 w-full border border-slate-300 rounded-lg px-3 py-2" value={authEmail} onChange={(e) => setAuthEmail(e.target.value)} />
           </label>
-          <label className="block text-sm font-medium text-slate-700 mb-4">
-            Contraseña
-            <input type="password" required autoComplete="current-password" className="mt-1 w-full border border-slate-300 rounded-lg px-3 py-2" value={authPassword} onChange={(e) => setAuthPassword(e.target.value)} />
-          </label>
-          <button type="submit" className="w-full bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg px-4 py-2 font-medium">Ingresar</button>
-          <button type="button" onClick={demanderReinitialisation} className="w-full mt-3 text-sm font-medium text-emerald-800 hover:text-emerald-950">¿Olvidaste tu contraseña?</button>
+          <button type="submit" className="w-full bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg px-4 py-2 font-medium">Recibir enlace de acceso</button>
           {authMessage && <p className="mt-3 text-sm text-red-700">{authMessage}</p>}
         </form>
       </div>

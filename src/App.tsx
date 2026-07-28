@@ -1,11 +1,13 @@
 import { useState, useEffect, useMemo } from "react";
 import { supabase, supabaseConfigured } from "./supabase";
+import esandiReference from "./esandi-reference.json";
+import vbReference from "./vb-reference.json";
 import {
   BarChart, Bar, CartesianGrid, Cell, Legend, Line, LineChart, Pie, PieChart,
   ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts";
 
-const APP_VERSION = "2026.07.27-lineas-activables";
+const APP_VERSION = "2026.07.28-vb-franui";
 
 const PALETTE = [
   { couleur: "bg-violet-600", clair: "bg-violet-100", bordure: "border-violet-600", texte: "text-violet-800" },
@@ -46,9 +48,13 @@ const LIGNES_INIT = [
   { id: "l3", nom: "GDG", capacite: 500, pal: 2, usine: "mitre" },
   { id: "l4", nom: "Sollich", capacite: 500, pal: 3, usine: "mitre" },
   { id: "l5", nom: "Bulher", capacite: 500, pal: 4, usine: "mitre" },
-  { id: "vb_stephan", nom: "Stephan", capacite: 130, pal: 0, usine: "vb" },
+  { id: "vb_stephan", nom: "Dulceria / Beldos", capacite: 130, pal: 0, usine: "vb" },
   { id: "vb_tostadora", nom: "Tostadora", capacite: 140, pal: 1, usine: "vb" },
+  { id: "vb_envasado", nom: "Envasado", capacite: 0, pal: 2, usine: "vb" },
+  { id: "vb_franui_1", nom: "Franui 1", capacite: 15000, unite: "potes", pal: 3, usine: "vb" },
+  { id: "vb_franui_2", nom: "Franui 2", capacite: 15000, unite: "potes", pal: 4, usine: "vb" },
   { id: "f_tabletas", nom: "Tabletas", capacite: 3200, pal: 1, usine: "fatima" },
+  { id: "f_franui", nom: "Franui", capacite: 20000, unite: "potes", pal: 2, usine: "fatima" },
 ];
 
 const mkEsandi = (id, nom, ligne, pesoBulto) => ({ id, nom, ligne, usine: "esandi", stock: 0, demande: 0, min: null, max: null, pesoBulto });
@@ -178,7 +184,7 @@ const PESO_BULTO_POR_PRODUCTO = {
   "CONEJITO DDL X 5": 2.1,
 };
 
-const PRODUITS_INIT = [
+const PRODUITS_BASE = [
   mkEsandi(1, "BARRA AMARGO ALMENDRA", "e_crem", 4.4),
   mkEsandi(2, "BARRA AMARGO PURO", "e_crem", 4.4),
   mkEsandi(3, "BARRA BLANCO ALMENDRA", "e_crem", 4.4),
@@ -290,43 +296,41 @@ const PRODUITS_INIT = [
   mkEsandi(109, "TURRON NUEZ Y DAMASCO", "e_tur", 3.63),
   mkEsandi(110, "TURRON PISTACHO Y NARANJA", "e_tur", 3.63),
   mkEsandi(111, "CONEJITO DDL X 5", "e_bomb", 2.1),
-  mkEsandi(138, "CHOCO FONDUE 200gr", "e_env", 6),
   mkEsandi(139, "TABLETA 70 ECUADOR VB", "e_bomb", 3.04),
   mkEsandi(140, "TABLETA 80 TUMACO VB", "e_bomb", 3.04),
-  mkEsandi(141, "FRASCO NUICCIOLA 380 GR", "e_crem", 4.18),
-  mkEsandi(142, "FRASCO MARROC 380 GR", "e_crem", 4.18),
   mkEsandi(143, "HUESITO FIG MACIZA", "e_bomb", 7.98),
-  mkEsandi(144, "ALMENDRA PICADA ENV x300gr", "e_env", 4.5),
-  mkEsandi(145, "LICOR DE CHOCOLATE BOTELLA", "e_env", 5),
-  mkEsandi(146, "JUGO DE FRAM/FRUT BOTELLA", "e_env", 4.4),
-  mkVB(147, "DULCE FRUTOS ROJOS", "vb_stephan", 4.62),
+  { ...mkVB(147, "DULCE FRUTOS ROJOS", "vb_stephan", 4.62), sku: "VM-CFRA-0000072" },
   mkVB(148, "Cafe Crudo", "vb_tostadora", null),
-  { ...mkVB(112, "DULCE FRAMBUESA 420gr BsAs", "vb_stephan", 4.62), min: 82, max: 163 },
-  { ...mkVB(113, "DULCE FRUTILLA 420gr BsAs", "vb_stephan", 4.62), min: 39, max: 78 },
-  { ...mkVB(114, "DULCE FRUTOS DEL BOSQUE BsAs", "vb_stephan", 4.62), min: 22, max: 44 },
-  { ...mkVB(115, "DULCE MOSQUETA 420gr BsAs", "vb_stephan", 4.62), min: 62, max: 124 },
-  { ...mkVB(116, "DULCE SAUCO 420gr BsAs", "vb_stephan", 4.62), min: 28, max: 57 },
+  { ...mkVB(112, "DULCE FRAMBUESA 420gr BsAs", "vb_stephan", 4.62), sku: "VT-DULC-0000900", min: 82, max: 163 },
+  { ...mkVB(113, "DULCE FRUTILLA 420gr BsAs", "vb_stephan", 4.62), sku: "VT-DULC-0000902", min: 39, max: 78 },
+  { ...mkVB(114, "DULCE FRUTOS DEL BOSQUE BsAs", "vb_stephan", 4.62), sku: "VT-DULC-0000905", min: 22, max: 44 },
+  { ...mkVB(115, "DULCE MOSQUETA 420gr BsAs", "vb_stephan", 4.62), sku: "VT-DULC-0000901", min: 62, max: 124 },
+  { ...mkVB(116, "DULCE SAUCO 420gr BsAs", "vb_stephan", 4.62), sku: "VT-DULC-0000904", min: 28, max: 57 },
   { ...mkVB(133, "DULCE FRAMBUESA 420gr VB", "vb_stephan", 4.62), min: 201, max: 402 },
   { ...mkVB(134, "DULCE FRUTILLA 420gr VB", "vb_stephan", 4.62), min: 73, max: 146 },
   { ...mkVB(135, "DULCE FRUTOS DEL BOSQUE VB", "vb_stephan", 4.62), min: 57, max: 114 },
   { ...mkVB(136, "DULCE MOSQUETA 420gr VB", "vb_stephan", 4.62), min: 76, max: 152 },
   { ...mkVB(137, "DULCE SAUCO 420gr VB", "vb_stephan", 4.62), min: 73, max: 146 },
-  mkFatima(117, "TABLETA DE PISTACHO, SAL Y CARAMELO BsAs", "f_tabletas", 3.8, ["TAB SAL CARAMELO 100gr", "TABLETA DE PISTACHO, SAL Y CARAMELO BsAs"]),
-  mkFatima(118, "TAB CHOC LECHE PURO 80G BsAs", "f_tabletas", 3.04, ["TABLETA LECHE PURO X80gr solo BsAs stock max p/4 meses min 2", "TAB CHOC LECHE PURO 80G BsAs"]),
-  mkFatima(119, "TABLETA CHOC AMARGO 70% BsAs", "f_tabletas", 3.04, ["TABLETA 70 solo BsAs stock max p/4 meses min 2", "TABLETA CHOC AMARGO 70% BsAs"]),
-  mkFatima(120, "TAB 100GS CHOCO LECHE Y ALM BsAs", "f_tabletas", 3.8, ["TABLETA LECHE ALMENDRA solo BsAs stock max p/4 meses min 2", "TAB 100GS CHOCO LECHE Y ALM BsAs"]),
-  mkFatima(121, "TABLETA PURA BLANCA BsAs", "f_tabletas", 3.04, ["TABLETA BLANCO X80gr solo BsAs stock max p/4 meses min 2", "TABLETA PURA BLANCA BsAs"]),
-  mkFatima(122, "TABLETA CHOC AMARGO 80% BsAs", "f_tabletas", 3.04, ["TABLETA 80 solo BsAs stock max p/4 meses min 2", "TABLETA CHOC AMARGO 80% BsAs"]),
-  mkFatima(123, "TABLETA CHOC AMARGO 60% BsAs", "f_tabletas", 3.04, ["TABLETA 60 solo BsAs stock max p/4 meses min 2", "TABLETA CHOC AMARGO 60% BsAs"]),
-  mkFatima(124, "TABLETA CHOC AMARGO 90% BsAs", "f_tabletas", 3.04, ["TABLETA 90 solo BsAs stock max p/4 meses min 2", "TABLETA CHOC AMARGO 90% BsAs"]),
-  mkFatima(125, "TABLETA DE PISTACHO, SAL Y CARAMELO VB", "f_tabletas", 3.8, ["TABLETA PISTACHO", "TABLETA DE PISTACHO, SAL Y CARAMELO VB"]),
-  mkFatima(126, "TAB CHOC LECHE PURO 80G VB", "f_tabletas", 3.04, ["TABLETA LECHE PURO X80gr", "TAB CHOC LECHE PURO 80G VB"]),
-  mkFatima(127, "TABLETA CHOC AMARGO 70% VB", "f_tabletas", 3.04, ["TABLETA 70 VB", "TABLETA CHOC AMARGO 70% VB"]),
-  mkFatima(128, "TAB 100GS CHOCO LECHE Y ALM VB", "f_tabletas", 3.8, ["TABLETA LECHE ALMENDRA", "TAB 100GS CHOCO LECHE Y ALM VB"]),
-  mkFatima(129, "TABLETA PURA BLANCA VB", "f_tabletas", 3.04, ["TABLETA BLANCO X80gr", "TABLETA PURA BLANCA VB"]),
-  mkFatima(130, "TABLETA CHOC AMARGO 80% VB", "f_tabletas", 3.04, ["TABLETA 80 VB", "TABLETA CHOC AMARGO 80% VB"]),
-  mkFatima(131, "TABLETA CHOC AMARGO 60% VB", "f_tabletas", 3.04, ["TABLETA 60 VB", "TABLETA CHOC AMARGO 60% VB"]),
-  mkFatima(132, "TABLETA CHOC AMARGO 90% VB", "f_tabletas", 3.04, ["TABLETA 90 VB", "TABLETA CHOC AMARGO 90% VB"]),
+  { ...mkVB(5201, "FRANUI AMARGO", "vb_franui_1"), sku: "VT-FRAN-0000306", lignesCompatibles: ["vb_franui_1", "vb_franui_2"] },
+  { ...mkVB(5202, "FRANUI LECHE", "vb_franui_1"), sku: "VT-FRAN-0000300", lignesCompatibles: ["vb_franui_1", "vb_franui_2"] },
+  { ...mkVB(5203, "FRANUI PINK", "vb_franui_1"), sku: "VT-FRAN-0000301", lignesCompatibles: ["vb_franui_1", "vb_franui_2"] },
+  { ...mkFatima(117, "TABLETA DE PISTACHO, SAL Y CARAMELO BsAs", "f_tabletas", 3.8, ["TAB SAL CARAMELO 100gr", "TABLETA DE PISTACHO, SAL Y CARAMELO BsAs"]), sku: "VT-CTAB-0000486" },
+  { ...mkFatima(118, "TAB CHOC LECHE PURO 80G BsAs", "f_tabletas", 3.04, ["TABLETA LECHE PURO X80gr solo BsAs stock max p/4 meses min 2", "TAB CHOC LECHE PURO 80G BsAs"]), sku: "VT-CTAB-0000550" },
+  { ...mkFatima(119, "TABLETA CHOC AMARGO 70% BsAs", "f_tabletas", 3.04, ["TABLETA 70 solo BsAs stock max p/4 meses min 2", "TABLETA CHOC AMARGO 70% BsAs"]), sku: "VT-CTAB-0000995" },
+  { ...mkFatima(120, "TAB 100GS CHOCO LECHE Y ALM BsAs", "f_tabletas", 3.8, ["TABLETA LECHE ALMENDRA solo BsAs stock max p/4 meses min 2", "TAB 100GS CHOCO LECHE Y ALM BsAs"]), sku: "VT-CTAB-0000998" },
+  { ...mkFatima(121, "TABLETA PURA BLANCA BsAs", "f_tabletas", 3.04, ["TABLETA BLANCO X80gr solo BsAs stock max p/4 meses min 2", "TABLETA PURA BLANCA BsAs"]), sku: "VT-CTAB-0000485" },
+  { ...mkFatima(122, "TABLETA CHOC AMARGO 80% BsAs", "f_tabletas", 3.04, ["TABLETA 80 solo BsAs stock max p/4 meses min 2", "TABLETA CHOC AMARGO 80% BsAs"]), sku: "VT-CTAB-0000994" },
+  { ...mkFatima(123, "TABLETA CHOC AMARGO 60% BsAs", "f_tabletas", 3.04, ["TABLETA 60 solo BsAs stock max p/4 meses min 2", "TABLETA CHOC AMARGO 60% BsAs"]), sku: "VT-CTAB-0000997" },
+  { ...mkFatima(124, "TABLETA CHOC AMARGO 90% BsAs", "f_tabletas", 3.04, ["TABLETA 90 solo BsAs stock max p/4 meses min 2", "TABLETA CHOC AMARGO 90% BsAs"]), sku: "VT-CTAB-0000996" },
+  { ...mkFatima(125, "TABLETA DE PISTACHO, SAL Y CARAMELO VB", "f_tabletas", 3.8, ["TABLETA PISTACHO", "TABLETA DE PISTACHO, SAL Y CARAMELO VB"]), sku: "VT-CTAB-0000486" },
+  { ...mkFatima(126, "TAB CHOC LECHE PURO 80G VB", "f_tabletas", 3.04, ["TABLETA LECHE PURO X80gr", "TAB CHOC LECHE PURO 80G VB"]), sku: "VT-CTAB-0000550" },
+  { ...mkFatima(127, "TABLETA CHOC AMARGO 70% VB", "f_tabletas", 3.04, ["TABLETA 70 VB", "TABLETA CHOC AMARGO 70% VB"]), sku: "VT-CTAB-0000995" },
+  { ...mkFatima(128, "TAB 100GS CHOCO LECHE Y ALM VB", "f_tabletas", 3.8, ["TABLETA LECHE ALMENDRA", "TAB 100GS CHOCO LECHE Y ALM VB"]), sku: "VT-CTAB-0000998" },
+  { ...mkFatima(129, "TABLETA PURA BLANCA VB", "f_tabletas", 3.04, ["TABLETA BLANCO X80gr", "TABLETA PURA BLANCA VB"]), sku: "VT-CTAB-0000485" },
+  { ...mkFatima(130, "TABLETA CHOC AMARGO 80% VB", "f_tabletas", 3.04, ["TABLETA 80 VB", "TABLETA CHOC AMARGO 80% VB"]), sku: "VT-CTAB-0000994" },
+  { ...mkFatima(131, "TABLETA CHOC AMARGO 60% VB", "f_tabletas", 3.04, ["TABLETA 60 VB", "TABLETA CHOC AMARGO 60% VB"]), sku: "VT-CTAB-0000997" },
+  { ...mkFatima(132, "TABLETA CHOC AMARGO 90% VB", "f_tabletas", 3.04, ["TABLETA 90 VB", "TABLETA CHOC AMARGO 90% VB"]), sku: "VT-CTAB-0000996" },
+  { ...mkFatima(5101, "Free", "f_franui"), sku: "VT-FRAN-0000302" },
   mkMitre(3001, "ALFAJOR ALMENDRA AVELLANA", "l3", 72, 241, 482, 2.7),
   mkMitre(3002, "ALFAJOR DDL CHOCOLATE", "l3", 352, 310, 619, 2.7),
   mkMitre(3003, "ALFAJOR DDL GLASE", "l3", 165, 119, 237, 2.7),
@@ -377,6 +381,70 @@ const PRODUITS_INIT = [
   mkMitre(3048, "TRUFA CAPPUCCINO", null, 76, 9, 35, 3.6),
   mkMitre(3049, "NIBS CACAO", null, 62, 10, 40, 1.2),
 ];
+
+const NORMALISER_REFERENCE = (valeur) => String(valeur || "")
+  .normalize("NFD")
+  .replace(/[\u0300-\u036f]/g, "")
+  .toUpperCase()
+  .replace(/\b(ENV|COMUN|VENTA|BULTO|UNI|GRAMOS|GR)\b/g, "")
+  .replace(/[^A-Z0-9]+/g, " ")
+  .trim();
+
+const ALIASES_REFERENCE_ESANDI = {
+  "TAB SAL CARAMELO 100GR": "TABLETA SAL Y CARAMELO VB",
+  "TABLETA 60 VB": "TABLETA CHOC AMARGO 60% VB",
+  "TABLETA 70 VB": "TABLETA CHOC AMARGO 70% VB",
+  "TABLETA 80 VB": "TABLETA CHOC AMARGO 80% VB",
+  "TABLETA 90 VB": "TABLETA CHOC AMARGO 90% VB",
+  "TABLETA BLANCO X80GR": "TABLETA PURA BLANCA VB",
+  "TABLETA LECHE PURO X80GR": "TAB CHOC LECHE PURO 80G VB",
+  "TABLETA PISTACHO": "TABLETA DE PISTACHO VB",
+};
+
+const REFERENCES_ESANDI_PAR_NOM = new Map(
+  esandiReference.map((item) => [NORMALISER_REFERENCE(item.nom), item]),
+);
+
+const ligneVbPourProduit = (nom) => {
+  const cle = NORMALISER_REFERENCE(nom);
+  return /^(LICOR|JUGO|DULCE)/.test(cle) ? "vb_stephan" : "vb_envasado";
+};
+
+const poidsBultoVb = (nom) => NORMALISER_REFERENCE(nom).startsWith("DULCE ") ? 4.62 : null;
+const REFERENCES_VB_PAR_NOM = new Map(vbReference.map((item) => [NORMALISER_REFERENCE(item.nom), item]));
+
+const PRODUITS_AVEC_VB_MAESTRO = [...PRODUITS_BASE];
+vbReference
+  .filter((reference) => typeof reference.min === "number" && typeof reference.max === "number")
+  .filter((reference) => !NORMALISER_REFERENCE(reference.nom).startsWith("FRASCO "))
+  .forEach((reference, index) => {
+    const cle = NORMALISER_REFERENCE(reference.nom);
+    const existant = PRODUITS_AVEC_VB_MAESTRO.find((produit) => produit.usine === "vb" && NORMALISER_REFERENCE(produit.nom) === cle);
+    const donnees = {
+      sku: reference.sku || null,
+      min: reference.min,
+      max: reference.max,
+      ligne: ligneVbPourProduit(reference.nom),
+    };
+    if (existant) Object.assign(existant, donnees);
+    else PRODUITS_AVEC_VB_MAESTRO.push({
+      ...mkVB(`vb_maestro_${index + 1}`, reference.nom, donnees.ligne, poidsBultoVb(reference.nom)),
+      ...donnees,
+    });
+  });
+
+const PRODUITS_INIT = PRODUITS_AVEC_VB_MAESTRO.map((produit) => {
+  if (produit.usine !== "esandi") return produit;
+  const alias = ALIASES_REFERENCE_ESANDI[NORMALISER_REFERENCE(produit.nom)];
+  const reference = REFERENCES_ESANDI_PAR_NOM.get(NORMALISER_REFERENCE(alias || produit.nom));
+  if (!reference) return produit;
+  return {
+    ...produit,
+    sku: reference.sku || null,
+    min: typeof reference.min === "number" ? reference.min : null,
+    max: typeof reference.max === "number" ? reference.max : null,
+  };
+});
 
 const JOURS = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
 const HORIZON = 4;
@@ -460,14 +528,20 @@ function statutStock(stock, min, max) {
   return { label: "Sobrestock", badge: "bg-purple-500", fond: "bg-purple-100 text-purple-800 border-purple-500" };
 }
 function getPal(ligne) { return PALETTE[((ligne && ligne.pal) || 0) % PALETTE.length]; }
+const TURNOS_FRANUI = [{ id: "m", nom: "Mañana", facteur: 1 }, { id: "t", nom: "Tarde", facteur: 1 }];
+function uniteCapacite(ligne) { return ligne && ligne.unite === "potes" ? "potes" : "kg"; }
+function produitCompatibleLigne(produit, ligneId) {
+  return produit && (produit.ligne === ligneId || (Array.isArray(produit.lignesCompatibles) && produit.lignesCompatibles.includes(ligneId)));
+}
 function turnosUsine(usineId) { return TURNOS_PAR_USINE[usineId] || TURNOS_PAR_USINE.fatima; }
 function turnosLigne(ligne) {
+  if (ligne && ligne.id === "f_franui") return TURNOS_FRANUI;
   const turnos = turnosUsine(ligne && ligne.usine);
   if (ligne && ligne.id === "vb_stephan") return turnos.filter((t) => t.id !== "n");
   if (ligne && ligne.id === "vb_tostadora") return turnos.filter((t) => t.id === "m");
   return turnos;
 }
-function turnosBaseAffiches(ligne) { return ligne && ligne.usine === "fatima" ? 1 : turnosLigne(ligne).length; }
+function turnosBaseAffiches(ligne) { return ligne && ligne.id === "f_franui" ? 2 : ligne && ligne.usine === "fatima" ? 1 : turnosLigne(ligne).length; }
 function turnosUsinePourDate(usineId, date) {
   const turnos = turnosUsine(usineId);
   const jour = date instanceof Date ? date.getDay() : null;
@@ -479,6 +553,10 @@ function turnosUsinePourDate(usineId, date) {
   return turnos;
 }
 function turnosLignePourDate(ligne, date) {
+  if (ligne && ligne.id === "f_franui") {
+    if (date instanceof Date && (date.getDay() === 0 || date.getDay() === 6)) return [];
+    return TURNOS_FRANUI;
+  }
   const turnos = turnosUsinePourDate(ligne && ligne.usine, date);
   if (ligne && ligne.id === "vb_stephan") {
     if (date instanceof Date && (date.getDay() === 0 || date.getDay() === 6)) return [];
@@ -523,38 +601,14 @@ function parseTSV(text) {
 }
 const normaliser = (s) => String(s || "").replace(/\s+/g, " ").trim();
 const NOMS_FATIMA_PROTEGES = [
-  "TAB SAL CARAMELO 100gr",
-  "TABLETA DE PISTACHO, SAL Y CARAMELO BsAs",
-  "TABLETA DE PISTACHO, SAL Y CARAMELO VB",
-  "TABLETA PISTACHO",
-  "TAB CHOC LECHE PURO 80G BsAs",
-  "TAB CHOC LECHE PURO 80G VB",
-  "TABLETA LECHE PURO X80gr",
-  "TABLETA LECHE PURO X80gr solo BsAs stock max p/4 meses min 2",
-  "TABLETA CHOC AMARGO 70% BsAs",
-  "TABLETA CHOC AMARGO 70% VB",
-  "TABLETA 70 VB",
-  "TABLETA 70 solo BsAs stock max p/4 meses min 2",
-  "TAB 100GS CHOCO LECHE Y ALM BsAs",
-  "TAB 100GS CHOCO LECHE Y ALM VB",
-  "TABLETA LECHE ALMENDRA",
-  "TABLETA LECHE ALMENDRA solo BsAs stock max p/4 meses min 2",
-  "TABLETA PURA BLANCA BsAs",
-  "TABLETA PURA BLANCA VB",
-  "TABLETA BLANCO X80gr",
-  "TABLETA BLANCO X80gr solo BsAs stock max p/4 meses min 2",
-  "TABLETA CHOC AMARGO 80% BsAs",
-  "TABLETA CHOC AMARGO 80% VB",
-  "TABLETA 80 VB",
-  "TABLETA 80 solo BsAs stock max p/4 meses min 2",
-  "TABLETA CHOC AMARGO 60% BsAs",
-  "TABLETA CHOC AMARGO 60% VB",
-  "TABLETA 60 VB",
-  "TABLETA 60 solo BsAs stock max p/4 meses min 2",
-  "TABLETA CHOC AMARGO 90% BsAs",
-  "TABLETA CHOC AMARGO 90% VB",
-  "TABLETA 90 VB",
-  "TABLETA 90 solo BsAs stock max p/4 meses min 2",
+  "TAB SAL CARAMELO 100gr", "TABLETA DE PISTACHO, SAL Y CARAMELO BsAs", "TABLETA DE PISTACHO, SAL Y CARAMELO VB", "TABLETA PISTACHO",
+  "TAB CHOC LECHE PURO 80G BsAs", "TAB CHOC LECHE PURO 80G VB", "TABLETA LECHE PURO X80gr", "TABLETA LECHE PURO X80gr solo BsAs stock max p/4 meses min 2",
+  "TABLETA CHOC AMARGO 70% BsAs", "TABLETA CHOC AMARGO 70% VB", "TABLETA 70 VB", "TABLETA 70 solo BsAs stock max p/4 meses min 2",
+  "TAB 100GS CHOCO LECHE Y ALM BsAs", "TAB 100GS CHOCO LECHE Y ALM VB", "TABLETA LECHE ALMENDRA", "TABLETA LECHE ALMENDRA solo BsAs stock max p/4 meses min 2",
+  "TABLETA PURA BLANCA BsAs", "TABLETA PURA BLANCA VB", "TABLETA BLANCO X80gr", "TABLETA BLANCO X80gr solo BsAs stock max p/4 meses min 2",
+  "TABLETA CHOC AMARGO 80% BsAs", "TABLETA CHOC AMARGO 80% VB", "TABLETA 80 VB", "TABLETA 80 solo BsAs stock max p/4 meses min 2",
+  "TABLETA CHOC AMARGO 60% BsAs", "TABLETA CHOC AMARGO 60% VB", "TABLETA 60 VB", "TABLETA 60 solo BsAs stock max p/4 meses min 2",
+  "TABLETA CHOC AMARGO 90% BsAs", "TABLETA CHOC AMARGO 90% VB", "TABLETA 90 VB", "TABLETA 90 solo BsAs stock max p/4 meses min 2",
 ];
 const MOTS_IMPORT_IGNORES = new Set([
   "SOLO", "BSAS", "BUENOS", "AIRES", "STOCK", "MAX", "MIN", "MAXIMO", "MINIMO",
@@ -690,7 +744,7 @@ function htmlEscape(value) {
 }
 function fusionAvecBase(base: any[], sauvegarde: any[]) {
   const parId = new Map(base.map((item) => [item.id, item]));
-  const idsObsoletes = new Set([3050, 3051, 3052, 3053, 3054, 3055, 3056, 3057, 3058, 3059, 3060]);
+  const idsObsoletes = new Set([138, 141, 142, 144, 145, 146, 3050, 3051, 3052, 3053, 3054, 3055, 3056, 3057, 3058, 3059, 3060]);
   (Array.isArray(sauvegarde) ? sauvegarde : []).forEach((item) => {
     if (item.id === "f_tabletas_bariloche") return;
     if (idsObsoletes.has(item.id)) return;
@@ -700,10 +754,37 @@ function fusionAvecBase(base: any[], sauvegarde: any[]) {
       fusionne.nom = "Tabletas";
       fusionne.capacite = 3200;
     }
+    if (fusionne.id === "f_franui") {
+      fusionne.nom = "Franui";
+      fusionne.capacite = 20000;
+      fusionne.unite = "potes";
+    }
+    if (fusionne.id === "vb_franui_1" || fusionne.id === "vb_franui_2") {
+      fusionne.nom = fusionne.id === "vb_franui_1" ? "Franui 1" : "Franui 2";
+      fusionne.capacite = 15000;
+      fusionne.unite = "potes";
+    }
+    if (fusionne.id === "vb_stephan") {
+      fusionne.nom = "Dulceria / Beldos";
+      fusionne.capacite = 130;
+    }
     if (baseItem && fusionne.usine === "fatima" && fusionne.id >= 117 && fusionne.id <= 132) {
       fusionne.nom = baseItem.nom;
+      fusionne.sku = baseItem.sku;
       fusionne.ligne = "f_tabletas";
+      fusionne.pesoBulto = baseItem.pesoBulto;
       fusionne.aliases = baseItem.aliases;
+    }
+    if (baseItem && fusionne.id === 5101) {
+      fusionne.nom = "Free";
+      fusionne.sku = "VT-FRAN-0000302";
+      fusionne.ligne = "f_franui";
+    }
+    if (baseItem && fusionne.id >= 5201 && fusionne.id <= 5203) {
+      fusionne.nom = baseItem.nom;
+      fusionne.sku = baseItem.sku;
+      fusionne.ligne = "vb_franui_1";
+      fusionne.lignesCompatibles = ["vb_franui_1", "vb_franui_2"];
     }
     if (baseItem && fusionne.usine === "vb" && ((fusionne.id >= 112 && fusionne.id <= 116) || (fusionne.id >= 133 && fusionne.id <= 137))) {
       fusionne.nom = baseItem.nom;
@@ -717,6 +798,14 @@ function fusionAvecBase(base: any[], sauvegarde: any[]) {
       fusionne.ligne = baseItem.ligne;
       fusionne.pesoBulto = baseItem.pesoBulto;
     }
+    if (baseItem && fusionne.usine === "vb" && baseItem.sku) fusionne.sku = baseItem.sku;
+    const referenceVb = baseItem && fusionne.usine === "vb" ? REFERENCES_VB_PAR_NOM.get(NORMALISER_REFERENCE(baseItem.nom)) : null;
+    if (baseItem && referenceVb) {
+      fusionne.sku = baseItem.sku || null;
+      fusionne.min = baseItem.min;
+      fusionne.max = baseItem.max;
+      fusionne.ligne = baseItem.ligne;
+    }
     if (baseItem && fusionne.usine === "mitre" && fusionne.id >= 3001 && fusionne.id <= 3049) {
       fusionne.nom = baseItem.nom;
       fusionne.ligne = baseItem.ligne;
@@ -724,7 +813,11 @@ function fusionAvecBase(base: any[], sauvegarde: any[]) {
       fusionne.min = baseItem.min;
       fusionne.max = baseItem.max;
     }
-    if (fusionne.id === 117 && fusionne.pesoBulto === 3.04) fusionne.pesoBulto = 3.8;
+    if (baseItem && fusionne.usine === "esandi") {
+      fusionne.sku = baseItem.sku || null;
+      fusionne.min = baseItem.min;
+      fusionne.max = baseItem.max;
+    }
     parId.set(item.id, fusionne);
   });
   return Array.from(parId.values());
@@ -766,7 +859,7 @@ export default function PlanificateurChocolat() {
   const [aldoTexte, setAldoTexte] = useState("");
   const [aldoChargement, setAldoChargement] = useState(false);
   const [aldoMessages, setAldoMessages] = useState([
-    { role: "aldo", texte: "Soy IAldo. Puedo analizar productos, líneas, stocks, capacidad, planificación, producción real, alertas y dashboards. ¿Qué necesitas decidir?" },
+    { role: "aldo", texte: "Soy iAldo. Puedo analizar productos, líneas, stocks, capacidad, planificación, producción real, alertas y dashboards. ¿Qué necesitas decidir?" },
   ]);
   const [session, setSession] = useState<any>(null);
   const [profil, setProfil] = useState<any>(null);
@@ -789,6 +882,7 @@ export default function PlanificateurChocolat() {
   const [dashboardVue, setDashboardVue] = useState("global");
   const [dashboardLigneId, setDashboardLigneId] = useState("");
   const [dashboardProduitId, setDashboardProduitId] = useState("");
+  const [dashboardRechercheSku, setDashboardRechercheSku] = useState("");
   const [dashboardSecteurStock, setDashboardSecteurStock] = useState("");
   const [prioritesProduction, setPrioritesProduction] = useState<any[]>([]);
   const [messagePriorites, setMessagePriorites] = useState("");
@@ -808,6 +902,7 @@ export default function PlanificateurChocolat() {
   const [simulationVue, setSimulationVue] = useState("global");
   const [simulationLigneId, setSimulationLigneId] = useState("");
   const [simulationProduitId, setSimulationProduitId] = useState("");
+  const [simulationRechercheSku, setSimulationRechercheSku] = useState("");
   const [versionsPlanning, setVersionsPlanning] = useState<any[]>([]);
   const [versionActive, setVersionActive] = useState<any>(null);
   const [nomVersion, setNomVersion] = useState("");
@@ -849,6 +944,13 @@ export default function PlanificateurChocolat() {
   const lignesUsine = useMemo(() => lignesUsineToutes.filter((l) => activationLignes[l.id] !== false), [lignesUsineToutes, activationLignes]);
   const produitsUsineTous = useMemo(() => produits.filter((p) => p.usine === usine && !(usine === "esandi" && estNomFatimaProtege(p.nom))), [produits, usine]);
   const produitsUsine = useMemo(() => produitsUsineTous.filter((p) => !p.ligne || activationLignes[p.ligne] !== false), [produitsUsineTous, activationLignes]);
+  const filtrerProduitsParSku = (recherche) => {
+    const terme = normaliser(recherche).toLocaleLowerCase();
+    return produitsUsine
+      .filter(estConfigure)
+      .filter((produit) => !terme || String(produit.sku || "").toLocaleLowerCase().includes(terme) || produit.nom.toLocaleLowerCase().includes(terme))
+      .sort((a, b) => String(a.sku || a.nom).localeCompare(String(b.sku || b.nom)));
+  };
   const produitsNonAssignes = useMemo(() => produitsUsine.filter((p) => !p.ligne || !lignes.some((l) => l.id === p.ligne)), [produitsUsine, lignes]);
 
   useEffect(() => {
@@ -1345,7 +1447,7 @@ export default function PlanificateurChocolat() {
     const idsProduitsFiltres = new Set(produitsFiltres.map((produit) => String(produit.id)));
     const lignesFiltrees = lignesUsine.filter((ligne) => {
       if (dashboardVue === "ligne") return !dashboardLigneId || ligne.id === dashboardLigneId;
-      if (dashboardVue === "produit" && dashboardProduitId) return produitsFiltres.some((produit) => produit.ligne === ligne.id);
+      if (dashboardVue === "produit" && dashboardProduitId) return produitsFiltres.some((produit) => produitCompatibleLigne(produit, ligne.id));
       return true;
     });
 
@@ -1355,7 +1457,7 @@ export default function PlanificateurChocolat() {
         id: ligne.id,
         ligne: ligne.nom,
         capacite: dates.reduce((s, date) => s + capaciteJourPlanning(ligne, date), 0),
-        demande: produitsFiltres.filter((produit) => produit.ligne === ligne.id).reduce((s, produit) => s + demandeJour(produit) * (kgParBulto(produit) || 0) * periodeOpti.jours, 0),
+        demande: produitsFiltres.filter((produit) => produitCompatibleLigne(produit, ligne.id)).reduce((s, produit) => s + demandeJour(produit) * (kgParBulto(produit) || 0) * periodeOpti.jours, 0),
         planifie: 0,
         reel: 0,
         planifieRenseigne: 0,
@@ -1522,11 +1624,11 @@ export default function PlanificateurChocolat() {
         capaciteBase += capaciteJourPlanning(ligne, date);
       }
       const demandeBase = produitsScenario
-        .filter((produit) => produit.ligne === ligne.id && estConfigure(produit))
+        .filter((produit) => produitCompatibleLigne(produit, ligne.id) && estConfigure(produit))
         .reduce((s, produit) => s + demandeJour(produit) * 7 * (kgParBulto(produit) || 0), 0);
       const demandeAutresProduits = simulationVue === "produit" && produitSelectionne
         ? produitsUsine
-          .filter((produit) => produit.ligne === ligne.id && !memeId(produit.id, produitSelectionne.id) && estConfigure(produit))
+          .filter((produit) => produitCompatibleLigne(produit, ligne.id) && !memeId(produit.id, produitSelectionne.id) && estConfigure(produit))
           .reduce((s, produit) => s + demandeJour(produit) * 7 * (kgParBulto(produit) || 0), 0)
         : 0;
       const turnosExtra = Math.max(0, Number(simulationTurnosExtra[ligne.id]) || 0);
@@ -2269,7 +2371,7 @@ export default function PlanificateurChocolat() {
       if (!jour.prod) return;
       lignesUsine.forEach((ligne) => {
         if (regleDulceUneSemaineSurDeux && ligne.id === "vb_stephan" && jour.semaine % 2 === 1) return;
-        const prods = produitsUsine.filter((p) => p.ligne === ligne.id && estConfigure(p) && kgParBulto(p) && seuils(p).max > 0);
+        const prods = produitsUsine.filter((p) => produitCompatibleLigne(p, ligne.id) && estConfigure(p) && kgParBulto(p) && seuils(p).max > 0);
         if (prods.length === 0) return;
         turnosLignePourDate(ligne, jour.date).forEach((turno) => {
           const cleExistante = jour.cle + "|" + ligne.id + "|" + turno.id;
@@ -2406,9 +2508,11 @@ export default function PlanificateurChocolat() {
     });
     let idxMax = rows.findIndex((r) => estLigneLibelle(r, ["stock max", "máximo", "maximo"]));
     let idxMin = rows.findIndex((r) => estLigneLibelle(r, ["stock min", "mínimo", "minimo"]));
+    const idxSku = rows.findIndex((r) => estLigneLibelle(r, ["sku"]));
     if (idxMax === -1 && idxMin === -1) { idxMax = 1; idxMin = 2; } else if (idxMax === -1) idxMax = Math.max(0, idxMin - 1); else if (idxMin === -1) idxMin = idxMax + 1;
     const ligneNoms = rows[Math.max(0, Math.min(idxMax, idxMin) - 1)] || [];
     const ligneMax = rows[idxMax] || [], ligneMin = rows[idxMin] || [];
+    const ligneSku = idxSku >= 0 ? rows[idxSku] : [];
     let idxStock = -1;
     for (let i = rows.length - 1; i > Math.max(idxMax, idxMin); i--) { if (rows[i].some((c, ci) => ci > 0 && c !== "" && !isNaN(parseNum(c)))) { idxStock = i; break; } }
     const ligneStock = idxStock !== -1 ? rows[idxStock] : [];
@@ -2416,13 +2520,14 @@ export default function PlanificateurChocolat() {
     const debut = (isNaN(parseNum(ligneMax[0])) && isNaN(parseNum(ligneMin[0]))) ? 1 : 0;
     let maj = 0, ajoutes = 0, avecMinMax = 0, ignores = 0, reconnus = 0, redirigesAutreUsine = 0;
     let nouveaux = [...produits];
-    const nbCols = Math.max(ligneNoms.length, ligneMax.length, ligneMin.length, ligneStock.length);
+    const nbCols = Math.max(ligneNoms.length, ligneMax.length, ligneMin.length, ligneStock.length, ligneSku.length);
     for (let c = debut; c < nbCols; c++) {
       const nom = normaliser(ligneNoms[c]); if (!nom) continue;
+      const sku = normaliser(ligneSku[c]);
       const vMax = parseNum(ligneMax[c]), vMin = parseNum(ligneMin[c]), vStock = parseNum(ligneStock[c]);
       if (isNaN(vStock) && isNaN(vMin) && isNaN(vMax)) { ignores++; continue; }
       if (!isNaN(vMin) || !isNaN(vMax)) avecMinMax++;
-      const champs = { ...(isNaN(vStock) ? {} : { stock: vStock }), ...(isNaN(vMin) ? {} : { min: vMin }), ...(isNaN(vMax) ? {} : { max: vMax }) };
+      const champs = { ...(sku ? { sku } : {}), ...(isNaN(vStock) ? {} : { stock: vStock }), ...(isNaN(vMin) ? {} : { min: vMin }), ...(isNaN(vMax) ? {} : { max: vMax }) };
       const cibleFatima = usine !== "fatima" ? trouverProduitFatimaProtege(nouveaux, nom) : null;
       const exact = cibleFatima ? null : nouveaux.find((p) => p.usine === usine && p.nom.toLowerCase() === nom.toLowerCase());
       const cibleAutreUsine = !exact && !cibleFatima ? trouverProduitAutreUsinePredefini(nouveaux, usine, nom) : null;
@@ -2434,7 +2539,7 @@ export default function PlanificateurChocolat() {
         if (!exact) reconnus++;
       }
       else if (usine === "fatima" || modeActualisation) { ignores++; }
-      else { const id = nouveaux.reduce((m, p) => Math.max(m, p.id), 0) + 1; nouveaux.push({ id, nom, ligne: null, usine, stock: isNaN(vStock) ? 0 : vStock, demande: 0, min: isNaN(vMin) ? null : vMin, max: isNaN(vMax) ? null : vMax, pesoBulto: PESO_BULTO_POR_PRODUCTO[nom] ?? null }); ajoutes++; }
+      else { const id = nouveaux.reduce((m, p) => Math.max(m, p.id), 0) + 1; nouveaux.push({ id, nom, sku: sku || null, ligne: null, usine, stock: isNaN(vStock) ? 0 : vStock, demande: 0, min: isNaN(vMin) ? null : vMin, max: isNaN(vMax) ? null : vMax, pesoBulto: PESO_BULTO_POR_PRODUCTO[nom] ?? null }); ajoutes++; }
     }
     if (maj === 0 && ajoutes === 0) { setMsgImport("⚠️ No se detectó ningún producto. Verifica el pegado."); return; }
     setProduits(nouveaux);
@@ -2549,7 +2654,7 @@ export default function PlanificateurChocolat() {
         <tbody>
           ${lignesUsine.map((ligne) => `
             <tr>
-              <td class="linea">${htmlEscape(ligne.nom)}<br><small>${htmlEscape(ligne.capacite)} kg/turno</small></td>
+              <td class="linea">${htmlEscape(ligne.nom)}<br><small>${htmlEscape(ligne.capacite)} ${htmlEscape(uniteCapacite(ligne))}/turno</small></td>
               ${dias.map((j) => `
                 <td>
                   ${turnosLignePourDate(ligne, j.date).map((turno) => {
@@ -2635,7 +2740,7 @@ export default function PlanificateurChocolat() {
     const faiblesCouvertures = couvertures.filter((r) => r.jours < r.cibleMin).slice(0, 5);
     const excesCouvertures = couvertures.filter((r) => r.jours > r.cibleMax).sort((a, b) => b.jours - a.jours).slice(0, 5);
     const lignesAnalyse = lignesUsine.map((ligne) => {
-      const prods = produitsUsine.filter((p) => p.ligne === ligne.id && estConfigure(p) && kgParBulto(p));
+      const prods = produitsUsine.filter((p) => produitCompatibleLigne(p, ligne.id) && estConfigure(p) && kgParBulto(p));
       const capSem = JOURS.reduce((s, _j, idx) => {
         const date = new Date(lundiAffiche.getFullYear(), lundiAffiche.getMonth(), lundiAffiche.getDate() + idx);
         return s + capaciteJourPlanning(ligne, date);
@@ -2794,11 +2899,11 @@ export default function PlanificateurChocolat() {
     }
     if ((q.includes("dulce") || q.includes("dulces")) && (q.includes("semaine sur deux") || q.includes("semana por medio") || q.includes("une semaine sur deux") || q.includes("1 semaine sur 2"))) {
       setRegleDulceUneSemaineSurDeux(true);
-      actions.push("les Dulce/Stephan seront planifiés une semaine sur deux");
+      actions.push("les Dulces de Dulceria / Beldos seront planifiés une semaine sur deux");
     }
     if ((q.includes("framboise") || q.includes("frambuesa")) && (q.includes("fraise") || q.includes("frutilla"))) {
       setRegleFramboisePuisFraise(true);
-      actions.push("après Framboise, je favorise Frutilla/Fraise sur Stephan");
+      actions.push("après Framboise, je favorise Frutilla/Fraise sur Dulceria / Beldos");
     }
     const capacite = capaciteDepuisTexteAldo(question);
     const ligneCap = ligneDepuisTexteAldo(q);
@@ -2851,6 +2956,7 @@ export default function PlanificateurChocolat() {
       const proyectado = produit.stock + (kgBulto ? planKg / kgBulto : 0) - demandeJour(produit) * periodeOpti.jours;
       return {
         id: produit.id,
+        sku: produit.sku || null,
         producto: produit.nom,
         equivalentes: Array.isArray(produit.aliases) ? produit.aliases : [],
         linea: lignes.find((item) => item.id === produit.ligne)?.nom || "Sin línea",
@@ -2942,8 +3048,8 @@ export default function PlanificateurChocolat() {
       }),
     });
     const data = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(data.error || "IAldo no está disponible.");
-    if (!data.texte || typeof data.texte !== "string") throw new Error("IAldo no está disponible dans cet aperçu local.");
+    if (!response.ok) throw new Error(data.error || "iAldo no está disponible.");
+    if (!data.texte || typeof data.texte !== "string") throw new Error("iAldo no está disponible dans cet aperçu local.");
     return data.texte;
   };
 
@@ -2998,7 +3104,7 @@ export default function PlanificateurChocolat() {
       }
       reponse = "Entendido. " + (consignes.actions.length ? consignes.actions.join("; ") + ". " : "") +
         (consignes.veutRemplir ? "Completo el calendario con estas consignas y mantengo las restricciones de stock/capacidad." : "Guardo esta consigna para las próximas optimizaciones.") +
-        " Después puedes pedirme una corrección, por ejemplo: baja Stephan en julio, o fuerza Frutilla después de Framboise.";
+        " Después puedes pedirme una corrección, por ejemplo: baja Dulceria / Beldos en julio, o fuerza Frutilla después de Framboise.";
     } else if (produitCible && (q.includes("projection") || q.includes("proyeccion") || q.includes("stock") || q.includes("produit") || q.includes("producto") || q.includes("montre") || q.includes("muestra") || q.includes("show") || q.includes("analyse") || q.includes("analiza"))) {
       setOnglet("stocks");
       reponse = ficheProduitIAldo(produitCible, langueQuestion);
@@ -3358,7 +3464,7 @@ export default function PlanificateurChocolat() {
             <div className="flex flex-wrap items-start justify-between gap-3 mb-5">
               <div>
                 <h2 className="text-xl font-semibold text-violet-950">Prioridades de producción</h2>
-                <p className="text-sm text-slate-500 mt-1">Reglas administrativas aplicadas por el optimizador. IAldo puede analizarlas, pero no modificarlas.</p>
+                <p className="text-sm text-slate-500 mt-1">Reglas administrativas aplicadas por el optimizador. iAldo puede analizarlas, pero no modificarlas.</p>
               </div>
               <button type="button" onClick={() => chargerPriorites()} className="px-3 py-2 border border-violet-200 rounded-lg text-sm text-violet-800 hover:bg-violet-50">Actualizar lista</button>
             </div>
@@ -3459,7 +3565,7 @@ export default function PlanificateurChocolat() {
                   <h2 className="text-xl font-semibold text-violet-950">Simulador de capacidad — {usineActive?.nom}</h2>
                   <p className="text-sm text-slate-500 mt-1">Prueba escenarios sin modificar el planning ni las capacidades registradas.</p>
                 </div>
-                <button type="button" onClick={() => { setSimulationSemaines(12); setSimulationDemandePct(20); setSimulationEfficacitePct(90); setSimulationTurnosExtra({}); setSimulationVue("global"); setSimulationLigneId(""); setSimulationProduitId(""); }} className="px-3 py-2 border border-slate-300 rounded-lg text-sm text-slate-700 hover:bg-slate-50">Restablecer escenario</button>
+                <button type="button" onClick={() => { setSimulationSemaines(12); setSimulationDemandePct(20); setSimulationEfficacitePct(90); setSimulationTurnosExtra({}); setSimulationVue("global"); setSimulationLigneId(""); setSimulationProduitId(""); setSimulationRechercheSku(""); }} className="px-3 py-2 border border-slate-300 rounded-lg text-sm text-slate-700 hover:bg-slate-50">Restablecer escenario</button>
               </div>
 
               <div className="mt-5 flex flex-wrap items-end gap-3 border-y border-slate-100 py-4">
@@ -3469,6 +3575,7 @@ export default function PlanificateurChocolat() {
                     setSimulationVue(e.target.value);
                     setSimulationLigneId("");
                     setSimulationProduitId("");
+                    setSimulationRechercheSku("");
                     setSimulationTurnosExtra({});
                   }} className="mt-1 block min-w-44 border border-slate-300 rounded-lg bg-white px-3 py-2 text-sm text-slate-800">
                     <option value="global">Fábrica completa</option>
@@ -3486,13 +3593,17 @@ export default function PlanificateurChocolat() {
                   </label>
                 )}
                 {simulationVue === "produit" && (
-                  <label className="text-xs font-medium text-slate-600 grow max-w-xl">
-                    Producto / SKU a simular
+                  <div className="grow max-w-xl">
+                    <label className="text-xs font-medium text-slate-600">Buscar por SKU o producto
+                      <input value={simulationRechercheSku} onChange={(e) => setSimulationRechercheSku(e.target.value)} placeholder="Escribe un SKU o nombre..." className="mt-1 block w-full border border-slate-300 rounded-lg bg-white px-3 py-2 text-sm text-slate-800" />
+                    </label>
+                    <label className="mt-2 block text-xs font-medium text-slate-600">Producto / SKU a simular
                     <select value={simulationProduitId} onChange={(e) => { setSimulationProduitId(e.target.value); setSimulationTurnosExtra({}); }} className="mt-1 block w-full border border-slate-300 rounded-lg bg-white px-3 py-2 text-sm text-slate-800">
                       <option value="">Todos los productos</option>
-                      {produitsUsine.filter(estConfigure).sort((a, b) => a.nom.localeCompare(b.nom)).map((produit) => <option key={produit.id} value={produit.id}>{produit.nom}</option>)}
+                      {filtrerProduitsParSku(simulationRechercheSku).map((produit) => <option key={produit.id} value={produit.id}>{produit.sku ? produit.sku + " · " : ""}{produit.nom}</option>)}
                     </select>
-                  </label>
+                    </label>
+                  </div>
                 )}
               </div>
 
@@ -3608,7 +3719,7 @@ export default function PlanificateurChocolat() {
                   <select value={dashboardVue} onChange={(e) => {
                     setDashboardVue(e.target.value);
                     if (e.target.value !== "ligne") setDashboardLigneId("");
-                    if (e.target.value !== "produit") setDashboardProduitId("");
+                    if (e.target.value !== "produit") { setDashboardProduitId(""); setDashboardRechercheSku(""); }
                   }} className="mt-1 block min-w-40 border border-slate-300 rounded-lg bg-white px-3 py-2 text-sm text-slate-800">
                     <option value="global">Vista global</option>
                     <option value="ligne">Por línea</option>
@@ -3625,13 +3736,17 @@ export default function PlanificateurChocolat() {
                   </label>
                 )}
                 {dashboardVue === "produit" && (
-                  <label className="text-xs font-medium text-slate-600 grow max-w-xl">
-                    Producto / SKU
+                  <div className="grow max-w-xl">
+                    <label className="text-xs font-medium text-slate-600">Buscar por SKU o producto
+                      <input value={dashboardRechercheSku} onChange={(e) => setDashboardRechercheSku(e.target.value)} placeholder="Escribe un SKU o nombre..." className="mt-1 block w-full border border-slate-300 rounded-lg bg-white px-3 py-2 text-sm text-slate-800" />
+                    </label>
+                    <label className="mt-2 block text-xs font-medium text-slate-600">Producto / SKU
                     <select value={dashboardProduitId} onChange={(e) => setDashboardProduitId(e.target.value)} className="mt-1 block w-full border border-slate-300 rounded-lg bg-white px-3 py-2 text-sm text-slate-800">
                       <option value="">Todos los productos</option>
-                      {produitsUsine.filter(estConfigure).sort((a, b) => a.nom.localeCompare(b.nom)).map((produit) => <option key={produit.id} value={produit.id}>{produit.nom}</option>)}
+                      {filtrerProduitsParSku(dashboardRechercheSku).map((produit) => <option key={produit.id} value={produit.id}>{produit.sku ? produit.sku + " · " : ""}{produit.nom}</option>)}
                     </select>
-                  </label>
+                    </label>
+                  </div>
                 )}
               </div>
             </section>
@@ -3900,14 +4015,14 @@ export default function PlanificateurChocolat() {
                       const pal = getPal(ligne);
                       return (
                         <tr key={ligne.id}>
-                          <td className={"p-2 font-semibold align-top " + pal.texte}>{ligne.nom}<div className="text-xs font-normal text-gray-500">{ligne.capacite} kg/turno<br />{turnosBaseAffiches(ligne)} turno(s)/dia base</div></td>
+                          <td className={"p-2 font-semibold align-top " + pal.texte}>{ligne.nom}<div className="text-xs font-normal text-gray-500">{fmtNb(ligne.capacite)} {uniteCapacite(ligne)}/turno<br />{turnosBaseAffiches(ligne)} turno(s)/dia base</div></td>
                           {joursSemaine.map((j) => {
                             const turnosJour = turnosLignePourDate(ligne, j.date);
                             const utiliseJour = totalJourLigne(ligne, j);
                             const capJour = capaciteJourPlanning(ligne, j.date);
                             return (
                             <td key={j.cle} className="p-1 align-top">
-                              <div className="text-[10px] text-gray-400 text-center mb-1">{fmtNb(utiliseJour)} / {fmtNb(capJour)} kg</div>
+                              <div className="text-[10px] text-gray-400 text-center mb-1">{fmtNb(utiliseJour)} / {fmtNb(capJour)} {uniteCapacite(ligne)}</div>
                               {turnosJour.length === 0 ? (
                                 <div className="w-full text-xs rounded p-1.5 border-2 border-dashed border-gray-200 bg-gray-50 text-gray-400 text-center min-h-10">Sin turno</div>
                               ) : turnosJour.map((turno) => {
@@ -3934,7 +4049,7 @@ export default function PlanificateurChocolat() {
                                       <div className="rounded-lg border border-violet-300 bg-white p-1.5 shadow-sm">
                                         <select autoFocus disabled={planningFige || !peutPlanifier} className="w-full disabled:bg-slate-100 text-xs border rounded p-1" value={b ? b.p : ""} onChange={(e) => assigner(cle, e.target.value)}>
                                           <option value="">— vacío —</option>
-                                          {produits.filter((p) => p.ligne === ligne.id && estConfigure(p)).map((p) => <option key={p.id} value={p.id}>{optionProduitPlanning(p)}</option>)}
+                                          {produits.filter((p) => produitCompatibleLigne(p, ligne.id) && estConfigure(p)).map((p) => <option key={p.id} value={p.id}>{optionProduitPlanning(p)}</option>)}
                                         </select>
                                         {b && prod && (
                                           <div className="mt-1 space-y-1">
@@ -3979,7 +4094,7 @@ export default function PlanificateurChocolat() {
                               })}
                             </td>
                           );})}
-                          <td className="p-2 text-center align-middle"><span className={"font-bold " + pal.texte}>{fmtNb(totalSemaineLigne(ligne.id))} kg</span></td>
+                          <td className="p-2 text-center align-middle"><span className={"font-bold " + pal.texte}>{fmtNb(totalSemaineLigne(ligne.id))} {uniteCapacite(ligne)}</span></td>
                         </tr>
                       );
                     })}
@@ -3987,7 +4102,7 @@ export default function PlanificateurChocolat() {
                 </table>
               </div>
             )}
-            <p className="text-xs text-gray-500 mt-2">Cada turno produce segun los horarios de la fabrica: Fatima trabaja de lunes a viernes un turno completo dividido en medio turno manana y medio turno tarde, y no trabaja sabado ni domingo; Esandi trabaja manana y tarde, con solo manana el sabado; Mitre/VB trabajan 3 turnos base, con solo manana el sabado. Excepcion: Stephan trabaja solo lunes a viernes, manana y tarde. La cantidad es <strong>divisible</strong>. La gomita de color muestra el estado del stock justo despues de ese bloque, simulando la demanda dia por dia.</p>
+            <p className="text-xs text-gray-500 mt-2">Cada turno produce segun los horarios de la fabrica: Fatima trabaja de lunes a viernes un turno completo dividido en medio turno manana y medio turno tarde, y no trabaja sabado ni domingo; Esandi trabaja manana y tarde, con solo manana el sabado; Mitre/VB trabajan 3 turnos base, con solo manana el sabado. Excepcion: Dulceria / Beldos trabaja solo lunes a viernes, manana y tarde. La cantidad es <strong>divisible</strong>. La gomita de color muestra el estado del stock justo despues de ese bloque, simulando la demanda dia por dia.</p>
             <Legende />
           </div>
         )}
@@ -4166,7 +4281,7 @@ export default function PlanificateurChocolat() {
                   const active = activationLignes[l.id] !== false;
                   return (
                     <label key={l.id} className={"flex items-center justify-between gap-3 p-3 border rounded-lg transition " + (active ? "border-emerald-200 bg-emerald-50" : "border-slate-200 bg-slate-50 text-slate-500")}>
-                      <span className="min-w-0"><span className="block text-sm font-semibold truncate">{l.nom}</span><span className="block text-xs mt-0.5">{fmtNb(l.capacite)} kg/turno</span></span>
+                      <span className="min-w-0"><span className="block text-sm font-semibold truncate">{l.nom}</span><span className="block text-xs mt-0.5">{fmtNb(l.capacite)} {uniteCapacite(l)}/turno</span></span>
                       <span className="flex items-center gap-2 shrink-0">
                         <span className={"text-xs font-medium " + (active ? "text-emerald-700" : "text-slate-500")}>{active ? "Activa" : "Inactiva"}</span>
                         <input type="checkbox" className="h-5 w-5 accent-emerald-700" checked={active} disabled={!peutConfigurerLignes} onChange={() => basculerActivationLigne(l)} aria-label={(active ? "Desactivar " : "Activar ") + l.nom} />
@@ -4195,7 +4310,7 @@ export default function PlanificateurChocolat() {
                       <span className={"w-3 h-3 rounded-full " + pal.couleur}></span>
                       <input className="flex-1 bg-transparent border-b border-transparent focus:border-violet-400 outline-none text-sm font-medium" value={l.nom} onChange={(e) => majLigne(l.id, "nom", e.target.value)} />
                       <input type="number" className="w-20 border rounded p-1 text-sm text-right" value={l.capacite} onChange={(e) => majLigne(l.id, "capacite", parseFloat(e.target.value) || 0)} />
-                      <span className="text-xs text-gray-500">kg/turno - {turnosBaseAffiches(l)} turno(s)/dia base</span>
+                      <span className="text-xs text-gray-500">{uniteCapacite(l)}/turno - {turnosBaseAffiches(l)} turno(s)/dia base</span>
                       {!active && <span className="text-[11px] px-2 py-0.5 rounded-full bg-slate-200 text-slate-600">Inactiva</span>}
                       <button onClick={() => supprimerLigne(l.id)} className="text-red-500 hover:text-red-700 text-sm px-1">✕</button>
                     </div>
@@ -4219,7 +4334,10 @@ export default function PlanificateurChocolat() {
                   const ligne = lignes.find((l) => l.id === p.ligne); const pal = ligne ? getPal(ligne) : null; const nonAssigne = !ligne;
                   return (
                     <div key={p.id} className={"flex items-center gap-2 p-2 rounded-lg " + (nonAssigne ? "bg-orange-50 border border-orange-300" : "bg-gray-50")}>
-                      <input className="flex-1 bg-transparent border-b border-transparent focus:border-violet-400 outline-none text-sm" value={p.nom} onChange={(e) => majProduit(p.id, "nom", e.target.value)} />
+                      <div className="flex-1 min-w-0">
+                        <input className="w-full bg-transparent border-b border-transparent focus:border-violet-400 outline-none text-sm" value={p.nom} onChange={(e) => majProduit(p.id, "nom", e.target.value)} />
+                        <div className="text-[11px] text-slate-500 mt-0.5">SKU: {p.sku || "sin SKU"}</div>
+                      </div>
                       <select className={"text-xs border rounded p-1 " + (nonAssigne ? "border-orange-400 text-orange-700" : "")} value={p.ligne || ""} onChange={(e) => majProduit(p.id, "ligne", e.target.value || null)}>
                         <option value="">Por asignar...</option>
                         {lignesUsineToutes.map((l) => <option key={l.id} value={l.id}>{l.nom}{activationLignes[l.id] === false ? " (inactiva)" : ""}</option>)}
@@ -4390,7 +4508,7 @@ export default function PlanificateurChocolat() {
           const datesDiagnostic = [];
           for (let dt = new Date(periodeOpti.debut); dt <= periodeOpti.fin; dt.setDate(dt.getDate() + 1)) datesDiagnostic.push(new Date(dt));
           const diag = lignesUsine.map((ligne) => {
-            const prods = produitsUsine.filter((p) => p.ligne === ligne.id && estConfigure(p) && kgParBulto(p));
+            const prods = produitsUsine.filter((p) => produitCompatibleLigne(p, ligne.id) && estConfigure(p) && kgParBulto(p));
             const capH = datesDiagnostic.reduce((s, date) => s + capaciteJourPlanning(ligne, date), 0);
             const demH = prods.reduce((s, p) => s + demandeJour(p) * periodeOpti.jours * kgParBulto(p), 0);
             const capSemInfo = JOURS.reduce((s, _jour, idx) => {
@@ -4401,7 +4519,7 @@ export default function PlanificateurChocolat() {
             const margeSemInfo = capSemInfo - demSemInfo;
             const defi = prods.reduce((s, p) => s + Math.max(0, (seuils(p).min * 1.5 - p.stock)) * kgParBulto(p), 0);
             const marge = capH - demH;
-            const sansConv = produitsUsine.filter((p) => p.ligne === ligne.id && estConfigure(p) && !kgParBulto(p)).length;
+            const sansConv = produitsUsine.filter((p) => produitCompatibleLigne(p, ligne.id) && estConfigure(p) && !kgParBulto(p)).length;
             const temps = defi <= 0 ? 0 : (margeSemInfo > 0 ? defi / margeSemInfo : Infinity);
             return { ligne, capH, demH, defi, marge, capSemInfo, demSemInfo, margeSemInfo, charge: capH > 0 ? demH / capH : 0, temps, sansConv };
           });
@@ -4545,7 +4663,7 @@ export default function PlanificateurChocolat() {
           <div className="mb-3 w-[min(360px,calc(100vw-2rem))] bg-white border border-emerald-200 rounded-lg shadow-xl overflow-hidden">
             <div className="bg-emerald-700 text-white px-4 py-3 flex items-center justify-between">
               <div>
-                <div className="font-bold">IAldo</div>
+                <div className="font-bold">iAldo</div>
                 <div className="text-xs text-emerald-100">Maestro de análisis y planificación</div>
               </div>
               <button className="text-emerald-100 hover:text-white text-xl leading-none" onClick={() => setAldoOuvert(false)}>×</button>
@@ -4561,7 +4679,7 @@ export default function PlanificateurChocolat() {
               <div className="flex gap-2">
                 <input
                   className="flex-1 border rounded-lg px-3 py-2 text-sm"
-                  placeholder="Pregunta a IAldo..."
+                  placeholder="Pregunta a iAldo..."
                   disabled={aldoChargement}
                   value={aldoTexte}
                   onChange={(e) => setAldoTexte(e.target.value)}
@@ -4578,7 +4696,7 @@ export default function PlanificateurChocolat() {
           </div>
         )}
         <button onClick={() => setAldoOuvert((v) => !v)} className="rounded-full bg-emerald-700 text-white shadow-lg px-4 py-3 font-semibold hover:bg-emerald-800">
-          IAldo
+          iAldo
         </button>
       </div>
     </div>

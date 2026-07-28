@@ -1,0 +1,200 @@
+[
+  {
+    "nom": "FRASCO NUICCIOLA 380 GR",
+    "sku": "VT-CFRA-0000432",
+    "max": 102,
+    "min": 51
+  },
+  {
+    "nom": "FRASCO MARROC 380 GR",
+    "sku": "VT-CFRA-0000430",
+    "max": 94,
+    "min": 47
+  },
+  {
+    "nom": "FRASCO CREMA PISTACHO",
+    "sku": "VT-CFRA-0000029",
+    "max": 86,
+    "min": 43
+  },
+  {
+    "nom": "LICOR DE CHOCOLATE BOTELLA",
+    "sku": "VT-CFRA-0004310",
+    "max": 276,
+    "min": 138
+  },
+  {
+    "nom": "LICOR IRLANDES BOTELLA (no se elabora)",
+    "sku": null,
+    "max": null,
+    "min": null
+  },
+  {
+    "nom": "LICOR DDL BOTELLA",
+    "sku": "VT-CFRA-000056",
+    "max": 192,
+    "min": 96
+  },
+  {
+    "nom": "JUGO DE FRAM/FRUT BOTELLA",
+    "sku": "VT-CFRA-0000993",
+    "max": 67,
+    "min": 34
+  },
+  {
+    "nom": "DULCE SAUCO 420gr VB",
+    "sku": "VT-DULC-0000904",
+    "max": 146,
+    "min": 73
+  },
+  {
+    "nom": "DULCE FRUTILLA 420gr VB",
+    "sku": "VT-DULC-0000902",
+    "max": 146,
+    "min": 73
+  },
+  {
+    "nom": "DULCE MOSQUETA 420gr VB",
+    "sku": "VT-DULC-0000901",
+    "max": 152,
+    "min": 76
+  },
+  {
+    "nom": "DULCE FRAMBUESA  420gr VB",
+    "sku": "VT-DULC-0000900",
+    "max": 402,
+    "min": 201
+  },
+  {
+    "nom": "DULCE FRUTOS DEL BOSQUE VB",
+    "sku": "VT-DULC-0000905",
+    "max": 114,
+    "min": 57
+  },
+  {
+    "nom": "CHOCOLATADA",
+    "sku": null,
+    "max": null,
+    "min": null
+  },
+  {
+    "nom": "Surtido 95 Bche",
+    "sku": "VT-CENV-0000446",
+    "max": 177,
+    "min": 89
+  },
+  {
+    "nom": "Surtido 210 Bche",
+    "sku": "VT-CENV-0000454",
+    "max": 237,
+    "min": 119
+  },
+  {
+    "nom": "Surtido 250 Bche",
+    "sku": "VT-CENV-0000448",
+    "max": 184,
+    "min": 92
+  },
+  {
+    "nom": "Surtido 350 Bche",
+    "sku": "VT-CENV-0000462",
+    "max": 92,
+    "min": 46
+  },
+  {
+    "nom": "Surtido 430 Bche",
+    "sku": "VT-CENV-0001012",
+    "max": 84,
+    "min": 42
+  },
+  {
+    "nom": "Surtido 500 Bche",
+    "sku": "VT-CENV-0000449",
+    "max": 119,
+    "min": 59
+  },
+  {
+    "nom": "Surtido 560 Bche",
+    "sku": "VT-CENV-0001012",
+    "max": 63,
+    "min": 32
+  },
+  {
+    "nom": "Surtido 1 kg Bche",
+    "sku": "VT-CGRA-0000400",
+    "max": 27,
+    "min": 13
+  },
+  {
+    "nom": "MEK Bche",
+    "sku": null,
+    "max": 8,
+    "min": 4
+  },
+  {
+    "nom": "Trufa x1 Bche",
+    "sku": null,
+    "max": null,
+    "min": null
+  },
+  {
+    "nom": "BOMBON x16 Bche",
+    "sku": "VT-CENV-0000413",
+    "max": 28,
+    "min": 14
+  },
+  {
+    "nom": "BOMBON x32 Bche",
+    "sku": "VT-CENV-0000414",
+    "max": 23,
+    "min": 12
+  },
+  {
+    "nom": "SURTIDO 250 BS AS",
+    "sku": "VT-CENV-0000448",
+    "max": 654,
+    "min": 327
+  },
+  {
+    "nom": "SURTIDO 500 BS AS",
+    "sku": "VT-CENV-0000449",
+    "max": 664,
+    "min": 332
+  },
+  {
+    "nom": "SURTIDO 1 Kg BS AS",
+    "sku": "VT-CENV-0000450",
+    "max": 87,
+    "min": 43
+  },
+  {
+    "nom": "MEK BS AS",
+    "sku": "VT-CENV-0000492",
+    "max": 42,
+    "min": 11
+  },
+  {
+    "nom": "Trufa x3 BS AS/Bche",
+    "sku": "VT-CENV-0000413",
+    "max": 145,
+    "min": 73
+  },
+  {
+    "nom": "Trufa x10 BS AS/Bche",
+    "sku": "VT-CENV-0000414",
+    "max": 247,
+    "min": 123
+  },
+  {
+    "nom": "Trufa x15 BS AS/Bche",
+    "sku": "VT-CENV-0000415",
+    "max": 173,
+    "min": 87
+  },
+  {
+    "nom": "CAFE TOSTADO CONFI x 1 kg",
+    "sku": "VN-CPOL-0000004",
+    "max": 500,
+    "min": 300
+  }
+]

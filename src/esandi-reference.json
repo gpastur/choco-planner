@@ -1,0 +1,968 @@
+[
+  {
+    "nom": "BARRA BLANCO PURO",
+    "sku": "VM-TRUF-00051",
+    "max": 125.0,
+    "min": 75.0
+  },
+  {
+    "nom": "BARRA BLANCO CEREAL",
+    "sku": "VM-TRUF-00051",
+    "max": null,
+    "min": null
+  },
+  {
+    "nom": "BARRA BLANCO ALMENDRA",
+    "sku": "VM-TRUF-00043",
+    "max": 125.0,
+    "min": 75.0
+  },
+  {
+    "nom": "BARRA BLANCO COCO",
+    "sku": "VM-TRUF-00051",
+    "max": null,
+    "min": null
+  },
+  {
+    "nom": "BARRA BLANCO NUEZ",
+    "sku": "VM-TRUF-00051",
+    "max": null,
+    "min": null
+  },
+  {
+    "nom": "BARRA BLANCO MANI",
+    "sku": "VM-TRUF-00051",
+    "max": null,
+    "min": null
+  },
+  {
+    "nom": "BARRA LECHE PURO",
+    "sku": "VM-TRUF-00048",
+    "max": 250.0,
+    "min": 150.0
+  },
+  {
+    "nom": "BARRA LECHE CEREAL",
+    "sku": "VT-TRUF-00046",
+    "max": 250.0,
+    "min": 150.0
+  },
+  {
+    "nom": "BARRA LECHE ALMENDRA",
+    "sku": "VM-TRUF-00047",
+    "max": 250.0,
+    "min": 150.0
+  },
+  {
+    "nom": "BARRA LECHE COCO",
+    "sku": null,
+    "max": null,
+    "min": null
+  },
+  {
+    "nom": "BARRA LECHE NUEZ",
+    "sku": null,
+    "max": null,
+    "min": null
+  },
+  {
+    "nom": "BARRA LECHE MANI",
+    "sku": null,
+    "max": null,
+    "min": null
+  },
+  {
+    "nom": "BARRA LECHE CAJÚ (SOLO PARA SURTIDO)",
+    "sku": null,
+    "max": null,
+    "min": null
+  },
+  {
+    "nom": "BARRA LECHE PASAS",
+    "sku": null,
+    "max": null,
+    "min": null
+  },
+  {
+    "nom": "BARRA AMARGO PURO",
+    "sku": "VM-TRUF-00001",
+    "max": 175.0,
+    "min": 125.0
+  },
+  {
+    "nom": "BARRA AMARGO CEREAL",
+    "sku": null,
+    "max": null,
+    "min": null
+  },
+  {
+    "nom": "BARRA AMARGO ALMENDRA",
+    "sku": "VM-TRUF-00002",
+    "max": 120.0,
+    "min": 70.0
+  },
+  {
+    "nom": "BARRA AMARGO NUEZ",
+    "sku": null,
+    "max": null,
+    "min": null
+  },
+  {
+    "nom": "BARRA AMARGO MANI",
+    "sku": null,
+    "max": null,
+    "min": null
+  },
+  {
+    "nom": "Barra mini blanca puro",
+    "sku": null,
+    "max": null,
+    "min": null
+  },
+  {
+    "nom": "Barra mini blanca almendra",
+    "sku": null,
+    "max": null,
+    "min": null
+  },
+  {
+    "nom": "Barra mini blanca nuez",
+    "sku": null,
+    "max": null,
+    "min": null
+  },
+  {
+    "nom": "Barra mini blanca cereal",
+    "sku": null,
+    "max": null,
+    "min": null
+  },
+  {
+    "nom": "Barra mini leche puro",
+    "sku": null,
+    "max": null,
+    "min": null
+  },
+  {
+    "nom": "Barra mini leche almendra",
+    "sku": null,
+    "max": null,
+    "min": null
+  },
+  {
+    "nom": "Barra mini leche nuez",
+    "sku": null,
+    "max": null,
+    "min": null
+  },
+  {
+    "nom": "Barra mini leche cereal",
+    "sku": null,
+    "max": null,
+    "min": null
+  },
+  {
+    "nom": "Barra mini amargo puro",
+    "sku": null,
+    "max": null,
+    "min": null
+  },
+  {
+    "nom": "Barra mini amargo almendra",
+    "sku": null,
+    "max": null,
+    "min": null
+  },
+  {
+    "nom": "Barra mini amargo nuez",
+    "sku": null,
+    "max": null,
+    "min": null
+  },
+  {
+    "nom": "Barra mini amarga cereal",
+    "sku": null,
+    "max": null,
+    "min": null
+  },
+  {
+    "nom": "MEDALLON LECHE",
+    "sku": "VT-TRUF-00013",
+    "max": 140.0,
+    "min": 100.0
+  },
+  {
+    "nom": "MEDALLON BLANCO",
+    "sku": "VT-TRUF-00035",
+    "max": 140.0,
+    "min": 100.0
+  },
+  {
+    "nom": "MEDALLON AMARGO",
+    "sku": "VT-TRUF-00036",
+    "max": 125.0,
+    "min": 75.0
+  },
+  {
+    "nom": "PAILA MICROGALLETITAS",
+    "sku": "VT-CPAI-0000943",
+    "max": 300.0,
+    "min": 200.0
+  },
+  {
+    "nom": "productos a granel",
+    "sku": null,
+    "max": null,
+    "min": null
+  },
+  {
+    "nom": "MARROC DE MANI (VENTA) (comun)",
+    "sku": "VM-TRUF-00011",
+    "max": 125.0,
+    "min": 75.0
+  },
+  {
+    "nom": "RAMA LECHE GRANEL",
+    "sku": "VM-CRAM-0000011",
+    "max": 200.0,
+    "min": 100.0
+  },
+  {
+    "nom": "RAMA AMARGA GRANEL",
+    "sku": "VM-CRAM-0000013",
+    "max": 100.0,
+    "min": 75.0
+  },
+  {
+    "nom": "PRALINE DEGUSTACION (cereal)",
+    "sku": "VM-TRUF-00009",
+    "max": 100.0,
+    "min": 75.0
+  },
+  {
+    "nom": "PRALINE MANI CEREAL BOCADITO",
+    "sku": "VM-TRUF-00037",
+    "max": 30.0,
+    "min": 20.0
+  },
+  {
+    "nom": "TABLETA GOTA DEGUSTACION ENV",
+    "sku": "VT-TRUF-00040",
+    "max": 30.0,
+    "min": 20.0
+  },
+  {
+    "nom": "SUBMARINO A GRANEL",
+    "sku": "CF-CAFE-0000022",
+    "max": 100.0,
+    "min": 50.0
+  },
+  {
+    "nom": "HUESITO FIG MACIZA",
+    "sku": null,
+    "max": 26.0,
+    "min": null
+  },
+  {
+    "nom": "CORAZON DDL GRANEL",
+    "sku": "VM-TRUF-00041",
+    "max": 100.0,
+    "min": 75.0
+  },
+  {
+    "nom": "PRALINE MANI CEREAL VENTA",
+    "sku": "VM-TRUF-00037",
+    "max": 120.0,
+    "min": 80.0
+  },
+  {
+    "nom": "OSOS DDL GRANEL",
+    "sku": "VM-TRUF-00044",
+    "max": 100.0,
+    "min": 75.0
+  },
+  {
+    "nom": "MIL HOJAS BLANCO",
+    "sku": "VM-TRUF-00057",
+    "max": 360.0,
+    "min": 260.0
+  },
+  {
+    "nom": "MIL HOJAS LECHE",
+    "sku": "VM-TRUF-00012",
+    "max": 360.0,
+    "min": 260.0
+  },
+  {
+    "nom": "MIL HOJAS AMARGO",
+    "sku": "VM-TRUF-00010",
+    "max": 360.0,
+    "min": 260.0
+  },
+  {
+    "nom": "MIL HOJAS BAÑADO LECHE",
+    "sku": null,
+    "max": null,
+    "min": null
+  },
+  {
+    "nom": "MIL HOJAS BAÑADO BLANCO",
+    "sku": null,
+    "max": null,
+    "min": null
+  },
+  {
+    "nom": "MIL HOJAS BAÑADO AMARGO",
+    "sku": null,
+    "max": null,
+    "min": null
+  },
+  {
+    "nom": "MIL HOJAS CROCANTE",
+    "sku": null,
+    "max": null,
+    "min": null
+  },
+  {
+    "nom": "MIL HOJAS LECHE SURTIDO",
+    "sku": null,
+    "max": null,
+    "min": null
+  },
+  {
+    "nom": "MIL HOJAS BLANCO SURTIDO",
+    "sku": null,
+    "max": null,
+    "min": null
+  },
+  {
+    "nom": "CASCOTE LECHE ALMENDRAS",
+    "sku": null,
+    "max": null,
+    "min": null
+  },
+  {
+    "nom": "CASCOTE LECHE AVELLANAS",
+    "sku": null,
+    "max": 20.0,
+    "min": 5
+  },
+  {
+    "nom": "CASCOTE AMARGO AVELLANAS",
+    "sku": null,
+    "max": null,
+    "min": null
+  },
+  {
+    "nom": "CAFE TOSTADO CONFI x 1 kg",
+    "sku": null,
+    "max": 500.0,
+    "min": 300.0
+  },
+  {
+    "nom": "productos envasados",
+    "sku": null,
+    "max": null,
+    "min": null
+  },
+  {
+    "nom": "NUI X 6 ",
+    "sku": "VT-CENV-0000572",
+    "max": 24.0,
+    "min": 12.0
+  },
+  {
+    "nom": "NUI X 12 ",
+    "sku": "VT-CENV-0000573",
+    "max": 20.0,
+    "min": 10.0
+  },
+  {
+    "nom": "FONDUE MICRO",
+    "sku": "VT-CENV-0000546",
+    "max": 206.0,
+    "min": 103.0
+  },
+  {
+    "nom": "PAILA ALMEN LECHE 100gr",
+    "sku": "VT-CPAI-0000436",
+    "max": 505.0,
+    "min": 253.0
+  },
+  {
+    "nom": "PAILA ALMEN AMARGA 100gr",
+    "sku": "VT-CPAI-0000437",
+    "max": 56.0,
+    "min": 28.0
+  },
+  {
+    "nom": "PAILA AVELL LECHE 100gr",
+    "sku": "VT-CPAI-0000439",
+    "max": 206.0,
+    "min": 103.0
+  },
+  {
+    "nom": "PAILA PASAS LECHE 100gr",
+    "sku": "VT-CPAI-0000438",
+    "max": 104.0,
+    "min": 52.0
+  },
+  {
+    "nom": "PAILA ALM CROCANTE 100gr",
+    "sku": "VT-CPAI-0000408",
+    "max": 120.0,
+    "min": 60.0
+  },
+  {
+    "nom": "PAILA MANI LECHE 100gr",
+    "sku": "VT-CPAI-0000440",
+    "max": 90.0,
+    "min": 45.0
+  },
+  {
+    "nom": "PAILA NIBS X100gr",
+    "sku": null,
+    "max": 14.0,
+    "min": 7.0
+  },
+  {
+    "nom": "PAILA CRANBERRIES x100gr",
+    "sku": "VT-CPAI-0000999",
+    "max": 96.0,
+    "min": 48.0
+  },
+  {
+    "nom": "PAILA PISTACHO C/ CHOCOLATE BLANCO",
+    "sku": "VT-CPAI-0000940",
+    "max": 552.0,
+    "min": 276.0
+  },
+  {
+    "nom": "PAILA NUICCIOLATO",
+    "sku": "VT-CPAI-0000941",
+    "max": 220.0,
+    "min": 110.0
+  },
+  {
+    "nom": "PAILA MANI MARROC",
+    "sku": "VT-CPAI-0000440",
+    "max": "no se esta",
+    "min": "produciendo"
+  },
+  {
+    "nom": "PRALINE DE AVELLANA Y PISTACHO",
+    "sku": "VM-TRUF-00042",
+    "max": 69.0,
+    "min": 17.25
+  },
+  {
+    "nom": "NUICCIOLATO X 50 GR",
+    "sku": "VT-CTAB-0000433",
+    "max": 70.0,
+    "min": 35.0
+  },
+  {
+    "nom": "MARROC 50gr (comun)",
+    "sku": "VT-CTAB-0000516",
+    "max": 98.0,
+    "min": 49.0
+  },
+  {
+    "nom": "MARROC CEREAL 275",
+    "sku": "VT-CTAB-0000453",
+    "max": 313.0,
+    "min": 157.0
+  },
+  {
+    "nom": "TABLETA LECHE XXL ALMENDRA",
+    "sku": "VT-CTAB-0000522",
+    "max": 38.0,
+    "min": 19.0
+  },
+  {
+    "nom": "TABLETA LECHE XXL AVELLANA",
+    "sku": "VT-CTAB-0000521",
+    "max": 18.0,
+    "min": 9.0
+  },
+  {
+    "nom": "TABLETA AMARGA XXL ALMENDRA",
+    "sku": "VT-CTAB-0000639",
+    "max": 10.0,
+    "min": 5.0
+  },
+  {
+    "nom": "TABLETA AMARGA XXL AVELLANA",
+    "sku": null,
+    "max": 10.0,
+    "min": 0.0
+  },
+  {
+    "nom": "TABLETA XXL LECHE PURA",
+    "sku": "VT-CTAB-0000420",
+    "max": 16.0,
+    "min": 8.0
+  },
+  {
+    "nom": "MARROC 100gr (comun)",
+    "sku": "VT-CTAB-0000517",
+    "max": 86.0,
+    "min": 43.0
+  },
+  {
+    "nom": "MARROC CROCANTE X50GR",
+    "sku": "VT-CTAB-0001010",
+    "max": 42.0,
+    "min": 84.0
+  },
+  {
+    "nom": "GOLOSA 1 MH LECHE xBULTO",
+    "sku": "VT-CENV-0000501",
+    "max": 296.0,
+    "min": 148.0
+  },
+  {
+    "nom": "GOLOSA 2 MH BLANCO xBULTO",
+    "sku": "VT-CENV-0000502",
+    "max": 230.0,
+    "min": 115.0
+  },
+  {
+    "nom": "GOLOSA 3 MH CROCANTE xBULTO",
+    "sku": "VT-CENV-0000503",
+    "max": 100.0,
+    "min": 50.0
+  },
+  {
+    "nom": "GOLOSA 4 NOUGAT PISTACHO xBULTO",
+    "sku": "VT-CENV-0000504",
+    "max": 432.0,
+    "min": 231.0
+  },
+  {
+    "nom": "TABLETA SAL Y CARAMELO VB",
+    "sku": "VT-CTAB-0000581",
+    "max": 260.0,
+    "min": 130.0
+  },
+  {
+    "nom": "TAB LECHE DIET",
+    "sku": "VT-CTAB-0000579",
+    "max": 414.0,
+    "min": 207.0
+  },
+  {
+    "nom": "TAB 60 DIET",
+    "sku": "VT-CTAB-0000578",
+    "max": 114.0,
+    "min": 57.0
+  },
+  {
+    "nom": "TAB 100GS CHOCO LECHE Y ALM VB",
+    "sku": "VT-CTAB-0000998",
+    "max": 332.0,
+    "min": 166.0
+  },
+  {
+    "nom": "TABLETA DE PISTACHO VB",
+    "sku": "VT-CTAB-0000486",
+    "max": 554.0,
+    "min": 277.0
+  },
+  {
+    "nom": "TABLETA CHOC AMARGO 60% VB",
+    "sku": "VT-CTAB-0000997",
+    "max": 227.0,
+    "min": 114.0
+  },
+  {
+    "nom": "TABLETA CHOC AMARGO 70% VB",
+    "sku": "VT-CTAB-0000995",
+    "max": 359.0,
+    "min": 180.0
+  },
+  {
+    "nom": "TABLETA CHOC AMARGO 80% VB",
+    "sku": "VT-CTAB-0000994",
+    "max": 239.0,
+    "min": 120.0
+  },
+  {
+    "nom": "TABLETA CHOC AMARGO 90% VB",
+    "sku": "VT-CTAB-0000996",
+    "max": 190.0,
+    "min": 95.0
+  },
+  {
+    "nom": "TABLETA 70 ECUADOR VB",
+    "sku": "VT-CTAB-0000995",
+    "max": null,
+    "min": null
+  },
+  {
+    "nom": "TABLETA 80 TUMACO VB",
+    "sku": "VT-CTAB-0000994",
+    "max": null,
+    "min": null
+  },
+  {
+    "nom": "TAB CHOC LECHE PURO 80G VB",
+    "sku": "VT-CTAB-0000550",
+    "max": 384.0,
+    "min": 192.0
+  },
+  {
+    "nom": "TABLETA PURA BLANCA VB",
+    "sku": "VT-CTAB-0000485",
+    "max": 255.0,
+    "min": 128.0
+  },
+  {
+    "nom": "TABLETA FRAMB/CRANBERRIES X 45 gramos",
+    "sku": "VT-CTAB-0001001",
+    "max": 151.0,
+    "min": 76.0
+  },
+  {
+    "nom": "TABLETA BLANCO LIM/JEN x 45 gramos",
+    "sku": "VT-CTAB-0001000",
+    "max": 78.0,
+    "min": 39.0
+  },
+  {
+    "nom": "TABLETA CAFE NIBS 40 gramos",
+    "sku": "VT-CTAB-0000999",
+    "max": 52.0,
+    "min": 26.0
+  },
+  {
+    "nom": "TEJA LECHE",
+    "sku": "VT-CENV-0000539",
+    "max": 18.0,
+    "min": 9.0
+  },
+  {
+    "nom": "TEJA 60",
+    "sku": "VT-CENV-0000540",
+    "max": 22.0,
+    "min": 11.0
+  },
+  {
+    "nom": "TEJA 70",
+    "sku": "VT-CENV-0000541",
+    "max": 4.0,
+    "min": 2.0
+  },
+  {
+    "nom": "TEJA 80",
+    "sku": "VT-CENV-0000542",
+    "max": 8.0,
+    "min": 4.0
+  },
+  {
+    "nom": "TEJA 90",
+    "sku": "VT-CENV-0000543",
+    "max": 2.0,
+    "min": 1.0
+  },
+  {
+    "nom": "XL CEREAL LECHE",
+    "sku": null,
+    "max": "no hay ",
+    "min": "producción"
+  },
+  {
+    "nom": "XL LECHE ALMENDRA",
+    "sku": null,
+    "max": "no hay ",
+    "min": "producción"
+  },
+  {
+    "nom": "XL LECHE AVELLANA",
+    "sku": null,
+    "max": "no hay ",
+    "min": "producción"
+  },
+  {
+    "nom": "XL BLANCO MIX FRUTOS",
+    "sku": null,
+    "max": "no hay ",
+    "min": "producción"
+  },
+  {
+    "nom": "GARRAP AVELLANA 100gr",
+    "sku": "VT-GARR-0000968",
+    "max": 144.0,
+    "min": 72.0
+  },
+  {
+    "nom": "GARRAP ALMENDRA 100gr",
+    "sku": "VT-GARR-0000960",
+    "max": 276.0,
+    "min": 138.0
+  },
+  {
+    "nom": "GARRAP PECAN 100gr",
+    "sku": "VT-GARR-0000972",
+    "max": 234.0,
+    "min": 117.0
+  },
+  {
+    "nom": "GARRAP PISTACHO 100gr",
+    "sku": "VT-GARR-0000969",
+    "max": 412.0,
+    "min": 206.0
+  },
+  {
+    "nom": "GARRAP CAJU 100gr",
+    "sku": "VT-GARR-0000988",
+    "max": 265.0,
+    "min": 133.0
+  },
+  {
+    "nom": "LAPIZ MINI NUICCIOLA x5",
+    "sku": "VT-CENV-0000451",
+    "max": 62.0,
+    "min": 31.0
+  },
+  {
+    "nom": "MARROC CEREAL 260",
+    "sku": null,
+    "max": 114.0,
+    "min": 28.5
+  },
+  {
+    "nom": "RAMA 60 BLANCO",
+    "sku": "VT-CRAM-0000457",
+    "max": 276.0,
+    "min": 138.0
+  },
+  {
+    "nom": "RAMA 60 LECHE",
+    "sku": "VT-CRAM-0000456",
+    "max": 422.0,
+    "min": 211.0
+  },
+  {
+    "nom": "RAMA 60 AMARGO",
+    "sku": "VT-CRAM-0000480",
+    "max": 142.0,
+    "min": 71.0
+  },
+  {
+    "nom": "RAMON",
+    "sku": "VT-CRAM-0000410",
+    "max": 114.0,
+    "min": 57.0
+  },
+  {
+    "nom": "RAPASAURIO 3D",
+    "sku": "VT-CINF-0000360",
+    "max": 55.0,
+    "min": 27.0
+  },
+  {
+    "nom": "LAPIZ DDL x 9 U",
+    "sku": "VT-CENV-0000452",
+    "max": 72.0,
+    "min": 36.0
+  },
+  {
+    "nom": "TURRON ALMENDRA",
+    "sku": "VT-TURR-0000981",
+    "max": 152.0,
+    "min": 76.0
+  },
+  {
+    "nom": "TURRON MANI",
+    "sku": "VT-TURR-0000983",
+    "max": 76.0,
+    "min": 38.0
+  },
+  {
+    "nom": "TURRON NUEZ",
+    "sku": "VT-TURR-0000984",
+    "max": 70.0,
+    "min": 35.0
+  },
+  {
+    "nom": "TURRON NUEZ Y DAMASCO",
+    "sku": "VT-TURR-0000982",
+    "max": 110.0,
+    "min": 55.0
+  },
+  {
+    "nom": "TURRON ALMENDRA BAÑADO",
+    "sku": "VT-TURR-0000984",
+    "max": 116.0,
+    "min": 58.0
+  },
+  {
+    "nom": "TURRON GIANDUIA ",
+    "sku": "VT-TURR-0000986",
+    "max": 128.0,
+    "min": 64.0
+  },
+  {
+    "nom": "TURRON PISTACHO Y NARANJA",
+    "sku": "VT-TURR-0000987",
+    "max": 110.0,
+    "min": 55.0
+  },
+  {
+    "nom": "PELOTA CHICA",
+    "sku": "VT-CFIG-0000610",
+    "max": 36.0,
+    "min": 18.0
+  },
+  {
+    "nom": "MUNECO DE NIEVE",
+    "sku": "VT-CFIG-0000602",
+    "max": 6.0,
+    "min": 3.0
+  },
+  {
+    "nom": "OSO CON AUTO",
+    "sku": "VT-CFIG-0000613",
+    "max": 62.0,
+    "min": 31.0
+  },
+  {
+    "nom": "OSO CON PELOTA",
+    "sku": "VT-CFIG-0000612",
+    "max": 42.0,
+    "min": 21.0
+  },
+  {
+    "nom": "GATITAS",
+    "sku": "VT-CFIG-0000625",
+    "max": 54.0,
+    "min": 27.0
+  },
+  {
+    "nom": "PERRITA",
+    "sku": "VT-CFIG-0000616",
+    "max": 52.0,
+    "min": 26.0
+  },
+  {
+    "nom": "TORTUGAS",
+    "sku": "VT-CFIG-0000624",
+    "max": 68.0,
+    "min": 34.0
+  },
+  {
+    "nom": "FIG FORMULA 1",
+    "sku": "VT-CFIG-0000955",
+    "max": "no hay producción",
+    "min": "no hay producción"
+  },
+  {
+    "nom": "OSOS DDL x4",
+    "sku": "VT-CINF-0000481",
+    "max": 430.0,
+    "min": 215.0
+  },
+  {
+    "nom": "OSOS DDL x6",
+    "sku": "VT-CINF-0000482",
+    "max": 490.0,
+    "min": 245.0
+  },
+  {
+    "nom": "OSOS DDL x12",
+    "sku": "VT-CINF-0000483",
+    "max": 536.0,
+    "min": 268.0
+  },
+  {
+    "nom": "CORAZON x5",
+    "sku": "VT-CENV-0000584",
+    "max": 228.0,
+    "min": 114.0
+  },
+  {
+    "nom": "OSOS DDL x6 BLANCO",
+    "sku": "VT-CINF-0000548",
+    "max": 164.0,
+    "min": 82.0
+  },
+  {
+    "nom": "TABLETA RELLENA DDL 120gr",
+    "sku": "VT-CTAB-0000519",
+    "max": 244.0,
+    "min": 122.0
+  },
+  {
+    "nom": "TABLETA MINI GOTA DDL",
+    "sku": "VT-CTAB-0000518",
+    "max": 242.0,
+    "min": 121.0
+  },
+  {
+    "nom": "SUBMARINO X 3",
+    "sku": "VT-CENV-0000544",
+    "max": 140.0,
+    "min": 70.0
+  },
+  {
+    "nom": "MIX TORTUGAS 22uni",
+    "sku": "VT-CFIG-0000361",
+    "max": 86.0,
+    "min": 43.0
+  },
+  {
+    "nom": "BOMBON x4",
+    "sku": "VT-CENV-0000465",
+    "max": 170.0,
+    "min": 85.0
+  },
+  {
+    "nom": "FIGURAS MACIZAS MIx",
+    "sku": "VT-CINF-0000628",
+    "max": 274.0,
+    "min": 137.0
+  },
+  {
+    "nom": "CHOCO TAZA BOLSA 200gr",
+    "sku": "VT-CPOL-0000555",
+    "max": 220.0,
+    "min": 110.0
+  },
+  {
+    "nom": "FONDUE TRADICIONAL X 200gr",
+    "sku": "VT-CPOL-0000557",
+    "max": 192.0,
+    "min": 96.0
+  },
+  {
+    "nom": "CAFE MOLIDO ENV.X250",
+    "sku": "VT-CENV-0000235",
+    "max": 210.0,
+    "min": 105.0
+  },
+  {
+    "nom": "CAFE EN GRANO ENV. X250",
+    "sku": "VT-CENV-0000233",
+    "max": 158.0,
+    "min": 79.0
+  },
+  {
+    "nom": "TABLETA DUBAI",
+    "sku": "VT-CTAB-0000434",
+    "max": 380.0,
+    "min": 190.0
+  },
+  {
+    "nom": "SUBMARINO PIGGY ",
+    "sku": "VT-CFIG-0000956",
+    "max": 25.0,
+    "min": 13.0
+  },
+  {
+    "nom": "CONEJITO DDL X 5",
+    "sku": null,
+    "max": null,
+    "min": null
+  }
+]

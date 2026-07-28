@@ -7,7 +7,7 @@ import {
   ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts";
 
-const APP_VERSION = "2026.07.28-optimiseur-vert";
+const APP_VERSION = "2026.07.28-optimiseur-full";
 
 const PALETTE = [
   { couleur: "bg-violet-600", clair: "bg-violet-100", bordure: "border-violet-600", texte: "text-violet-800" },
@@ -2387,7 +2387,7 @@ export default function PlanificateurChocolat() {
     let blocsPartiels = 0;
     const derniereFamilleParLigne = {};
     const prioritesActives = prioritesProduction.filter((regle) => regle.active && regle.factory_id === usine);
-    datesHorizon.forEach((jour) => {
+    datesHorizon.forEach((jour, jourIndex) => {
       produitsUsine.forEach((p) => { if (estConfigure(p)) stockSim[p.id] -= demandeJour(p); });
       if (!jour.prod) return;
       lignesUsine.forEach((ligne) => {
@@ -2407,15 +2407,20 @@ export default function PlanificateurChocolat() {
           // Produit le plus en déficit sous le plancher vert. La quantité est divisible.
           let meilleur = null, meilleurScore = -Infinity;
           let meilleureRegle = null;
+          const joursRestantsHorizon = Math.max(0, datesHorizon.length - jourIndex - 1);
           prods.forEach((p) => {
             const s = seuils(p);
             const reglesProduit = prioritesActives.filter((regle) => String(regle.product_id) === String(p.id));
             const multiplicateurCible = reglesProduit.reduce((max, regle) => Math.max(max, Number(regle.target_multiplier) || 1.5), 1.5);
             const plancher = Math.min(s.max, s.min * multiplicateurCible);
-            const urgence = plancher - stockSim[p.id]; // > 0 si esta debajo del verde
+            const stockProjeteFin = stockSim[p.id] - demandeJour(p) * joursRestantsHorizon;
+            const urgence = plancher - stockProjeteFin; // anticipe le risque jusqu'à la fin de période
             if (urgence <= 0) return;
+            const kgPossible = Math.min(kgb_ligne, Math.max(0, (s.max - stockSim[p.id]) * kgParBulto(p)));
+            if (kgPossible <= 0) return;
             const deficitMax = Math.max(0, s.max - stockSim[p.id]);
             const bonusRouge = stockSim[p.id] < s.min ? 1000000000 + (s.min - stockSim[p.id]) * 100000 : 0;
+            const bonusRougeFin = stockProjeteFin < s.min ? 100000000 + (s.min - stockProjeteFin) * 10000 : 0;
             const memeFamille = derniereFamilleParLigne[ligne.id] && derniereFamilleParLigne[ligne.id] === familleProduit(p);
             const derniere = produits.find((prod) => memeId(prod.id, derniereFamilleParLigne[ligne.id + "_produit"]));
             const favoriseFraise = regleFramboisePuisFraise && ligne.id === "vb_stephan" && tokensProduit(derniere && derniere.nom).includes("FRAMBUESA") && tokensProduit(p.nom).includes("FRUTILLA");
@@ -2436,7 +2441,7 @@ export default function PlanificateurChocolat() {
                 regleDominante = regle;
               }
             });
-            const score = bonusRouge + urgence * 1000 + deficitMax + (memeFamille ? Math.max(25, Math.abs(urgence) * 120) : 0) + (favoriseFraise ? 500000 : 0) + bonusPriorite;
+            const score = bonusRouge + bonusRougeFin + urgence * 1000 + deficitMax + (memeFamille ? Math.max(25, Math.abs(urgence) * 120) : 0) + (favoriseFraise ? 500000 : 0) + bonusPriorite;
             if (score > meilleurScore) { meilleur = p; meilleurScore = score; meilleureRegle = regleDominante; }
           });
           if (!meilleur) {
@@ -2445,11 +2450,8 @@ export default function PlanificateurChocolat() {
           }
           const s = seuils(meilleur);
           const kgpb = kgParBulto(meilleur);
-          const reglesMeilleur = prioritesActives.filter((regle) => String(regle.product_id) === String(meilleur.id));
-          const multiplicateurCible = reglesMeilleur.reduce((max, regle) => Math.max(max, Number(regle.target_multiplier) || 1.5), 1.5);
-          const plancherVert = Math.min(s.max, s.min * multiplicateurCible);
-          const kgNecessaires = Math.max(0, (plancherVert - stockSim[meilleur.id]) * kgpb);
-          const kgProduit = Math.min(kgb_ligne, kgNecessaires);
+          const kgAvantMaximum = Math.max(0, (s.max - stockSim[meilleur.id]) * kgpb);
+          const kgProduit = Math.min(kgb_ligne, kgAvantMaximum);
           if (kgProduit <= 0) return;
           if (kgProduit < kgb_ligne - 0.01) blocsPartiels++;
           const famille = familleProduit(meilleur);
@@ -2457,7 +2459,7 @@ export default function PlanificateurChocolat() {
             ? "Agrupado por familia similar (" + famille + ")"
             : (meilleureRegle
               ? "Prioridad admin: " + (meilleureRegle.rule_type === "never_stockout" ? "producto crítico" : meilleureRegle.rule_type === "sequence" ? "secuencia obligatoria" : meilleureRegle.rule_type === "due_date" ? "fecha límite" : "stock objetivo reforzado")
-              : (stockSim[meilleur.id] < s.min ? "Prioridad: salir de zona roja" : "Cantidad ajustada para volver a zona verde"));
+              : (stockSim[meilleur.id] < s.min ? "Prioridad: salir de zona roja" : kgProduit < kgb_ligne - 0.01 ? "Cantidad limitada para no superar el máximo" : "Producción completa para proteger el stock"));
           nouveauPlan[jour.cle + "|" + ligne.id + "|" + turno.id] = { p: meilleur.id, kg: kgProduit, raison };
           stockSim[meilleur.id] += kgProduit / kgpb;
           derniereFamilleParLigne[ligne.id] = famille;
@@ -2472,7 +2474,7 @@ export default function PlanificateurChocolat() {
     const sansConv = configures.filter((p) => !kgParBulto(p)).length;
     const enVert = configures.filter((p) => { const s = seuils(p); if (s.max <= 0) return true; return stockSim[p.id] >= s.min * 1.5 && stockSim[p.id] <= s.max; }).length;
     const sousMin = configures.filter((p) => stockSim[p.id] < seuils(p).min).length;
-    setMsgOpti("✓ " + blocsUtilises + " turno(s) utilizado(s) del " + fmtDate(lundiDepart) + (dateFin ? " al " + fmtDate(dateFin) : " en " + horizonOpti + " sem.") + " · " + blocsPartiels + " con cantidad ajustada al objetivo verde · " + blocsSansBesoin + " turno(s) libres porque el stock ya estaba en verde · prioridad absoluta a productos bajo mínimo · " + enVert + "/" + configures.length + " en zona verde al final del horizonte" + (sousMin > 0 ? " · ⚠️ " + sousMin + " todavía bajo el mínimo por falta de capacidad o conversión" : "") + (sansConv > 0 ? " · " + sansConv + " sin conversión no planificados" : "") + ".");
+    setMsgOpti("✓ " + blocsUtilises + " turno(s) utilizado(s) del " + fmtDate(lundiDepart) + (dateFin ? " al " + fmtDate(dateFin) : " en " + horizonOpti + " sem.") + " · producción a capacidad completa por defecto · " + blocsPartiels + " turno(s) parciales solo para no superar el máximo · " + blocsSansBesoin + " turno(s) libres sin necesidad de producción · prioridad absoluta a productos bajo mínimo y riesgo al final del período · " + enVert + "/" + configures.length + " en zona verde al final del horizonte" + (sousMin > 0 ? " · ⚠️ " + sousMin + " todavía bajo el mínimo por falta de capacidad, turnos o conversión" : "") + (sansConv > 0 ? " · " + sansConv + " sin conversión no planificados" : "") + ".");
   };
 
   const viderHorizon = () => {

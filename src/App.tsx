@@ -7,7 +7,7 @@ import {
   ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts";
 
-const APP_VERSION = "2026.07.28-base-vide";
+const APP_VERSION = "2026.07.28-stock-derniere-valeur";
 const PORTAIL_EMAIL_ACTIF = false;
 
 const PALETTE = [
@@ -2549,14 +2549,26 @@ export default function PlanificateurChocolat() {
     for (let i = rows.length - 1; i > Math.max(idxMax, idxMin); i--) { if (rows[i].some((c, ci) => ci > 0 && c !== "" && !isNaN(parseNum(c)))) { idxStock = i; break; } }
     const ligneStock = idxStock !== -1 ? rows[idxStock] : [];
     const dateStock = ligneStock[0] || "";
+    const idxDebutStocks = Math.max(idxMax, idxMin, idxSku) + 1;
+    const derniereValeurStock = (colonne) => {
+      for (let i = rows.length - 1; i >= idxDebutStocks; i--) {
+        const cellule = normaliser((rows[i] || [])[colonne]);
+        if (cellule === "") continue;
+        const valeur = parseNum(cellule);
+        if (!isNaN(valeur)) return { valeur, indexLigne: i };
+      }
+      return { valeur: NaN, indexLigne: -1 };
+    };
     const debut = (isNaN(parseNum(ligneMax[0])) && isNaN(parseNum(ligneMin[0]))) ? 1 : 0;
-    let maj = 0, ajoutes = 0, avecMinMax = 0, ignores = 0, reconnus = 0, redirigesAutreUsine = 0;
+    let maj = 0, ajoutes = 0, avecMinMax = 0, ignores = 0, reconnus = 0, redirigesAutreUsine = 0, reprisHistorique = 0;
     let nouveaux = [...produits];
     const nbCols = Math.max(ligneNoms.length, ligneMax.length, ligneMin.length, ligneStock.length, ligneSku.length);
     for (let c = debut; c < nbCols; c++) {
       const nom = normaliser(ligneNoms[c]); if (!nom) continue;
       const sku = normaliser(ligneSku[c]);
-      const vMax = parseNum(ligneMax[c]), vMin = parseNum(ligneMin[c]), vStock = parseNum(ligneStock[c]);
+      const lectureStock = derniereValeurStock(c);
+      const vMax = parseNum(ligneMax[c]), vMin = parseNum(ligneMin[c]), vStock = lectureStock.valeur;
+      if (lectureStock.indexLigne >= 0 && lectureStock.indexLigne !== idxStock) reprisHistorique++;
       if (isNaN(vStock) && isNaN(vMin) && isNaN(vMax)) { ignores++; continue; }
       if (!isNaN(vMin) || !isNaN(vMax)) avecMinMax++;
       const champs = { ...(sku ? { sku } : {}), ...(isNaN(vStock) ? {} : { stock: vStock }), ...(isNaN(vMin) ? {} : { min: vMin }), ...(isNaN(vMax) ? {} : { max: vMax }) };
@@ -2575,7 +2587,7 @@ export default function PlanificateurChocolat() {
     }
     if (maj === 0 && ajoutes === 0) { setMsgImport("⚠️ No se detectó ningún producto. Verifica el pegado."); return; }
     setProduits(nouveaux);
-    setMsgImport((modeActualisation ? "Actualizacion" : "Importacion") + " (stock del " + (dateStock || "?") + "): " + maj + " actualizado(s), " + (modeActualisation ? "planning conservado sin recalcular" : ajoutes + " nuevo(s)") + ", " + reconnus + " reconocido(s) por nombre similar, " + redirigesAutreUsine + " redirigido(s) a su planta predefinida, " + avecMinMax + " con min./max. " + ignores + (usine === "fatima" ? " producto(s) ignorado(s) por estar fuera de la lista autorizada o por celdas vacias." : modeActualisation ? " producto(s) ignorado(s) porque no existian en la base o por celdas vacias." : " producto(s) ignorado(s) por celdas vacias.") + (avecMinMax === 0 ? " No se leyo ningun min./max." : "") + (modeActualisation ? " Para recalcular el calendario, elige Desde/Hasta y pulsa Optimizar la planificacion." : ""));
+    setMsgImport((modeActualisation ? "Actualizacion" : "Importacion") + " (stock del " + (dateStock || "?") + "): " + maj + " actualizado(s), " + (modeActualisation ? "planning conservado sin recalcular" : ajoutes + " nuevo(s)") + ", " + reconnus + " reconocido(s) por nombre similar, " + redirigesAutreUsine + " redirigido(s) a su planta predefinida, " + avecMinMax + " con min./max., " + reprisHistorique + " stock(s) retomado(s) de la ultima fecha con valor. " + ignores + (usine === "fatima" ? " producto(s) ignorado(s) por estar fuera de la lista autorizada o por no tener ningun valor historico." : modeActualisation ? " producto(s) ignorado(s) porque no existian en la base o no tenian ningun valor historico." : " producto(s) ignorado(s) por no tener ningun valor historico.") + (avecMinMax === 0 ? " No se leyo ningun min./max." : "") + (modeActualisation ? " Para recalcular el calendario, elige Desde/Hasta y pulsa Optimizar la planificacion." : ""));
     setTexteImport("");
   };
   const importerFeuilleUsine = () => appliquerCollageStocks({ modeActualisation: false });

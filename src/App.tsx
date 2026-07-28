@@ -7,7 +7,8 @@ import {
   ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts";
 
-const APP_VERSION = "2026.07.28-acceso-email";
+const APP_VERSION = "2026.07.28-base-vide";
+const PORTAIL_EMAIL_ACTIF = false;
 
 const PALETTE = [
   { couleur: "bg-violet-600", clair: "bg-violet-100", bordure: "border-violet-600", texte: "text-violet-800" },
@@ -715,9 +716,9 @@ function kgEffectifBloc(b) {
   return b && b.realKg != null && b.realKg !== "" && Number(b.realKg) >= 0 ? Number(b.realKg) : (b ? b.kg : 0);
 }
 
-const STORAGE_KEY = "choco-planner-state-v7";
-const LINE_SETTINGS_STORAGE_KEY = "choco-planner-line-settings-v1";
-const OLD_STORAGE_KEYS = ["choco-planner-state-v4", "choco-planner-state-v5", "choco-planner-state-v6"];
+const STORAGE_KEY = "choco-planner-state-v8";
+const LINE_SETTINGS_STORAGE_KEY = "choco-planner-line-settings-v2";
+const OLD_STORAGE_KEYS = ["choco-planner-state-v4", "choco-planner-state-v5", "choco-planner-state-v6", "choco-planner-state-v7", "choco-planner-line-settings-v1"];
 
 function chargerActivationLocale(usineId) {
   try {
@@ -986,7 +987,7 @@ export default function PlanificateurChocolat() {
       return () => { actif = false; };
     }
     const activationLocale = chargerActivationLocale(usine);
-    if (!supabase || !session?.user) {
+    if (!PORTAIL_EMAIL_ACTIF || !supabase || !session?.user) {
       setActivationLignes(activationLocale);
       return () => { actif = false; };
     }
@@ -1772,10 +1773,12 @@ export default function PlanificateurChocolat() {
     dateFinOpti,
   });
 
-  const peutPlanifier = !supabaseConfigured || ["admin", "planner"].includes(profil?.role);
-  const peutSaisirReel = !supabaseConfigured || ["admin", "planner", "production"].includes(profil?.role);
-  const peutGererPriorites = !supabaseConfigured || ["admin", "planner", "production"].includes(profil?.role);
-  const peutConfigurerLignes = !supabaseConfigured || ["admin", "planner"].includes(profil?.role);
+  const accesPublic = !PORTAIL_EMAIL_ACTIF;
+  const cloudUtilisateurActif = PORTAIL_EMAIL_ACTIF && supabaseConfigured && !!session?.user;
+  const peutPlanifier = accesPublic || !supabaseConfigured || ["admin", "planner"].includes(profil?.role);
+  const peutSaisirReel = accesPublic || !supabaseConfigured || ["admin", "planner", "production"].includes(profil?.role);
+  const peutGererPriorites = accesPublic || !supabaseConfigured || ["admin", "planner", "production"].includes(profil?.role);
+  const peutConfigurerLignes = accesPublic || !supabaseConfigured || ["admin", "planner"].includes(profil?.role);
   const planningFige = versionActive?.status === "approved" || versionActive?.status === "replaced" || versionActive?.status === "archived";
 
   const basculerActivationLigne = async (ligne) => {
@@ -3217,11 +3220,11 @@ export default function PlanificateurChocolat() {
     </div>
   );
 
-  if (supabaseConfigured && !authReady) {
+  if (PORTAIL_EMAIL_ACTIF && supabaseConfigured && !authReady) {
     return <div className="min-h-screen bg-violet-50 grid place-items-center text-violet-900">Cargando acceso seguro...</div>;
   }
 
-  if (supabaseConfigured && session && doitChoisirMotDePasse) {
+  if (PORTAIL_EMAIL_ACTIF && supabaseConfigured && session && doitChoisirMotDePasse) {
     return (
       <div className="min-h-screen bg-violet-50 grid place-items-center p-4 font-sans text-slate-800">
         <form onSubmit={definirMotDePasse} className="w-full max-w-sm bg-white border border-violet-100 shadow-lg rounded-xl p-6">
@@ -3243,7 +3246,7 @@ export default function PlanificateurChocolat() {
     );
   }
 
-  if (supabaseConfigured && !session) {
+  if (PORTAIL_EMAIL_ACTIF && supabaseConfigured && !session) {
     return (
       <div className="min-h-screen bg-violet-50 grid place-items-center p-4 font-sans text-slate-800">
         <form onSubmit={connecter} className="w-full max-w-sm bg-white border border-violet-100 shadow-lg rounded-xl p-6">
@@ -3392,14 +3395,14 @@ export default function PlanificateurChocolat() {
             </div>
           </div>
           <div className="flex flex-wrap items-center justify-end gap-2">
-            {supabaseConfigured && profil && (
+            {PORTAIL_EMAIL_ACTIF && supabaseConfigured && profil && (
               <span className="text-xs text-slate-500 text-right">
                 <strong className="block text-slate-700">{profil.full_name || session?.user?.email}</strong>
                 {profil.role}
               </span>
             )}
             <button onClick={() => setUsine(null)} className="px-3 py-2 bg-white border border-violet-300 rounded-lg text-sm text-violet-800 hover:bg-violet-100">⇄ Cambiar fábrica</button>
-            {supabaseConfigured && <button onClick={deconnecter} className="px-3 py-2 bg-white border border-slate-300 rounded-lg text-sm text-slate-600 hover:bg-slate-100">Salir</button>}
+            {PORTAIL_EMAIL_ACTIF && supabaseConfigured && <button onClick={deconnecter} className="px-3 py-2 bg-white border border-slate-300 rounded-lg text-sm text-slate-600 hover:bg-slate-100">Salir</button>}
           </div>
         </header>
 
@@ -4012,10 +4015,10 @@ export default function PlanificateurChocolat() {
                 <input disabled={planningFige || !peutPlanifier} type="date" className="bg-white disabled:bg-slate-100 border border-green-300 rounded-md px-2 py-1 text-sm font-semibold text-green-900" value={dateFinOpti} min={dateDebutOpti} onChange={(e) => { const valeur = e.target.value; setDateFinOpti(valeur); nettoyerPlanningHorsPeriode(dateDepuisCle(dateDebutOpti), dateDepuisCle(valeur)); }} />
               </label>
               <button disabled={planningFige || !peutPlanifier} onClick={viderHorizon} className="px-3 py-2 bg-white disabled:bg-slate-100 border border-gray-300 text-gray-600 rounded-lg text-sm hover:bg-gray-100">Borrar horizonte</button>
-              {!supabaseConfigured && <button onClick={guardarPlanificacion} className="px-3 py-2 bg-violet-800 text-white rounded-lg text-sm hover:bg-violet-900">Guardar local</button>}
-              {supabaseConfigured && !planningFige && peutPlanifier && <button onClick={() => sauvegarderVersion()} className="px-3 py-2 bg-violet-800 text-white rounded-lg text-sm hover:bg-violet-900">Guardar borrador</button>}
-              {supabaseConfigured && !planningFige && peutPlanifier && <button onClick={() => sauvegarderVersion({ approuver: true })} className="px-3 py-2 bg-emerald-700 text-white rounded-lg text-sm hover:bg-emerald-800">Aprobar y congelar</button>}
-              {supabaseConfigured && planningFige && peutPlanifier && <button onClick={creerRevision} className="px-3 py-2 bg-amber-600 text-white rounded-lg text-sm hover:bg-amber-700">Crear revisión</button>}
+              {!cloudUtilisateurActif && <button onClick={guardarPlanificacion} className="px-3 py-2 bg-violet-800 text-white rounded-lg text-sm hover:bg-violet-900">Guardar local</button>}
+              {cloudUtilisateurActif && !planningFige && peutPlanifier && <button onClick={() => sauvegarderVersion()} className="px-3 py-2 bg-violet-800 text-white rounded-lg text-sm hover:bg-violet-900">Guardar borrador</button>}
+              {cloudUtilisateurActif && !planningFige && peutPlanifier && <button onClick={() => sauvegarderVersion({ approuver: true })} className="px-3 py-2 bg-emerald-700 text-white rounded-lg text-sm hover:bg-emerald-800">Aprobar y congelar</button>}
+              {cloudUtilisateurActif && planningFige && peutPlanifier && <button onClick={creerRevision} className="px-3 py-2 bg-amber-600 text-white rounded-lg text-sm hover:bg-amber-700">Crear revisión</button>}
               <button onClick={compartirPlanificacion} className="px-3 py-2 bg-sky-700 text-white rounded-lg text-sm hover:bg-sky-800">Compartir</button>
               {versionActive && <span className={"px-2 py-1 rounded-full text-xs font-semibold " + (planningFige ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-800")}>V{versionActive.version_no} · {versionActive.status}</span>}
               {msgOpti && <span className="text-sm text-green-800">{msgOpti}</span>}
@@ -4138,12 +4141,12 @@ export default function PlanificateurChocolat() {
                 <h2 className="text-lg font-semibold text-violet-950">Versiones de planificación</h2>
                 <p className="text-sm text-slate-500">Los planes aprobados quedan congelados. La producción real y las notas se registran por separado.</p>
               </div>
-              {supabaseConfigured && <button onClick={() => chargerVersions()} className="px-3 py-2 border border-slate-300 rounded-lg text-sm hover:bg-slate-50">Actualizar lista</button>}
+              {cloudUtilisateurActif && <button onClick={() => chargerVersions()} className="px-3 py-2 border border-slate-300 rounded-lg text-sm hover:bg-slate-50">Actualizar lista</button>}
             </div>
 
-            {!supabaseConfigured ? (
+            {!cloudUtilisateurActif ? (
               <div className="border border-amber-200 bg-amber-50 rounded-lg p-4 text-sm text-amber-900">
-                Supabase todavía no está conectado. La aplicación sigue funcionando localmente, pero no puede compartir ni conservar versiones entre usuarios.
+                El acceso público temporal está activo. La aplicación funciona localmente, pero las versiones compartidas requieren reactivar la identificación por email.
               </div>
             ) : (
               <>

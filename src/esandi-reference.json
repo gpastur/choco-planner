@@ -958,11 +958,5 @@
     "sku": "VT-CFIG-0000956",
     "max": 25.0,
     "min": 13.0
-  },
-  {
-    "nom": "CONEJITO DDL X 5",
-    "sku": null,
-    "max": null,
-    "min": null
   }
 ]

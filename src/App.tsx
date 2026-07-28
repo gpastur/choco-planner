@@ -7,7 +7,7 @@ import {
   ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts";
 
-const APP_VERSION = "2026.07.28-vb-franui";
+const APP_VERSION = "2026.07.28-lineas-local-fallback";
 
 const PALETTE = [
   { couleur: "bg-violet-600", clair: "bg-violet-100", bordure: "border-violet-600", texte: "text-violet-800" },
@@ -181,7 +181,6 @@ const PESO_BULTO_POR_PRODUCTO = {
   "TURRON NUEZ": 3.63,
   "TURRON NUEZ Y DAMASCO": 3.63,
   "TURRON PISTACHO Y NARANJA": 3.63,
-  "CONEJITO DDL X 5": 2.1,
 };
 
 const PRODUITS_BASE = [
@@ -295,7 +294,6 @@ const PRODUITS_BASE = [
   mkEsandi(108, "TURRON NUEZ", "e_tur", 3.63),
   mkEsandi(109, "TURRON NUEZ Y DAMASCO", "e_tur", 3.63),
   mkEsandi(110, "TURRON PISTACHO Y NARANJA", "e_tur", 3.63),
-  mkEsandi(111, "CONEJITO DDL X 5", "e_bomb", 2.1),
   mkEsandi(139, "TABLETA 70 ECUADOR VB", "e_bomb", 3.04),
   mkEsandi(140, "TABLETA 80 TUMACO VB", "e_bomb", 3.04),
   mkEsandi(143, "HUESITO FIG MACIZA", "e_bomb", 7.98),
@@ -718,7 +716,23 @@ function kgEffectifBloc(b) {
 }
 
 const STORAGE_KEY = "choco-planner-state-v7";
+const LINE_SETTINGS_STORAGE_KEY = "choco-planner-line-settings-v1";
 const OLD_STORAGE_KEYS = ["choco-planner-state-v4", "choco-planner-state-v5", "choco-planner-state-v6"];
+
+function chargerActivationLocale(usineId) {
+  try {
+    const toutes = JSON.parse(localStorage.getItem(LINE_SETTINGS_STORAGE_KEY) || "{}");
+    return toutes && typeof toutes[usineId] === "object" ? toutes[usineId] : {};
+  } catch (_) { return {}; }
+}
+
+function sauverActivationLocale(usineId, valeurs) {
+  try {
+    const toutes = JSON.parse(localStorage.getItem(LINE_SETTINGS_STORAGE_KEY) || "{}");
+    toutes[usineId] = valeurs;
+    localStorage.setItem(LINE_SETTINGS_STORAGE_KEY, JSON.stringify(toutes));
+  } catch (_) { /* Le mode local reste utilisable même si le stockage est bloqué. */ }
+}
 
 function encodePayload(payload) {
   const json = JSON.stringify(payload);
@@ -744,7 +758,7 @@ function htmlEscape(value) {
 }
 function fusionAvecBase(base: any[], sauvegarde: any[]) {
   const parId = new Map(base.map((item) => [item.id, item]));
-  const idsObsoletes = new Set([138, 141, 142, 144, 145, 146, 3050, 3051, 3052, 3053, 3054, 3055, 3056, 3057, 3058, 3059, 3060]);
+  const idsObsoletes = new Set([111, 138, 141, 142, 144, 145, 146, 3050, 3051, 3052, 3053, 3054, 3055, 3056, 3057, 3058, 3059, 3060]);
   (Array.isArray(sauvegarde) ? sauvegarde : []).forEach((item) => {
     if (item.id === "f_tabletas_bariloche") return;
     if (idsObsoletes.has(item.id)) return;
@@ -943,7 +957,10 @@ export default function PlanificateurChocolat() {
   const lignesUsineToutes = useMemo(() => lignes.filter((l) => l.usine === usine), [lignes, usine]);
   const lignesUsine = useMemo(() => lignesUsineToutes.filter((l) => activationLignes[l.id] !== false), [lignesUsineToutes, activationLignes]);
   const produitsUsineTous = useMemo(() => produits.filter((p) => p.usine === usine && !(usine === "esandi" && estNomFatimaProtege(p.nom))), [produits, usine]);
-  const produitsUsine = useMemo(() => produitsUsineTous.filter((p) => !p.ligne || activationLignes[p.ligne] !== false), [produitsUsineTous, activationLignes]);
+  const produitsUsine = useMemo(() => produitsUsineTous.filter((p) => {
+    const lignesProduit = Array.isArray(p.lignesCompatibles) && p.lignesCompatibles.length ? p.lignesCompatibles : [p.ligne];
+    return !p.ligne || lignesProduit.some((ligneId) => activationLignes[ligneId] !== false);
+  }), [produitsUsineTous, activationLignes]);
   const filtrerProduitsParSku = (recherche) => {
     const terme = normaliser(recherche).toLocaleLowerCase();
     return produitsUsine
@@ -960,8 +977,9 @@ export default function PlanificateurChocolat() {
       setActivationLignes({});
       return () => { actif = false; };
     }
+    const activationLocale = chargerActivationLocale(usine);
     if (!supabase || !session?.user) {
-      setActivationLignes({});
+      setActivationLignes(activationLocale);
       return () => { actif = false; };
     }
     supabase
@@ -971,13 +989,15 @@ export default function PlanificateurChocolat() {
       .then(({ data, error }) => {
         if (!actif) return;
         if (error) {
-          setActivationLignes({});
-          setMsgActivationLignes("Configuración compartida pendiente: ejecuta el script SQL de líneas activas en Supabase.");
+          setActivationLignes(activationLocale);
+          setMsgActivationLignes("Configuración compartida pendiente. Los cambios se guardan localmente en este navegador.");
           return;
         }
         const mapa: Record<string, boolean> = {};
         (data || []).forEach((item) => { mapa[item.line_id] = item.active !== false; });
-        setActivationLignes(mapa);
+        const fusion = { ...activationLocale, ...mapa };
+        setActivationLignes(fusion);
+        sauverActivationLocale(usine, fusion);
       });
     return () => { actif = false; };
   }, [usine, session?.user?.id]);
@@ -1756,9 +1776,11 @@ export default function PlanificateurChocolat() {
       return;
     }
     const prochaineValeur = activationLignes[ligne.id] === false;
+    const nouvelleActivation = { ...activationLignes, [ligne.id]: prochaineValeur };
+    setActivationLignes(nouvelleActivation);
+    sauverActivationLocale(usine, nouvelleActivation);
     setMsgActivationLignes("Guardando...");
     if (!supabase || !session?.user) {
-      setActivationLignes((actuel) => ({ ...actuel, [ligne.id]: prochaineValeur }));
       setMsgActivationLignes(prochaineValeur ? "Línea activada en esta vista previa." : "Línea desactivada en esta vista previa.");
       return;
     }
@@ -1770,10 +1792,9 @@ export default function PlanificateurChocolat() {
       updated_at: new Date().toISOString(),
     }, { onConflict: "factory_id,line_id" });
     if (error) {
-      setMsgActivationLignes("No se pudo guardar: " + error.message);
+      setMsgActivationLignes((prochaineValeur ? "Línea activada" : "Línea desactivada") + " localmente. La configuración compartida de Supabase todavía no está instalada.");
       return;
     }
-    setActivationLignes((actuel) => ({ ...actuel, [ligne.id]: prochaineValeur }));
     setMsgActivationLignes(prochaineValeur
       ? `${ligne.nom} vuelve a participar en la planificación.`
       : `${ligne.nom} queda fuera de la planificación, sin borrar sus datos.`);

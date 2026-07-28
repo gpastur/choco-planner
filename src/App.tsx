@@ -7,7 +7,7 @@ import {
   ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts";
 
-const APP_VERSION = "2026.07.28-couverture-projetee";
+const APP_VERSION = "2026.07.28-optimisation-toutes-lignes";
 const PORTAIL_EMAIL_ACTIF = false;
 
 const PALETTE = [
@@ -708,8 +708,8 @@ function kgEffectifBloc(b) {
 }
 
 const STORAGE_KEY = "choco-planner-state-v9";
-const LINE_SETTINGS_STORAGE_KEY = "choco-planner-line-settings-v2";
-const OLD_STORAGE_KEYS = ["choco-planner-state-v4", "choco-planner-state-v5", "choco-planner-state-v6", "choco-planner-state-v7", "choco-planner-state-v8", "choco-planner-line-settings-v1"];
+const LINE_SETTINGS_STORAGE_KEY = "choco-planner-line-settings-v3";
+const OLD_STORAGE_KEYS = ["choco-planner-state-v4", "choco-planner-state-v5", "choco-planner-state-v6", "choco-planner-state-v7", "choco-planner-state-v8", "choco-planner-line-settings-v1", "choco-planner-line-settings-v2"];
 
 function chargerActivationLocale(usineId) {
   try {
@@ -2388,6 +2388,7 @@ export default function PlanificateurChocolat() {
 
     let blocsUtilises = 0;
     let blocsSansBesoin = 0;
+    let blocsAjustes = 0;
     const derniereFamilleParLigne = {};
     const prioritesActives = prioritesProduction.filter((regle) => regle.active && regle.factory_id === usine);
     datesHorizon.forEach((jour, jourIndex) => {
@@ -2451,13 +2452,21 @@ export default function PlanificateurChocolat() {
           }
           const s = seuils(meilleur);
           const kgpb = kgParBulto(meilleur);
-          const kgProduit = kgb_ligne;
+          const stockProjeteFinAvant = stockSim[meilleur.id] - demandeJour(meilleur) * joursRestantsHorizon;
+          const stockProjeteFinPlein = stockProjeteFinAvant + kgb_ligne / kgpb;
+          const limitePleinRaisonnable = s.max * 1.1;
+          const kgPourFinirAuMaximum = Math.max(0, (s.max - stockProjeteFinAvant) * kgpb);
+          const doitAjuster = stockProjeteFinPlein > limitePleinRaisonnable && kgPourFinirAuMaximum > 0;
+          const kgProduit = doitAjuster ? Math.min(kgb_ligne, kgPourFinirAuMaximum) : kgb_ligne;
+          if (kgProduit <= 0) return;
+          if (doitAjuster) blocsAjustes++;
           const famille = familleProduit(meilleur);
-          const raison = (derniereFamilleParLigne[ligne.id] === famille)
+          const raisonPriorite = (derniereFamilleParLigne[ligne.id] === famille)
             ? "Agrupado por familia similar (" + famille + ")"
             : (meilleureRegle
               ? "Prioridad admin: " + (meilleureRegle.rule_type === "never_stockout" ? "producto crítico" : meilleureRegle.rule_type === "sequence" ? "secuencia obligatoria" : meilleureRegle.rule_type === "due_date" ? "fecha límite" : "stock objetivo reforzado")
-              : (stockSim[meilleur.id] < s.min ? "Prioridad: salir de zona roja a capacidad completa" : "Producción completa para proteger el stock final"));
+              : (stockSim[meilleur.id] < s.min ? "Prioridad: salir de zona roja" : "Protección del stock final"));
+          const raison = raisonPriorite + (doitAjuster ? " · Cantidad ajustada para evitar sobrestock extremo" : " · Producción a capacidad completa");
           nouveauPlan[jour.cle + "|" + ligne.id + "|" + turno.id] = { p: meilleur.id, kg: kgProduit, raison };
           stockSim[meilleur.id] += kgProduit / kgpb;
           derniereFamilleParLigne[ligne.id] = famille;
@@ -2472,7 +2481,7 @@ export default function PlanificateurChocolat() {
     const sansConv = configures.filter((p) => !kgParBulto(p)).length;
     const enVert = configures.filter((p) => { const s = seuils(p); if (s.max <= 0) return true; return stockSim[p.id] >= s.min * 1.5 && stockSim[p.id] <= s.max; }).length;
     const sousMin = configures.filter((p) => stockSim[p.id] < seuils(p).min).length;
-    setMsgOpti("✓ " + blocsUtilises + " turno(s) utilizado(s) del " + fmtDate(lundiDepart) + (dateFin ? " al " + fmtDate(dateFin) : " en " + horizonOpti + " sem.") + " · todos los turnos planificados producen al 100% de la capacidad · se acepta sobrestock para evitar productos bajo mínimo al final · " + blocsSansBesoin + " turno(s) libres sin necesidad de producción · prioridad absoluta a productos bajo mínimo y riesgo al final del período · " + enVert + "/" + configures.length + " en zona verde al final del horizonte" + (sousMin > 0 ? " · ⚠️ " + sousMin + " todavía bajo el mínimo por falta real de capacidad, turnos o conversión" : "") + (sansConv > 0 ? " · " + sansConv + " sin conversión no planificados" : "") + ".");
+    setMsgOpti("✓ " + blocsUtilises + " turno(s) utilizado(s) del " + fmtDate(lundiDepart) + (dateFin ? " al " + fmtDate(dateFin) : " en " + horizonOpti + " sem.") + " · capacidad completa por defecto · " + blocsAjustes + " turno(s) ajustado(s) porque producir completo superaba ampliamente el máximo · " + blocsSansBesoin + " turno(s) libres sin necesidad de producción · prioridad absoluta a productos bajo mínimo y riesgo al final del período · " + enVert + "/" + configures.length + " en zona verde al final del horizonte" + (sousMin > 0 ? " · ⚠️ " + sousMin + " todavía bajo el mínimo por falta real de capacidad, turnos o conversión" : "") + (sansConv > 0 ? " · " + sansConv + " sin conversión no planificados" : "") + ".");
   };
 
   const viderHorizon = () => {

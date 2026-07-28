@@ -7,7 +7,7 @@ import {
   ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts";
 
-const APP_VERSION = "2026.07.28-stock-derniere-valeur";
+const APP_VERSION = "2026.07.28-couvertures-produits";
 const PORTAIL_EMAIL_ACTIF = false;
 
 const PALETTE = [
@@ -52,10 +52,7 @@ const LIGNES_INIT = [
   { id: "vb_stephan", nom: "Dulceria / Beldos", capacite: 130, pal: 0, usine: "vb" },
   { id: "vb_tostadora", nom: "Tostadora", capacite: 140, pal: 1, usine: "vb" },
   { id: "vb_envasado", nom: "Envasado", capacite: 0, pal: 2, usine: "vb" },
-  { id: "vb_franui_1", nom: "Franui 1", capacite: 15000, unite: "potes", pal: 3, usine: "vb" },
-  { id: "vb_franui_2", nom: "Franui 2", capacite: 15000, unite: "potes", pal: 4, usine: "vb" },
   { id: "f_tabletas", nom: "Tabletas", capacite: 3200, pal: 1, usine: "fatima" },
-  { id: "f_franui", nom: "Franui", capacite: 20000, unite: "potes", pal: 2, usine: "fatima" },
 ];
 
 const mkEsandi = (id, nom, ligne, pesoBulto) => ({ id, nom, ligne, usine: "esandi", stock: 0, demande: 0, min: null, max: null, pesoBulto });
@@ -310,9 +307,6 @@ const PRODUITS_BASE = [
   { ...mkVB(135, "DULCE FRUTOS DEL BOSQUE VB", "vb_stephan", 4.62), min: 57, max: 114 },
   { ...mkVB(136, "DULCE MOSQUETA 420gr VB", "vb_stephan", 4.62), min: 76, max: 152 },
   { ...mkVB(137, "DULCE SAUCO 420gr VB", "vb_stephan", 4.62), min: 73, max: 146 },
-  { ...mkVB(5201, "FRANUI AMARGO", "vb_franui_1"), sku: "VT-FRAN-0000306", lignesCompatibles: ["vb_franui_1", "vb_franui_2"] },
-  { ...mkVB(5202, "FRANUI LECHE", "vb_franui_1"), sku: "VT-FRAN-0000300", lignesCompatibles: ["vb_franui_1", "vb_franui_2"] },
-  { ...mkVB(5203, "FRANUI PINK", "vb_franui_1"), sku: "VT-FRAN-0000301", lignesCompatibles: ["vb_franui_1", "vb_franui_2"] },
   { ...mkFatima(117, "TABLETA DE PISTACHO, SAL Y CARAMELO BsAs", "f_tabletas", 3.8, ["TAB SAL CARAMELO 100gr", "TABLETA DE PISTACHO, SAL Y CARAMELO BsAs"]), sku: "VT-CTAB-0000486" },
   { ...mkFatima(118, "TAB CHOC LECHE PURO 80G BsAs", "f_tabletas", 3.04, ["TABLETA LECHE PURO X80gr solo BsAs stock max p/4 meses min 2", "TAB CHOC LECHE PURO 80G BsAs"]), sku: "VT-CTAB-0000550" },
   { ...mkFatima(119, "TABLETA CHOC AMARGO 70% BsAs", "f_tabletas", 3.04, ["TABLETA 70 solo BsAs stock max p/4 meses min 2", "TABLETA CHOC AMARGO 70% BsAs"]), sku: "VT-CTAB-0000995" },
@@ -329,7 +323,6 @@ const PRODUITS_BASE = [
   { ...mkFatima(130, "TABLETA CHOC AMARGO 80% VB", "f_tabletas", 3.04, ["TABLETA 80 VB", "TABLETA CHOC AMARGO 80% VB"]), sku: "VT-CTAB-0000994" },
   { ...mkFatima(131, "TABLETA CHOC AMARGO 60% VB", "f_tabletas", 3.04, ["TABLETA 60 VB", "TABLETA CHOC AMARGO 60% VB"]), sku: "VT-CTAB-0000997" },
   { ...mkFatima(132, "TABLETA CHOC AMARGO 90% VB", "f_tabletas", 3.04, ["TABLETA 90 VB", "TABLETA CHOC AMARGO 90% VB"]), sku: "VT-CTAB-0000996" },
-  { ...mkFatima(5101, "Free", "f_franui"), sku: "VT-FRAN-0000302" },
   mkMitre(3001, "ALFAJOR ALMENDRA AVELLANA", "l3", 72, 241, 482, 2.7),
   mkMitre(3002, "ALFAJOR DDL CHOCOLATE", "l3", 352, 310, 619, 2.7),
   mkMitre(3003, "ALFAJOR DDL GLASE", "l3", 165, 119, 237, 2.7),
@@ -443,7 +436,7 @@ const PRODUITS_INIT = PRODUITS_AVEC_VB_MAESTRO.map((produit) => {
     min: typeof reference.min === "number" ? reference.min : null,
     max: typeof reference.max === "number" ? reference.max : null,
   };
-});
+}).map((produit) => ({ ...produit, stock: 0, min: null, max: null, demande: 0 }));
 
 const JOURS = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
 const HORIZON = 4;
@@ -451,10 +444,8 @@ const JOURS_HORIZON = HORIZON * JOURS.length;
 const JOURS_MOIS = 30;
 const JOURS_MIN_TABLETAS_FATIMA = 60;
 const JOURS_MAX_TABLETAS_FATIMA = 120;
-const JOURS_MIN_TURRONES_ESANDI = 60;
-const JOURS_MAX_TURRONES_ESANDI = 120;
-const JOURS_MIN_TRUFAS_MITRE = 15;
-const JOURS_MAX_TRUFAS_MITRE = 30;
+const JOURS_MIN_COUVERTURE_COURTE = 15;
+const JOURS_MAX_COUVERTURE_COURTE = 30;
 const NOMS_TRUFAS_MITRE = [
   "TRUFA PATAGONIA",
   "HABANOS",
@@ -716,9 +707,9 @@ function kgEffectifBloc(b) {
   return b && b.realKg != null && b.realKg !== "" && Number(b.realKg) >= 0 ? Number(b.realKg) : (b ? b.kg : 0);
 }
 
-const STORAGE_KEY = "choco-planner-state-v8";
+const STORAGE_KEY = "choco-planner-state-v9";
 const LINE_SETTINGS_STORAGE_KEY = "choco-planner-line-settings-v2";
-const OLD_STORAGE_KEYS = ["choco-planner-state-v4", "choco-planner-state-v5", "choco-planner-state-v6", "choco-planner-state-v7", "choco-planner-line-settings-v1"];
+const OLD_STORAGE_KEYS = ["choco-planner-state-v4", "choco-planner-state-v5", "choco-planner-state-v6", "choco-planner-state-v7", "choco-planner-state-v8", "choco-planner-line-settings-v1"];
 
 function chargerActivationLocale(usineId) {
   try {
@@ -759,25 +750,15 @@ function htmlEscape(value) {
 }
 function fusionAvecBase(base: any[], sauvegarde: any[]) {
   const parId = new Map(base.map((item) => [item.id, item]));
-  const idsObsoletes = new Set([111, 138, 141, 142, 144, 145, 146, 3050, 3051, 3052, 3053, 3054, 3055, 3056, 3057, 3058, 3059, 3060]);
+  const idsObsoletes = new Set([111, 138, 141, 142, 144, 145, 146, 3050, 3051, 3052, 3053, 3054, 3055, 3056, 3057, 3058, 3059, 3060, 5101, 5201, 5202, 5203]);
   (Array.isArray(sauvegarde) ? sauvegarde : []).forEach((item) => {
-    if (item.id === "f_tabletas_bariloche") return;
+    if (["f_tabletas_bariloche", "f_franui", "vb_franui_1", "vb_franui_2"].includes(item.id)) return;
     if (idsObsoletes.has(item.id)) return;
     const fusionne = { ...(parId.get(item.id) || {}), ...item };
     const baseItem = parId.get(item.id);
     if (fusionne.id === "f_tabletas") {
       fusionne.nom = "Tabletas";
       fusionne.capacite = 3200;
-    }
-    if (fusionne.id === "f_franui") {
-      fusionne.nom = "Franui";
-      fusionne.capacite = 20000;
-      fusionne.unite = "potes";
-    }
-    if (fusionne.id === "vb_franui_1" || fusionne.id === "vb_franui_2") {
-      fusionne.nom = fusionne.id === "vb_franui_1" ? "Franui 1" : "Franui 2";
-      fusionne.capacite = 15000;
-      fusionne.unite = "potes";
     }
     if (fusionne.id === "vb_stephan") {
       fusionne.nom = "Dulceria / Beldos";
@@ -789,17 +770,6 @@ function fusionAvecBase(base: any[], sauvegarde: any[]) {
       fusionne.ligne = "f_tabletas";
       fusionne.pesoBulto = baseItem.pesoBulto;
       fusionne.aliases = baseItem.aliases;
-    }
-    if (baseItem && fusionne.id === 5101) {
-      fusionne.nom = "Free";
-      fusionne.sku = "VT-FRAN-0000302";
-      fusionne.ligne = "f_franui";
-    }
-    if (baseItem && fusionne.id >= 5201 && fusionne.id <= 5203) {
-      fusionne.nom = baseItem.nom;
-      fusionne.sku = baseItem.sku;
-      fusionne.ligne = "vb_franui_1";
-      fusionne.lignesCompatibles = ["vb_franui_1", "vb_franui_2"];
     }
     if (baseItem && fusionne.usine === "vb" && ((fusionne.id >= 112 && fusionne.id <= 116) || (fusionne.id >= 133 && fusionne.id <= 137))) {
       fusionne.nom = baseItem.nom;
@@ -1399,15 +1369,21 @@ export default function PlanificateurChocolat() {
 
   const seuils = (p) => ({ min: p.min != null ? p.min : 0, max: p.max != null ? p.max : 0 });
   const estConfigure = (p) => p.min != null || p.max != null;
-  const estTabletaFatima = (p) => p && p.usine === "fatima" && p.id >= 117 && p.id <= 132;
-  const estTurronEsandi = (p) => p && p.usine === "esandi" && p.ligne === "e_tur";
-  const estTrufaMitre = (p) => {
-    if (!p || p.usine !== "mitre") return false;
-    const cleProduit = tokensProduit(p.nom).join(" ");
-    return NOMS_TRUFAS_MITRE.some((nom) => tokensProduit(nom).join(" ") === cleProduit);
+  const estTabletaOuTejaFatima = (p) => {
+    if (!p || p.usine !== "fatima") return false;
+    const tokens = tokensProduit(p.nom);
+    return p.ligne === "f_tabletas" || tokens.some((token) => token === "TABLETA" || token === "TAB" || token.startsWith("TEJA"));
   };
-  const joursMinCouverture = (p) => (estTabletaFatima(p) ? JOURS_MIN_TABLETAS_FATIMA : estTurronEsandi(p) ? JOURS_MIN_TURRONES_ESANDI : estTrufaMitre(p) ? JOURS_MIN_TRUFAS_MITRE : JOURS_MOIS);
-  const joursMaxCouverture = (p) => (estTabletaFatima(p) ? JOURS_MAX_TABLETAS_FATIMA : estTurronEsandi(p) ? JOURS_MAX_TURRONES_ESANDI : estTrufaMitre(p) ? JOURS_MAX_TRUFAS_MITRE : JOURS_MOIS * 2);
+  const estCouvertureCourte = (p) => {
+    const tokens = tokensProduit(p && p.nom);
+    const estSurtido = tokens.some((token) => token.startsWith("SURTIDO"));
+    const estOso = tokens.some((token) => token === "OSO" || token === "OSOS");
+    const estCorazonX5 = tokens.includes("CORAZON") && tokens.includes("5");
+    const estMilHojas = tokens.includes("MIL") && tokens.includes("HOJAS");
+    return estSurtido || estOso || estCorazonX5 || estMilHojas;
+  };
+  const joursMinCouverture = (p) => (estTabletaOuTejaFatima(p) ? JOURS_MIN_TABLETAS_FATIMA : estCouvertureCourte(p) ? JOURS_MIN_COUVERTURE_COURTE : JOURS_MOIS);
+  const joursMaxCouverture = (p) => (estTabletaOuTejaFatima(p) ? JOURS_MAX_TABLETAS_FATIMA : estCouvertureCourte(p) ? JOURS_MAX_COUVERTURE_COURTE : JOURS_MOIS * 2);
   const demandeJourCalculee = (p) => {
     const s = seuils(p);
     if (s.min > 0) return s.min / joursMinCouverture(p);
@@ -4301,7 +4277,7 @@ export default function PlanificateurChocolat() {
                   </div>
                 );
               })}
-            <p className="text-xs text-gray-500 mt-3">Todo esta en <strong>bultos</strong>. Demanda/dia = Stock min. / cobertura: general {JOURS_MOIS} dias; tabletas Fatima {JOURS_MIN_TABLETAS_FATIMA} dias; turrones Esandi {JOURS_MIN_TURRONES_ESANDI} dias; trufas Mitre {JOURS_MIN_TRUFAS_MITRE} dias. Si solo hay max, se usa la cobertura maxima de la categoria. El campo kg/bulto convierte los bultos a kg para planificar turnos.</p>
+            <p className="text-xs text-gray-500 mt-3">Todo esta en <strong>bultos</strong>. Demanda/dia = Stock min. / cobertura: general {JOURS_MOIS} dias; Surtidos, Osos, Corazon x5 y Mil Hojas {JOURS_MIN_COUVERTURE_COURTE} dias; Tabletas y Tejas de Fatima {JOURS_MIN_TABLETAS_FATIMA} dias. Los maximos corresponden respectivamente a 60, 30 y 120 dias. Si solo hay max, se usa la cobertura maxima de la categoria. El campo kg/bulto convierte los bultos a kg para planificar turnos.</p>
           </div>
         )}
 

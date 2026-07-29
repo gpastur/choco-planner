@@ -50,9 +50,10 @@ const LIGNES_INIT = [
   { id: "l3", nom: "GDG", capacite: 500, pal: 2, usine: "mitre" },
   { id: "l4", nom: "Sollich", capacite: 500, pal: 3, usine: "mitre" },
   { id: "l5", nom: "Bulher", capacite: 500, pal: 4, usine: "mitre" },
+  { id: "vb_refinado", nom: "Refinado / Beldos", capacite: 130, pal: 3, usine: "vb" },
   { id: "vb_stephan", nom: "Dulceria / Beldos", capacite: 130, pal: 0, usine: "vb" },
   { id: "vb_tostadora", nom: "Tostadora", capacite: 140, pal: 1, usine: "vb" },
-  { id: "vb_envasado", nom: "Envasado", capacite: 0, pal: 2, usine: "vb" },
+  { id: "vb_envasado", nom: "Envasado", capacite: 450, pal: 2, usine: "vb" },
   { id: "f_tabletas", nom: "Tabletas", capacite: 3200, pal: 1, usine: "fatima" },
 ];
 
@@ -400,6 +401,7 @@ const REFERENCES_ESANDI_PAR_NOM = new Map(
 
 const ligneVbPourProduit = (nom) => {
   const cle = NORMALISER_REFERENCE(nom);
+  if (/^CREMA (NUICCIOLA|MARROC|PISTACHO)/.test(cle)) return "vb_refinado";
   return /^(LICOR|JUGO|DULCE)/.test(cle) ? "vb_stephan" : "vb_envasado";
 };
 
@@ -458,6 +460,7 @@ vbReference.forEach((reference, index) => {
       min: reference.min,
       max: reference.max,
       ligne: ligneVbPourProduit(reference.nom),
+      ...(reference.sku === "VN-CPOL-0000004" ? { capaciteTurno: 600 } : {}),
       ...(ALIASES_STOCK_MC_VB[reference.sku] ? { aliases: ALIASES_STOCK_MC_VB[reference.sku] } : {}),
       ...(conditionnement ? { unidadesBulto: conditionnement.unidadesBulto, pesoUnidad: conditionnement.pesoUnidad, pesoBulto: conditionnement.pesoBulto } : {}),
     };
@@ -570,7 +573,7 @@ function turnosUsine(usineId) { return TURNOS_PAR_USINE[usineId] || TURNOS_PAR_U
 function turnosLigne(ligne) {
   if (ligne && ligne.id === "f_franui") return TURNOS_FRANUI;
   const turnos = turnosUsine(ligne && ligne.usine);
-  if (ligne && ligne.id === "vb_stephan") return turnos.filter((t) => t.id !== "n");
+  if (ligne && ["vb_stephan", "vb_refinado"].includes(ligne.id)) return turnos.filter((t) => t.id !== "n");
   if (ligne && ligne.id === "vb_tostadora") return turnos.filter((t) => t.id === "m");
   return turnos;
 }
@@ -591,7 +594,7 @@ function turnosLignePourDate(ligne, date) {
     return TURNOS_FRANUI;
   }
   const turnos = turnosUsinePourDate(ligne && ligne.usine, date);
-  if (ligne && ligne.id === "vb_stephan") {
+  if (ligne && ["vb_stephan", "vb_refinado"].includes(ligne.id)) {
     if (date instanceof Date && (date.getDay() === 0 || date.getDay() === 6)) return [];
     return turnos.filter((t) => t.id !== "n");
   }
@@ -809,6 +812,14 @@ function fusionAvecBase(base: any[], sauvegarde: any[]) {
       fusionne.nom = "Dulceria / Beldos";
       fusionne.capacite = 130;
     }
+    if (fusionne.id === "vb_refinado") {
+      fusionne.nom = "Refinado / Beldos";
+      fusionne.capacite = 130;
+    }
+    if (fusionne.id === "vb_envasado") {
+      fusionne.nom = "Envasado";
+      fusionne.capacite = 450;
+    }
     if (baseItem && fusionne.usine === "fatima" && fusionne.id >= 117 && fusionne.id <= 132) {
       fusionne.nom = baseItem.nom;
       fusionne.sku = baseItem.sku;
@@ -835,6 +846,7 @@ function fusionAvecBase(base: any[], sauvegarde: any[]) {
       fusionne.unidadesBulto = baseItem.unidadesBulto;
       fusionne.pesoUnidad = baseItem.pesoUnidad;
       fusionne.pesoBulto = baseItem.pesoBulto;
+      fusionne.capaciteTurno = baseItem.capaciteTurno;
     }
     const referenceVb = baseItem && fusionne.usine === "vb" ? REFERENCES_VB_PAR_NOM.get(NORMALISER_REFERENCE(baseItem.nom)) : null;
     if (baseItem && referenceVb) {
@@ -1451,6 +1463,10 @@ export default function PlanificateurChocolat() {
     return regle ? regle.capacite : (ligne.capacite || 0);
   };
   const kgBlocPlanning = (ligne, turno = null, date = null) => capaciteLigneDate(ligne, date) * ((turno && turno.facteur) || 1);
+  const kgBlocProduitPlanning = (produit, ligne, turno = null, date = null) => {
+    const capaciteProduit = Number(produit && produit.capaciteTurno);
+    return (capaciteProduit > 0 ? capaciteProduit : capaciteLigneDate(ligne, date)) * ((turno && turno.facteur) || 1);
+  };
   const capaciteJourPlanning = (ligne, date) => turnosLignePourDate(ligne, date).reduce((s, t) => s + kgBlocPlanning(ligne, t, date), 0);
   const optionProduitPlanning = (p) => {
     if (!estConfigure(p)) return "○ " + p.nom + " · sin min/max";
@@ -2314,7 +2330,8 @@ export default function PlanificateurChocolat() {
       if (pid === "") delete np[cle];
       else {
         const actuel = lireBloc(np[cle], ligne);
-        np[cle] = { p: Number(pid), kg: kgBlocPlanning(ligne, turno, date), note: actuel?.note || "" };
+        const produit = produits.find((item) => memeId(item.id, pid));
+        np[cle] = { p: Number(pid), kg: kgBlocProduitPlanning(produit, ligne, turno, date), note: actuel?.note || "" };
       }
       return np;
     });
@@ -2459,7 +2476,6 @@ export default function PlanificateurChocolat() {
             if (kgpbReel) stockSim[blocReel.p] = (stockSim[blocReel.p] || 0) + kgEffectifBloc(blocReel) / kgpbReel;
             return;
           }
-          const kgb_ligne = kgBlocPlanning(ligne, turno, jour.date); // kg disponibles por turno
           // Produit le plus en déficit sous le plancher vert. La quantité est divisible.
           let meilleur = null, meilleurScore = -Infinity;
           let meilleureRegle = null;
@@ -2504,6 +2520,7 @@ export default function PlanificateurChocolat() {
           }
           const s = seuils(meilleur);
           const kgpb = kgParBulto(meilleur);
+          const kgb_ligne = kgBlocProduitPlanning(meilleur, ligne, turno, jour.date); // capacidad especifica del producto o de la linea
           const stockProjeteFinAvant = stockSim[meilleur.id] - demandeJour(meilleur) * joursRestantsHorizon;
           const stockProjeteFinPlein = stockProjeteFinAvant + kgb_ligne / kgpb;
           const limitePleinRaisonnable = s.max * 1.1;
@@ -4215,7 +4232,7 @@ export default function PlanificateurChocolat() {
                 </table>
               </div>
             )}
-            <p className="text-xs text-gray-500 mt-2">Cada turno produce segun los horarios de la fabrica: Fatima trabaja de lunes a viernes un turno completo dividido en medio turno manana y medio turno tarde, y no trabaja sabado ni domingo; Esandi trabaja manana y tarde, con solo manana el sabado; Mitre/VB trabajan 3 turnos base, con solo manana el sabado. Excepcion: Dulceria / Beldos trabaja solo lunes a viernes, manana y tarde. La cantidad es <strong>divisible</strong>. La gomita de color muestra el estado del stock justo despues de ese bloque, simulando la demanda dia por dia.</p>
+            <p className="text-xs text-gray-500 mt-2">Cada turno produce segun los horarios de la fabrica: Fatima trabaja de lunes a viernes un turno completo dividido en medio turno manana y medio turno tarde, y no trabaja sabado ni domingo; Esandi trabaja manana y tarde, con solo manana el sabado; Mitre/VB trabajan 3 turnos base, con solo manana el sabado. Excepcion: Dulceria / Beldos y Refinado / Beldos trabajan solo lunes a viernes, manana y tarde. La cantidad es <strong>divisible</strong>. La gomita de color muestra el estado del stock justo despues de ese bloque, simulando la demanda dia por dia.</p>
             <Legende />
           </div>
         )}
@@ -4452,7 +4469,7 @@ export default function PlanificateurChocolat() {
                     <div key={p.id} className={"flex items-center gap-2 p-2 rounded-lg " + (nonAssigne ? "bg-orange-50 border border-orange-300" : "bg-gray-50")}>
                       <div className="flex-1 min-w-0">
                         <input className="w-full bg-transparent border-b border-transparent focus:border-violet-400 outline-none text-sm" value={p.nom} onChange={(e) => majProduit(p.id, "nom", e.target.value)} />
-                        <div className="text-[11px] text-slate-500 mt-0.5">SKU: {p.sku || "sin SKU"}</div>
+                        <div className="text-[11px] text-slate-500 mt-0.5">SKU: {p.sku || "sin SKU"}{Number(p.capaciteTurno) > 0 ? " · cap. específica " + fmtNb(p.capaciteTurno) + " kg/turno" : ""}</div>
                       </div>
                       <select className={"text-xs border rounded p-1 " + (nonAssigne ? "border-orange-400 text-orange-700" : "")} value={p.ligne || ""} onChange={(e) => majProduit(p.id, "ligne", e.target.value || null)}>
                         <option value="">Por asignar...</option>

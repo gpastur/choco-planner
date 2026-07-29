@@ -24,6 +24,13 @@
     "min": 138
   },
   {
+    "nom": "LICOR IRLANDES BOTELLA (no se elabora)",
+    "sku": null,
+    "max": null,
+    "min": null,
+    "inactive": true
+  },
+  {
     "nom": "LICOR DDL BOTELLA",
     "sku": "VT-CFRA-000056",
     "max": 192,
@@ -132,13 +139,13 @@
     "min": null
   },
   {
-    "nom": "BOMBON x16 Bche",
+    "nom": "TRUFA x3 Bche",
     "sku": "VT-CENV-0000413",
     "max": 28,
     "min": 14
   },
   {
-    "nom": "BOMBON x32 Bche",
+    "nom": "TRUFA x10 Bche",
     "sku": "VT-CENV-0000414",
     "max": 23,
     "min": 12

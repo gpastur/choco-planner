@@ -433,8 +433,8 @@ const CONDITIONNEMENTS_VB = [
   ["MEK BCHE", 18, 0.3, 5.4],
   ["MEK BS AS", 18, 0.3, 5.4],
   ["TRUFA X1 BCHE", 72, 0.14, 10.08],
-  ["BOMBON X16 BCHE", 42, 0.036, 1.512],
-  ["BOMBON X32 BCHE", 18, 0.12, 2.16],
+  ["TRUFA X3 BCHE", 42, 0.036, 1.512],
+  ["TRUFA X10 BCHE", 18, 0.12, 2.16],
   ["TRUFA X15 BS AS BCHE", 18, 0.18, 3.24],
 ].map(([nom, unidadesBulto, pesoUnidad, pesoBulto]) => ({ cle: NORMALISER_REFERENCE(nom), unidadesBulto, pesoUnidad, pesoBulto }));
 
@@ -447,10 +447,10 @@ const ALIASES_STOCK_MC_VB = {
 const estProduitStockMcVb = (reference) => !!ALIASES_STOCK_MC_VB[reference.sku];
 
 const PRODUITS_AVEC_VB_MAESTRO = [...PRODUITS_BASE];
-vbReference
-  .filter((reference) => (typeof reference.min === "number" && typeof reference.max === "number") || conditionnementVb(reference.nom) || estProduitStockMcVb(reference))
-  .filter((reference) => !NORMALISER_REFERENCE(reference.nom).startsWith("FRASCO "))
-  .forEach((reference, index) => {
+vbReference.forEach((reference, index) => {
+    if ((reference as any).inactive) return;
+    if (!((typeof reference.min === "number" && typeof reference.max === "number") || conditionnementVb(reference.nom) || estProduitStockMcVb(reference))) return;
+    if (NORMALISER_REFERENCE(reference.nom).startsWith("FRASCO ")) return;
     const cle = NORMALISER_REFERENCE(reference.nom);
     const existant = PRODUITS_AVEC_VB_MAESTRO.find((produit) => produit.usine === "vb" && NORMALISER_REFERENCE(produit.nom) === cle);
     const conditionnement = conditionnementVb(reference.nom);
@@ -827,7 +827,14 @@ function fusionAvecBase(base: any[], sauvegarde: any[]) {
       fusionne.ligne = baseItem.ligne;
       fusionne.pesoBulto = baseItem.pesoBulto;
     }
-    if (baseItem && fusionne.usine === "vb" && baseItem.sku) fusionne.sku = baseItem.sku;
+    if (baseItem && fusionne.usine === "vb" && baseItem.sku) {
+      fusionne.nom = baseItem.nom;
+      fusionne.sku = baseItem.sku;
+      fusionne.ligne = baseItem.ligne;
+      fusionne.unidadesBulto = baseItem.unidadesBulto;
+      fusionne.pesoUnidad = baseItem.pesoUnidad;
+      fusionne.pesoBulto = baseItem.pesoBulto;
+    }
     const referenceVb = baseItem && fusionne.usine === "vb" ? REFERENCES_VB_PAR_NOM.get(NORMALISER_REFERENCE(baseItem.nom)) : null;
     if (baseItem && referenceVb) {
       fusionne.sku = baseItem.sku || null;

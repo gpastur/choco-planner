@@ -574,7 +574,7 @@ function turnosLigne(ligne) {
   if (ligne && ligne.id === "f_franui") return TURNOS_FRANUI;
   const turnos = turnosUsine(ligne && ligne.usine);
   if (ligne && ["vb_stephan", "vb_refinado"].includes(ligne.id)) return turnos.filter((t) => t.id !== "n");
-  if (ligne && ligne.id === "vb_tostadora") return turnos.filter((t) => t.id === "m");
+  if (ligne && ["vb_tostadora", "vb_envasado"].includes(ligne.id)) return turnos.filter((t) => t.id === "m");
   return turnos;
 }
 function turnosBaseAffiches(ligne) { return ligne && ligne.id === "f_franui" ? 2 : ligne && ligne.usine === "fatima" ? 1 : turnosLigne(ligne).length; }
@@ -598,7 +598,7 @@ function turnosLignePourDate(ligne, date) {
     if (date instanceof Date && (date.getDay() === 0 || date.getDay() === 6)) return [];
     return turnos.filter((t) => t.id !== "n");
   }
-  if (ligne && ligne.id === "vb_tostadora") {
+  if (ligne && ["vb_tostadora", "vb_envasado"].includes(ligne.id)) {
     if (date instanceof Date && (date.getDay() === 0 || date.getDay() === 6)) return [];
     return turnos.filter((t) => t.id === "m");
   }

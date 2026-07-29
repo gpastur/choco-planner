@@ -57,6 +57,22 @@ function leerRecetasPrivadas() {
   return { recetas };
 }
 
+function leerRefinadoPrivado() {
+  const valor = process.env.RECETAS_REFINADO_JSON;
+  if (!valor || !String(valor).trim()) return { recetas: null };
+  try {
+    return { recetas: JSON.parse(valor) };
+  } catch (error) {
+    return { error: "RECETAS_REFINADO_JSON no es un JSON valido" };
+  }
+}
+
+function listaOrdenada(totales) {
+  return Object.entries(totales)
+    .map(([materia, kg]) => ({ materia, kg }))
+    .sort((a, b) => a.materia.localeCompare(b.materia));
+}
+
 function corregirReceta(nombre, receta) {
   const clave = normalizar(nombre);
   const recetasCorregidas = {
@@ -88,6 +104,12 @@ export default function handler(req, res) {
     return;
   }
 
+  const refinadoPrivado = leerRefinadoPrivado();
+  if (refinadoPrivado.error) {
+    res.status(500).json({ error: refinadoPrivado.error });
+    return;
+  }
+
   const items = Array.isArray(req.body && req.body.items) ? req.body.items : [];
   const recetasPorNombre = new Map(Object.entries(privadas.recetas).map(([nombre, receta]) => [normalizar(nombre), corregirReceta(nombre, receta)]));
   const totales = {};
@@ -109,10 +131,43 @@ export default function handler(req, res) {
     });
   });
 
+  const recetasRefinado = refinadoPrivado.recetas
+    ? new Map(Object.entries(refinadoPrivado.recetas).map(([nombre, receta]) => [normalizar(nombre), receta]))
+    : null;
+  const basesRefinado = {};
+  const materiasRefinado = {};
+  const materiasConsolidadas = {};
+  const alertasRefinado = [];
+
+  Object.entries(totales).forEach(([materia, kg]) => {
+    const recetaRefinado = recetasRefinado && recetasRefinado.get(normalizar(materia));
+    if (!recetaRefinado) {
+      materiasConsolidadas[materia] = (materiasConsolidadas[materia] || 0) + kg;
+      return;
+    }
+    basesRefinado[materia] = (basesRefinado[materia] || 0) + kg;
+    const sumaReceta = Object.entries(recetaRefinado).reduce((suma, [insumo, valor]) => suma + (esCampoTecnico(insumo) ? 0 : ratio(valor)), 0);
+    if (sumaReceta < 0.98 || sumaReceta > 1.02) {
+      alertasRefinado.push({ base: materia, totalPct: sumaReceta * 100 });
+    }
+    Object.entries(recetaRefinado).forEach(([insumo, valor]) => {
+      if (esCampoTecnico(insumo)) return;
+      const kgInsumo = kg * ratio(valor);
+      if (kgInsumo <= 0) return;
+      materiasRefinado[insumo] = (materiasRefinado[insumo] || 0) + kgInsumo;
+      materiasConsolidadas[insumo] = (materiasConsolidadas[insumo] || 0) + kgInsumo;
+    });
+  });
+
   res.status(200).json({
-    materias: Object.entries(totales)
-      .map(([materia, kg]) => ({ materia, kg }))
-      .sort((a, b) => a.materia.localeCompare(b.materia)),
+    materias: listaOrdenada(totales),
+    materiasConsolidadas: listaOrdenada(materiasConsolidadas),
+    refinado: {
+      configurado: !!recetasRefinado,
+      bases: listaOrdenada(basesRefinado),
+      materias: listaOrdenada(materiasRefinado),
+      alertas: alertasRefinado.sort((a, b) => a.base.localeCompare(b.base)),
+    },
     sinReceta,
   });
 }

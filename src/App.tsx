@@ -1199,7 +1199,7 @@ export default function PlanificateurChocolat() {
   };
 
   const diagnosticMatieres = useMemo(() => {
-    const besoins = matieresResultat ? ((matieresResultat as any).materias || []) : [];
+    const besoins = matieresResultat ? ((matieresResultat as any).materiasConsolidadas || (matieresResultat as any).materias || []) : [];
     const stocks = stockMatieres || [];
     const stockParCle = new Map(stocks.map((s: any) => [s.cle, s]));
     const lignesDiag = besoins.map((m) => {
@@ -1359,7 +1359,8 @@ export default function PlanificateurChocolat() {
   const textoMateriasPrimas = () => {
     if (!matieresResultat) return "";
     if (stockMatieres.length > 0) return texteDiagnosticMatieres();
-    const materias = (matieresResultat as any).materias || [];
+    const materias = (matieresResultat as any).materiasConsolidadas || (matieresResultat as any).materias || [];
+    const refinado = (matieresResultat as any).refinado;
     const sinReceta = (matieresResultat as any).sinReceta || [];
     const lineas = [
       "Necesidades de materias primas",
@@ -1369,6 +1370,9 @@ export default function PlanificateurChocolat() {
       "Materias primas:",
       ...materias.map((m) => "- " + m.materia + ": " + fmtNb(m.kg) + " kg"),
     ];
+    if (refinado && refinado.bases && refinado.bases.length > 0) {
+      lineas.push("", "Bases a producir en Refinado:", ...refinado.bases.map((m) => "- " + m.materia + ": " + fmtNb(m.kg) + " kg"));
+    }
     if (sinReceta.length > 0) {
       lineas.push("", "Sin receta privada configurada:");
       sinReceta.forEach((x) => lineas.push("- " + x.producto));
@@ -1420,7 +1424,7 @@ export default function PlanificateurChocolat() {
         "Materia prima;Kg necesarios;Stock kg;Minimo kg;Compra recomendada kg;Estado;Stock reconocido como",
         ...diagnosticMatieres.lignes.map((m) => [m.materia, Math.round(m.besoinKg * 100) / 100, Math.round(m.stockKg * 100) / 100, Math.round(m.minKg * 100) / 100, Math.round(m.achatKg * 100) / 100, m.statut, m.source].map(q).join(";")),
       ].join("\n")
-      : ["Materia prima;Kg necesarios", ...((matieresResultat as any).materias || []).map((m) => q(m.materia) + ";" + String(Math.round(m.kg * 100) / 100))].join("\n");
+      : ["Materia prima;Kg necesarios", ...((matieresResultat as any).materiasConsolidadas || (matieresResultat as any).materias || []).map((m) => q(m.materia) + ";" + String(Math.round(m.kg * 100) / 100))].join("\n");
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -4592,6 +4596,53 @@ export default function PlanificateurChocolat() {
                       </tbody>
                     </table>
                   </div>
+                  {(matieresResultat as any).refinado && (matieresResultat as any).refinado.configurado && (
+                    <section className="mt-5 border-t border-slate-200 pt-4">
+                      <div className="flex flex-wrap items-start justify-between gap-2 mb-3">
+                        <div>
+                          <h3 className="font-semibold text-violet-900">Subsegmento Refinado</h3>
+                          <p className="text-xs text-slate-500 mt-1">Desglose de los chocolates y pralinés requeridos por la planificación. Las recetas permanecen en la función privada.</p>
+                        </div>
+                        <span className="rounded-full border border-violet-200 bg-violet-50 px-3 py-1 text-xs font-semibold text-violet-700">Segundo nivel</span>
+                      </div>
+                      {(matieresResultat as any).refinado.bases.length === 0 ? (
+                        <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-500">La planificación seleccionada no utiliza bases configuradas en Refinado.</div>
+                      ) : (
+                        <div className="grid gap-4 xl:grid-cols-2">
+                          <div className="rounded-lg border border-violet-100 bg-violet-50/40 p-3">
+                            <h4 className="text-sm font-semibold text-violet-900 mb-2">Bases a producir</h4>
+                            <div className="max-h-72 overflow-auto">
+                              <table className="w-full text-sm">
+                                <thead><tr className="border-b text-left text-slate-500"><th className="py-1 pr-2">Base refinada</th><th className="py-1 text-right">Kg</th></tr></thead>
+                                <tbody>{(matieresResultat as any).refinado.bases.map((m) => (
+                                  <tr key={m.materia} className="border-b border-violet-100"><td className="py-2 pr-2 font-medium">{m.materia}</td><td className="py-2 text-right font-bold text-violet-800">{fmtNb(m.kg)} kg</td></tr>
+                                ))}</tbody>
+                              </table>
+                            </div>
+                          </div>
+                          <div className="rounded-lg border border-emerald-100 bg-emerald-50/40 p-3">
+                            <h4 className="text-sm font-semibold text-emerald-900 mb-2">Materias para Refinado</h4>
+                            <div className="max-h-72 overflow-auto">
+                              <table className="w-full text-sm">
+                                <thead><tr className="border-b text-left text-slate-500"><th className="py-1 pr-2">Materia prima</th><th className="py-1 text-right">Kg</th></tr></thead>
+                                <tbody>{(matieresResultat as any).refinado.materias.map((m) => (
+                                  <tr key={m.materia} className="border-b border-emerald-100"><td className="py-2 pr-2 font-medium">{m.materia}</td><td className="py-2 text-right font-bold text-emerald-800">{fmtNb(m.kg)} kg</td></tr>
+                                ))}</tbody>
+                              </table>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                      {(matieresResultat as any).refinado.alertas && (matieresResultat as any).refinado.alertas.length > 0 && (
+                        <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+                          <strong>Revisar receta:</strong> la suma declarada no está entre 98% y 102% para {(matieresResultat as any).refinado.alertas.map((a) => a.base + " (" + fmtNb(a.totalPct) + "%)").join(", ")}.
+                        </div>
+                      )}
+                    </section>
+                  )}
+                  {(matieresResultat as any).refinado && !(matieresResultat as any).refinado.configurado && (
+                    <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">Configura <strong>RECETAS_REFINADO_JSON</strong> en Vercel para activar el segundo nivel de desglose.</div>
+                  )}
                   {stockMatieres.length > 0 && diagnosticMatieres.stockSansBesoin.length > 0 && (
                     <div className="mt-4 p-3 rounded-lg bg-slate-50 border border-slate-200 text-xs text-slate-500">
                       MP con stock cargado pero sin necesidad en el planning seleccionado: {diagnosticMatieres.stockSansBesoin.slice(0, 12).map((m: any) => m.nom).join(", ")}{diagnosticMatieres.stockSansBesoin.length > 12 ? "..." : ""}

@@ -7,7 +7,7 @@ import {
   ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts";
 
-const APP_VERSION = "2026.07.28-optimisation-toutes-lignes";
+const APP_VERSION = "2026.07.29-stock-vb-mc";
 const PORTAIL_EMAIL_ACTIF = false;
 
 const PALETTE = [
@@ -31,6 +31,7 @@ const GOOGLE_STOCK_GIDS = {
   mitre: "2042836438",
   vb: "1331648669",
 };
+const GOOGLE_STOCK_GID_MC = "1834619743";
 const GOOGLE_STOCK_SHEET_ID = "1EgT_gHFf8qht-dNF_H0XTV0QVNMQIvCG";
 const GOOGLE_MP_STOCK_SHEETS = {
   esandi: { sheetId: "1gSX71TD0LtJiw5hmrojVEVRBQq9FLOpVJuXZ2M9jhJA", gid: "1633317681" },
@@ -405,18 +406,61 @@ const ligneVbPourProduit = (nom) => {
 const poidsBultoVb = (nom) => NORMALISER_REFERENCE(nom).startsWith("DULCE ") ? 4.62 : null;
 const REFERENCES_VB_PAR_NOM = new Map(vbReference.map((item) => [NORMALISER_REFERENCE(item.nom), item]));
 
+const CONDITIONNEMENTS_VB = [
+  ["CREMA NUICCIOLA 380G", 11, 0.38, 4.18],
+  ["CREMA MARROC 380 G", 11, 0.38, 4.18],
+  ["CREMA PISTACHO 380G", 11, 0.38, 4.18],
+  ["LICOR DDL BOTELLA", 20, 0.25, 5],
+  ["LICOR DE CHOCOLATE BOTELLA", 20, 0.25, 5],
+  ["JUGO DE FRAM FRUT BOTELLA", 24, 0.25, 4.4],
+  ["DULCE SAUCO 420GR VB", 11, 0.42, 4.62],
+  ["DULCE FRUTILLA 420GR VB", 11, 0.42, 4.62],
+  ["DULCE MOSQUETA 420GR VB", 11, 0.42, 4.62],
+  ["DULCE FRAMBUESA 420GR VB", 11, 0.42, 4.62],
+  ["DULCE FRUTOS DEL BOSQUE VB", 11, 0.42, 4.62],
+  ["CAFE TOSTADO CONFI X 1 KG", 6, 1, 6],
+  ["SURTIDO 95 BCHE", 42, 0.095, 3.99],
+  ["SURTIDO 210 BCHE", 16, 0.21, 3.36],
+  ["SURTIDO 250 BCHE", 24, 0.25, 6],
+  ["SURTIDO 250 BS AS", 24, 0.25, 6],
+  ["SURTIDO 350 BCHE", 16, 0.35, 5.6],
+  ["SURTIDO 430 BCHE", 9, 0.43, 3.87],
+  ["SURTIDO 500 BCHE", 10, 0.5, 5],
+  ["SURTIDO 500 BS AS", 10, 0.5, 5],
+  ["SURTIDO 560 BCHE", 8, 0.56, 4.48],
+  ["SURTIDO 1 KG BCHE", 8, 1, 8],
+  ["SURTIDO 1 KG BS AS", 8, 1, 8],
+  ["MEK BCHE", 18, 0.3, 5.4],
+  ["MEK BS AS", 18, 0.3, 5.4],
+  ["TRUFA X1 BCHE", 72, 0.14, 10.08],
+  ["BOMBON X16 BCHE", 42, 0.036, 1.512],
+  ["BOMBON X32 BCHE", 18, 0.12, 2.16],
+  ["TRUFA X15 BS AS BCHE", 18, 0.18, 3.24],
+].map(([nom, unidadesBulto, pesoUnidad, pesoBulto]) => ({ cle: NORMALISER_REFERENCE(nom), unidadesBulto, pesoUnidad, pesoBulto }));
+
+const conditionnementVb = (nom) => CONDITIONNEMENTS_VB.find((item) => item.cle === NORMALISER_REFERENCE(nom)) || null;
+const ALIASES_STOCK_MC_VB = {
+  "VT-CFRA-0000432": ["FRASCO NUICCIOLA 380 GR"],
+  "VT-CFRA-0000430": ["FRASCO MARROC 380 GR"],
+  "VT-CFRA-0000029": ["FRASCO CREMA PISTACHO"],
+};
+const estProduitStockMcVb = (reference) => !!ALIASES_STOCK_MC_VB[reference.sku];
+
 const PRODUITS_AVEC_VB_MAESTRO = [...PRODUITS_BASE];
 vbReference
-  .filter((reference) => typeof reference.min === "number" && typeof reference.max === "number")
+  .filter((reference) => (typeof reference.min === "number" && typeof reference.max === "number") || conditionnementVb(reference.nom) || estProduitStockMcVb(reference))
   .filter((reference) => !NORMALISER_REFERENCE(reference.nom).startsWith("FRASCO "))
   .forEach((reference, index) => {
     const cle = NORMALISER_REFERENCE(reference.nom);
     const existant = PRODUITS_AVEC_VB_MAESTRO.find((produit) => produit.usine === "vb" && NORMALISER_REFERENCE(produit.nom) === cle);
+    const conditionnement = conditionnementVb(reference.nom);
     const donnees = {
       sku: reference.sku || null,
       min: reference.min,
       max: reference.max,
       ligne: ligneVbPourProduit(reference.nom),
+      ...(ALIASES_STOCK_MC_VB[reference.sku] ? { aliases: ALIASES_STOCK_MC_VB[reference.sku] } : {}),
+      ...(conditionnement ? { unidadesBulto: conditionnement.unidadesBulto, pesoUnidad: conditionnement.pesoUnidad, pesoBulto: conditionnement.pesoBulto } : {}),
     };
     if (existant) Object.assign(existant, donnees);
     else PRODUITS_AVEC_VB_MAESTRO.push({
@@ -2524,12 +2568,12 @@ export default function PlanificateurChocolat() {
   };
   const majLigne = (id, champ, valeur) => setLignes(lignes.map((l) => (l.id === id ? { ...l, [champ]: valeur } : l)));
 
-  const appliquerCollageStocks = ({ modeActualisation = false, texteSource = null } = {}) => {
+  const appliquerCollageStocks = ({ modeActualisation = false, texteSource = null, produitsSource = null, conserverMessage = false } = {}) => {
     if (!usine) return;
     const texteAImporter = texteSource != null ? texteSource : texteImport;
     const brut = parseTSV(texteAImporter).map((r) => r.map((c) => normaliser(c)));
     const rows = brut.filter((r) => r.some((c) => c !== ""));
-    if (rows.length < 3) { setMsgImport("⚠️ Collage incomplet (noms, Stock max, Stock min, stock du jour)."); return; }
+    if (rows.length < 3) { if (!conserverMessage) setMsgImport("⚠️ Collage incomplet (noms, Stock max, Stock min, stock du jour)."); return null; }
     const estLigneLibelle = (r, mots) => r.some((c, i) => {
       if (i > 1) return false;
       const t = (c || "").toLowerCase();
@@ -2558,7 +2602,7 @@ export default function PlanificateurChocolat() {
     };
     const debut = (isNaN(parseNum(ligneMax[0])) && isNaN(parseNum(ligneMin[0]))) ? 1 : 0;
     let maj = 0, ajoutes = 0, avecMinMax = 0, ignores = 0, reconnus = 0, redirigesAutreUsine = 0, reprisHistorique = 0;
-    let nouveaux = [...produits];
+    let nouveaux = [...(produitsSource || produits)];
     const nbCols = Math.max(ligneNoms.length, ligneMax.length, ligneMin.length, ligneStock.length, ligneSku.length);
     for (let c = debut; c < nbCols; c++) {
       const nom = normaliser(ligneNoms[c]); if (!nom) continue;
@@ -2582,10 +2626,12 @@ export default function PlanificateurChocolat() {
       else if (usine === "fatima" || modeActualisation) { ignores++; }
       else { const id = nouveaux.reduce((m, p) => Math.max(m, p.id), 0) + 1; nouveaux.push({ id, nom, sku: sku || null, ligne: null, usine, stock: isNaN(vStock) ? 0 : vStock, demande: 0, min: isNaN(vMin) ? null : vMin, max: isNaN(vMax) ? null : vMax, pesoBulto: PESO_BULTO_POR_PRODUCTO[nom] ?? null }); ajoutes++; }
     }
-    if (maj === 0 && ajoutes === 0) { setMsgImport("⚠️ No se detectó ningún producto. Verifica el pegado."); return; }
+    if (maj === 0 && ajoutes === 0) { if (!conserverMessage) setMsgImport("⚠️ No se detectó ningún producto. Verifica el pegado."); return null; }
     setProduits(nouveaux);
-    setMsgImport((modeActualisation ? "Actualizacion" : "Importacion") + " (stock del " + (dateStock || "?") + "): " + maj + " actualizado(s), " + (modeActualisation ? "planning conservado sin recalcular" : ajoutes + " nuevo(s)") + ", " + reconnus + " reconocido(s) por nombre similar, " + redirigesAutreUsine + " redirigido(s) a su planta predefinida, " + avecMinMax + " con min./max., " + reprisHistorique + " stock(s) retomado(s) de la ultima fecha con valor. " + ignores + (usine === "fatima" ? " producto(s) ignorado(s) por estar fuera de la lista autorizada o por no tener ningun valor historico." : modeActualisation ? " producto(s) ignorado(s) porque no existian en la base o no tenian ningun valor historico." : " producto(s) ignorado(s) por no tener ningun valor historico.") + (avecMinMax === 0 ? " No se leyo ningun min./max." : "") + (modeActualisation ? " Para recalcular el calendario, elige Desde/Hasta y pulsa Optimizar la planificacion." : ""));
+    const messageResultat = (modeActualisation ? "Actualizacion" : "Importacion") + " (stock del " + (dateStock || "?") + "): " + maj + " actualizado(s), " + (modeActualisation ? "planning conservado sin recalcular" : ajoutes + " nuevo(s)") + ", " + reconnus + " reconocido(s) por nombre similar, " + redirigesAutreUsine + " redirigido(s) a su planta predefinida, " + avecMinMax + " con min./max., " + reprisHistorique + " stock(s) retomado(s) de la ultima fecha con valor. " + ignores + (usine === "fatima" ? " producto(s) ignorado(s) por estar fuera de la lista autorizada o por no tener ningun valor historico." : modeActualisation ? " producto(s) ignorado(s) porque no existian en la base o no tenian ningun valor historico." : " producto(s) ignorado(s) por no tener ningun valor historico.") + (avecMinMax === 0 ? " No se leyo ningun min./max." : "") + (modeActualisation ? " Para recalcular el calendario, elige Desde/Hasta y pulsa Optimizar la planificacion." : "");
+    if (!conserverMessage) setMsgImport(messageResultat);
     setTexteImport("");
+    return { produits: nouveaux, message: messageResultat, maj, avecMinMax, dateStock };
   };
   const importerFeuilleUsine = () => appliquerCollageStocks({ modeActualisation: false });
   const actualiserStocksUsine = () => appliquerCollageStocks({ modeActualisation: true });
@@ -2632,31 +2678,41 @@ export default function PlanificateurChocolat() {
       setMsgImport("⚠️ No hay una fuente Google Sheets configurada para esta fabrica.");
       return;
     }
-    setMsgImport("Leyendo Google Sheets...");
-    try {
-      const resp = await fetch("/api/google-stock?gid=" + encodeURIComponent(gid));
-      const data = await resp.json();
-      if (!resp.ok || !data.texto) {
-        throw new Error((data && (data.detalle || data.error)) || "No se pudo leer Google Sheets.");
-      }
-      setTexteImport(data.texto);
-      appliquerCollageStocks({ modeActualisation: true, texteSource: data.texto });
-      setMsgImport((message) => "Google Sheets " + nomUsineGoogle + " chargé (gid " + gid + "). " + message);
-    } catch (error) {
+    const lireSource = async (gidSource) => {
       try {
-        setMsgImport("API local no disponible, intento lectura directa desde Google Sheets...");
-        const texto = await lireGoogleSheetDepuisNavigateur(gid);
-        if (!texto) {
-          setMsgImport("Google Sheets respondio vacio. Verifica que la hoja este compartida en lectura.");
-          return;
-        }
-        setTexteImport(texto);
-        appliquerCollageStocks({ modeActualisation: true, texteSource: texto });
-        setMsgImport((message) => "Google Sheets " + nomUsineGoogle + " chargé directement (gid " + gid + "). " + message);
-      } catch (error2) {
-        setMsgImport("No se pudo leer Google Sheets. Verifica que el archivo este compartido como 'cualquier persona con el enlace puede ver'.");
+        const resp = await fetch("/api/google-stock?gid=" + encodeURIComponent(gidSource));
+        const data = await resp.json();
+        if (!resp.ok || !data.texto) throw new Error((data && (data.detalle || data.error)) || "No se pudo leer Google Sheets.");
+        return data.texto;
+      } catch (_) {
+        return await lireGoogleSheetDepuisNavigateur(gidSource);
+      }
+    };
+    const sources = usine === "vb"
+      ? [{ nom: "VB", gid }, { nom: "MC", gid: GOOGLE_STOCK_GID_MC }]
+      : [{ nom: nomUsineGoogle, gid }];
+    setMsgImport("Leyendo Google Sheets " + sources.map((source) => source.nom).join(" + ") + "...");
+    let produitsFusionnes = produits;
+    const messages = [];
+    const erreurs = [];
+    for (const source of sources) {
+      try {
+        const texte = await lireSource(source.gid);
+        if (!texte) throw new Error("respuesta vacia");
+        const resultat = appliquerCollageStocks({ modeActualisation: true, texteSource: texte, produitsSource: produitsFusionnes, conserverMessage: true });
+        if (!resultat) throw new Error("ningun producto reconocido");
+        produitsFusionnes = resultat.produits;
+        messages.push(source.nom + ": " + resultat.maj + " producto(s), " + resultat.avecMinMax + " con min./max.");
+      } catch (error) {
+        erreurs.push(source.nom + " (" + String(error && error.message ? error.message : error) + ")");
       }
     }
+    setProduits(produitsFusionnes);
+    if (!messages.length) {
+      setMsgImport("No se pudo leer Google Sheets. Verifica que el archivo este compartido como 'cualquier persona con el enlace puede ver'. " + erreurs.join(" "));
+      return;
+    }
+    setMsgImport("Google Sheets actualizado: " + messages.join(" · ") + (erreurs.length ? " · No cargado: " + erreurs.join(", ") : "") + " Los datos de MC tienen prioridad para sus productos. Planning conservado sin recalcular.");
   };
 
   const exporterExcel = () => {
@@ -4522,7 +4578,7 @@ export default function PlanificateurChocolat() {
             <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-4">
               <h2 className="font-semibold text-violet-900 mb-2">📥 Importar la pestaña « {usineActive ? usineActive.nom : ""} »</h2>
               <ol className="text-sm text-gray-600 mb-2 list-decimal list-inside space-y-1">
-                <li>Abre la pestaña <strong>{usineActive ? usineActive.nom : ""}</strong> de tu Google Sheets</li>
+                <li>Abre la pestaña <strong>{usine === "vb" ? "VB y MC" : (usineActive ? usineActive.nom : "")}</strong> de tu Google Sheets</li>
                 <li>Sélectionnez tout (Ctrl+A) puis copiez (Ctrl+C)</li>
                 <li>Pega aquí (Ctrl+V) y elige Importar o Actualizar stocks</li>
                 <li>Si el nombre trae textos extra como solo BsAs, stock max o min, la app intenta reconocer el producto de la base.</li>
@@ -4530,7 +4586,9 @@ export default function PlanificateurChocolat() {
               <p className="text-xs text-gray-500 mb-2">Valores en <strong>bultos</strong>: nombres, luego Stock máx., Stock mín., y la última línea con fecha = stock del día.</p>
               <textarea className="w-full border rounded-lg p-2 text-sm h-40 font-mono" placeholder="(pega aquí todo el contenido de la pestaña)" value={texteImport} onChange={(e) => setTexteImport(e.target.value)} />
               <div className="mt-2 flex flex-wrap gap-2">
-                <button onClick={actualiserStocksGoogle} className="px-4 py-2 bg-sky-700 text-white rounded-lg text-sm hover:bg-sky-800">Actualizar desde Google Sheets</button>
+                <button onClick={actualiserStocksGoogle} className="px-4 py-2 bg-sky-700 text-white rounded-lg text-sm hover:bg-sky-800">
+                  {usine === "vb" ? "Actualizar VB + MC desde Google Sheets" : "Actualizar desde Google Sheets"}
+                </button>
                 <button onClick={actualiserStocksUsine} className="px-4 py-2 bg-emerald-700 text-white rounded-lg text-sm hover:bg-emerald-800">Actualizar stocks y conservar planning</button>
                 <button onClick={importerFeuilleUsine} className="px-4 py-2 bg-violet-800 text-white rounded-lg text-sm hover:bg-violet-900">Importar base para {usineActive ? usineActive.nom : ""}</button>
               </div>

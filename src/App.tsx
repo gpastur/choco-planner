@@ -1358,7 +1358,6 @@ export default function PlanificateurChocolat() {
 
   const textoMateriasPrimas = () => {
     if (!matieresResultat) return "";
-    if (stockMatieres.length > 0) return texteDiagnosticMatieres();
     const materias = (matieresResultat as any).materiasConsolidadas || (matieresResultat as any).materias || [];
     const refinado = (matieresResultat as any).refinado;
     const sinReceta = (matieresResultat as any).sinReceta || [];
@@ -1419,12 +1418,7 @@ export default function PlanificateurChocolat() {
       return;
     }
     const q = (v) => '"' + String(v == null ? "" : v).replace(/"/g, '""') + '"';
-    const csv = stockMatieres.length > 0
-      ? [
-        "Materia prima;Kg necesarios;Stock kg;Minimo kg;Compra recomendada kg;Estado;Stock reconocido como",
-        ...diagnosticMatieres.lignes.map((m) => [m.materia, Math.round(m.besoinKg * 100) / 100, Math.round(m.stockKg * 100) / 100, Math.round(m.minKg * 100) / 100, Math.round(m.achatKg * 100) / 100, m.statut, m.source].map(q).join(";")),
-      ].join("\n")
-      : ["Materia prima;Kg necesarios", ...((matieresResultat as any).materiasConsolidadas || (matieresResultat as any).materias || []).map((m) => q(m.materia) + ";" + String(Math.round(m.kg * 100) / 100))].join("\n");
+    const csv = ["Materia prima;Kg necesarios", ...((matieresResultat as any).materiasConsolidadas || (matieresResultat as any).materias || []).map((m) => q(m.materia) + ";" + String(Math.round(m.kg * 100) / 100))].join("\n");
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -4501,37 +4495,8 @@ export default function PlanificateurChocolat() {
               </div>
               <div className="flex flex-wrap gap-2">
                 <button onClick={calcularMateriasPrimas} className="px-4 py-2 bg-emerald-700 text-white rounded-lg text-sm hover:bg-emerald-800">Calcular necesidades</button>
-                <button onClick={actualiserStockMatieresGoogle} className="px-4 py-2 bg-sky-700 text-white rounded-lg text-sm hover:bg-sky-800">Actualizar stock MP</button>
               </div>
-              {!GOOGLE_MP_STOCK_SHEETS[usine] && <p className="text-xs text-amber-700 mt-2">Stock MP automatico aun no configurado para esta fabrica.</p>}
               {msgMatieres && <p className="text-sm text-emerald-800 mt-3">{msgMatieres}</p>}
-              <div className="mt-4 border-t pt-3">
-                <h3 className="font-semibold text-sm text-slate-700 mb-2">Stock MP</h3>
-                <p className="text-xs text-slate-500 mb-2">Valores en kg. Si la misma materia aparece en varias columnas por proveedor, la app la consolida.</p>
-                <textarea
-                  className="w-full border rounded-lg p-2 text-xs h-24 font-mono"
-                  placeholder="(opcional: pega aqui el stock de materias primas)"
-                  value={texteImportMatieres}
-                  onChange={(e) => setTexteImportMatieres(e.target.value)}
-                />
-                <div className="flex flex-wrap gap-2 mt-2">
-                  <button onClick={() => importerStockMatieres()} className="px-3 py-2 bg-white border border-slate-300 text-slate-700 rounded-lg text-xs hover:bg-slate-50">Importar stock MP pegado</button>
-                </div>
-                <div className="grid grid-cols-3 gap-2 mt-3 text-center">
-                  <div className="rounded-lg bg-slate-50 border border-slate-200 p-2">
-                    <div className="text-lg font-bold text-slate-800">{stockMatieres.length}</div>
-                    <div className="text-[11px] text-slate-500">MP consolidadas</div>
-                  </div>
-                  <div className="rounded-lg bg-red-50 border border-red-100 p-2">
-                    <div className="text-lg font-bold text-red-700">{diagnosticMatieres.lignes.filter((l) => l.achatKg > 0).length}</div>
-                    <div className="text-[11px] text-red-600">a comprar</div>
-                  </div>
-                  <div className="rounded-lg bg-amber-50 border border-amber-100 p-2">
-                    <div className="text-lg font-bold text-amber-700">{diagnosticMatieres.lignes.filter((l) => !l.reconnu).length}</div>
-                    <div className="text-[11px] text-amber-600">no determinado</div>
-                  </div>
-                </div>
-              </div>
               <div className="mt-4 border-t pt-3">
                 <h3 className="font-semibold text-sm text-slate-700 mb-2">Productos planificados</h3>
                 {planningProduitsMatieres.length === 0 ? (
@@ -4552,10 +4517,10 @@ export default function PlanificateurChocolat() {
               </div>
             </div>
             <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-4">
-              <h2 className="font-semibold text-violet-900 mb-2">Diagnostico MP y compras</h2>
+              <h2 className="font-semibold text-violet-900 mb-2">Necesidades de materias primas</h2>
               {!matieresResultat ? (
                 <div className="p-4 rounded-lg bg-slate-50 border border-slate-200 text-sm text-slate-500">
-                  Pulsa calcular para ver los kg por materia prima. Luego actualiza el stock MP para saber que falta comprar.
+                  Pulsa calcular para ver los kg necesarios según la planificación seleccionada.
                 </div>
               ) : (
                 <>
@@ -4574,23 +4539,12 @@ export default function PlanificateurChocolat() {
                       <thead><tr className="text-left text-slate-500 border-b">
                         <th className="py-1 pr-2">Materia prima</th>
                         <th className="py-1 text-right">Necesidad</th>
-                        <th className="py-1 text-right">Stock</th>
-                        <th className="py-1 text-right">Min.</th>
-                        <th className="py-1 text-right">Comprar</th>
-                        <th className="py-1 text-right">Estado</th>
                       </tr></thead>
                       <tbody>
-                        {(stockMatieres.length > 0 ? diagnosticMatieres.lignes : ((matieresResultat as any).materias || []).map((m) => ({ materia: m.materia, besoinKg: m.kg, stockKg: 0, minKg: 0, achatKg: 0, statut: "Necesidad", reconocido: true, source: "" }))).map((m) => (
+                        {((matieresResultat as any).materiasConsolidadas || (matieresResultat as any).materias || []).map((m) => (
                           <tr key={m.materia} className="border-b border-slate-100">
-                            <td className="py-2 pr-2 font-medium">
-                              {m.materia}
-                              {m.source && m.source !== m.materia && <div className="text-[11px] text-slate-400">Stock: {m.source}</div>}
-                            </td>
-                            <td className="py-2 text-right font-semibold">{fmtNb(m.besoinKg)} kg</td>
-                            <td className="py-2 text-right">{stockMatieres.length > 0 ? fmtNb(m.stockKg) + " kg" : "-"}</td>
-                            <td className="py-2 text-right">{stockMatieres.length > 0 ? fmtNb(m.minKg) + " kg" : "-"}</td>
-                            <td className={"py-2 text-right font-bold " + (m.achatKg > 0 ? "text-red-700" : "text-emerald-700")}>{stockMatieres.length > 0 ? fmtNb(m.achatKg) + " kg" : "-"}</td>
-                            <td className={"py-2 text-right " + (m.statut === "Comprar" ? "text-red-700 font-semibold" : m.statut === "No determinado" ? "text-amber-700 font-semibold" : "text-emerald-700")}>{stockMatieres.length > 0 ? m.statut : "Necesidad"}</td>
+                            <td className="py-2 pr-2 font-medium">{m.materia}</td>
+                            <td className="py-2 text-right font-semibold">{fmtNb(m.kg)} kg</td>
                           </tr>
                         ))}
                       </tbody>
@@ -4642,11 +4596,6 @@ export default function PlanificateurChocolat() {
                   )}
                   {(matieresResultat as any).refinado && !(matieresResultat as any).refinado.configurado && (
                     <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">Configura <strong>RECETAS_REFINADO_JSON</strong> en Vercel para activar el segundo nivel de desglose.</div>
-                  )}
-                  {stockMatieres.length > 0 && diagnosticMatieres.stockSansBesoin.length > 0 && (
-                    <div className="mt-4 p-3 rounded-lg bg-slate-50 border border-slate-200 text-xs text-slate-500">
-                      MP con stock cargado pero sin necesidad en el planning seleccionado: {diagnosticMatieres.stockSansBesoin.slice(0, 12).map((m: any) => m.nom).join(", ")}{diagnosticMatieres.stockSansBesoin.length > 12 ? "..." : ""}
-                    </div>
                   )}
                   {(matieresResultat as any).sinReceta && (matieresResultat as any).sinReceta.length > 0 && (
                     <div className="mt-4 p-3 rounded-lg bg-amber-50 border border-amber-200 text-sm text-amber-800">

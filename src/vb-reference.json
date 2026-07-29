@@ -136,7 +136,8 @@
     "nom": "Trufa x1 Bche",
     "sku": null,
     "max": null,
-    "min": null
+    "min": null,
+    "inactive": true
   },
   {
     "nom": "TRUFA x3 Bche",

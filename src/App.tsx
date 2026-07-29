@@ -7,7 +7,7 @@ import {
   ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts";
 
-const APP_VERSION = "2026.07.29-stock-vb-mc";
+const APP_VERSION = "2026.07.29-stock-vb-trufas";
 const PORTAIL_EMAIL_ACTIF = false;
 
 const PALETTE = [
@@ -432,7 +432,6 @@ const CONDITIONNEMENTS_VB = [
   ["SURTIDO 1 KG BS AS", 8, 1, 8],
   ["MEK BCHE", 18, 0.3, 5.4],
   ["MEK BS AS", 18, 0.3, 5.4],
-  ["TRUFA X1 BCHE", 72, 0.14, 10.08],
   ["TRUFA X 3 BSAS BCHE", 42, 0.036, 1.512],
   ["TRUFA X 10 BSAS BCHE", 18, 0.12, 2.16],
   ["TRUFA X15 BS AS BCHE", 18, 0.18, 3.24],
@@ -798,6 +797,7 @@ function fusionAvecBase(base: any[], sauvegarde: any[]) {
   (Array.isArray(sauvegarde) ? sauvegarde : []).forEach((item) => {
     if (["f_tabletas_bariloche", "f_franui", "vb_franui_1", "vb_franui_2"].includes(item.id)) return;
     if (idsObsoletes.has(item.id)) return;
+    if (item.usine === "vb" && NORMALISER_REFERENCE(item.nom) === "TRUFA X1 BCHE") return;
     if (item.usine === "vb" && ["VT-CENV-0000413", "VT-CENV-0000414"].includes(item.sku) && !parId.has(item.id)) return;
     const fusionne = { ...(parId.get(item.id) || {}), ...item };
     const baseItem = parId.get(item.id);
@@ -2622,9 +2622,12 @@ export default function PlanificateurChocolat() {
       if (!isNaN(vMin) || !isNaN(vMax)) avecMinMax++;
       const champs = { ...(sku ? { sku } : {}), ...(isNaN(vStock) ? {} : { stock: vStock }), ...(isNaN(vMin) ? {} : { min: vMin }), ...(isNaN(vMax) ? {} : { max: vMax }) };
       const cibleFatima = usine !== "fatima" ? trouverProduitFatimaProtege(nouveaux, nom) : null;
-      const exact = cibleFatima ? null : nouveaux.find((p) => p.usine === usine && p.nom.toLowerCase() === nom.toLowerCase());
+      const cibleSkuVb = usine === "vb" && ["VT-CENV-0000413", "VT-CENV-0000414"].includes(sku)
+        ? nouveaux.find((p) => p.usine === "vb" && p.sku === sku)
+        : null;
+      const exact = cibleFatima || cibleSkuVb ? null : nouveaux.find((p) => p.usine === usine && p.nom.toLowerCase() === nom.toLowerCase());
       const cibleAutreUsine = !exact && !cibleFatima ? trouverProduitAutreUsinePredefini(nouveaux, usine, nom) : null;
-      const existant = cibleFatima || exact || cibleAutreUsine || trouverProduitExistant(nouveaux, usine, nom);
+      const existant = cibleFatima || cibleSkuVb || exact || cibleAutreUsine || trouverProduitExistant(nouveaux, usine, nom);
       if (existant) {
         nouveaux = nouveaux.map((p) => (p.id === existant.id ? { ...p, ...champs } : p));
         maj++;

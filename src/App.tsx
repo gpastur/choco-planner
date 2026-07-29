@@ -433,8 +433,8 @@ const CONDITIONNEMENTS_VB = [
   ["MEK BCHE", 18, 0.3, 5.4],
   ["MEK BS AS", 18, 0.3, 5.4],
   ["TRUFA X1 BCHE", 72, 0.14, 10.08],
-  ["TRUFA X3 BCHE", 42, 0.036, 1.512],
-  ["TRUFA X10 BCHE", 18, 0.12, 2.16],
+  ["TRUFA X 3 BSAS BCHE", 42, 0.036, 1.512],
+  ["TRUFA X 10 BSAS BCHE", 18, 0.12, 2.16],
   ["TRUFA X15 BS AS BCHE", 18, 0.18, 3.24],
 ].map(([nom, unidadesBulto, pesoUnidad, pesoBulto]) => ({ cle: NORMALISER_REFERENCE(nom), unidadesBulto, pesoUnidad, pesoBulto }));
 
@@ -798,6 +798,7 @@ function fusionAvecBase(base: any[], sauvegarde: any[]) {
   (Array.isArray(sauvegarde) ? sauvegarde : []).forEach((item) => {
     if (["f_tabletas_bariloche", "f_franui", "vb_franui_1", "vb_franui_2"].includes(item.id)) return;
     if (idsObsoletes.has(item.id)) return;
+    if (item.usine === "vb" && ["VT-CENV-0000413", "VT-CENV-0000414"].includes(item.sku) && !parId.has(item.id)) return;
     const fusionne = { ...(parId.get(item.id) || {}), ...item };
     const baseItem = parId.get(item.id);
     if (fusionne.id === "f_tabletas") {

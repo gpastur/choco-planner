@@ -3456,45 +3456,52 @@ export default function PlanificateurChocolat() {
   const usineActive = USINES.find((u) => u.id === usine);
 
   return (
-    <div className="min-h-screen bg-violet-50 p-4 font-sans text-slate-800">
+    <div className="app-shell min-h-screen p-3 md:p-5 font-sans text-slate-800">
       <div className="max-w-7xl mx-auto">
-        <header className="mb-4 flex flex-wrap items-center justify-between gap-3 bg-white/95 border border-violet-100 rounded-xl shadow-sm p-4">
-          <div>
-            <h1 className="text-2xl font-bold text-violet-900">🍫 Fábrica {usineActive ? usineActive.nom : ""}</h1>
-            <p className="text-sm text-violet-700">Stocks en bultos · capacidades en kg/turno · producción divisible</p>
-            <p className="text-[10px] text-slate-400 mt-0.5">Versión {APP_VERSION}</p>
-            <div className="flex flex-wrap gap-2 mt-2 text-xs">
-              <span className="px-2 py-1 rounded-full bg-violet-50 text-violet-800 border border-violet-100">{lignesUsine.length} línea(s)</span>
-              <span className="px-2 py-1 rounded-full bg-sky-50 text-sky-800 border border-sky-100">{produitsUsine.length} producto(s)</span>
-              <span className="px-2 py-1 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-100">{produitsUsine.filter(estConfigure).length} configurado(s)</span>
-              {produitsNonAssignes.length > 0 && <span className="px-2 py-1 rounded-full bg-orange-50 text-orange-700 border border-orange-100">{produitsNonAssignes.length} sin línea</span>}
+        <header className="app-header mb-3 md:mb-4 overflow-hidden rounded-lg border border-violet-200 bg-white shadow-sm">
+          <div className="flex flex-wrap items-center justify-between gap-4 p-4 md:px-5 md:py-4">
+            <div className="flex min-w-0 items-center gap-3 md:gap-4">
+              <div className="brand-tile" aria-hidden="true">R</div>
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                  <h1 className="text-xl md:text-2xl font-bold text-violet-950">Fábrica {usineActive ? usineActive.nom : ""}</h1>
+                  <span className="text-[10px] font-semibold uppercase text-slate-400">Choco Planner · {APP_VERSION}</span>
+                </div>
+                <p className="mt-0.5 text-sm text-slate-500">Stocks en bultos · capacidades en kg/turno · producción divisible</p>
+                <div className="mt-2.5 flex flex-wrap gap-1.5 text-xs">
+                  <span className="metric-chip metric-chip-violet"><strong>{lignesUsine.length}</strong> líneas</span>
+                  <span className="metric-chip metric-chip-sky"><strong>{produitsUsine.length}</strong> productos</span>
+                  <span className="metric-chip metric-chip-green"><strong>{produitsUsine.filter(estConfigure).length}</strong> configurados</span>
+                  {produitsNonAssignes.length > 0 && <span className="metric-chip metric-chip-orange"><strong>{produitsNonAssignes.length}</strong> sin línea</span>}
+                </div>
+              </div>
             </div>
-          </div>
-          <div className="flex flex-wrap items-center justify-end gap-2">
-            {PORTAIL_EMAIL_ACTIF && supabaseConfigured && profil && (
-              <span className="text-xs text-slate-500 text-right">
-                <strong className="block text-slate-700">{profil.full_name || session?.user?.email}</strong>
-                {profil.role}
-              </span>
-            )}
-            <button onClick={() => setUsine(null)} className="px-3 py-2 bg-white border border-violet-300 rounded-lg text-sm text-violet-800 hover:bg-violet-100">⇄ Cambiar fábrica</button>
-            {PORTAIL_EMAIL_ACTIF && supabaseConfigured && <button onClick={deconnecter} className="px-3 py-2 bg-white border border-slate-300 rounded-lg text-sm text-slate-600 hover:bg-slate-100">Salir</button>}
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              {PORTAIL_EMAIL_ACTIF && supabaseConfigured && profil && (
+                <span className="text-xs text-slate-500 text-right">
+                  <strong className="block text-slate-700">{profil.full_name || session?.user?.email}</strong>
+                  {profil.role}
+                </span>
+              )}
+              <button onClick={() => setUsine(null)} className="app-secondary-button">⇄ Cambiar fábrica</button>
+              {PORTAIL_EMAIL_ACTIF && supabaseConfigured && <button onClick={deconnecter} className="app-secondary-button text-slate-600">Salir</button>}
+            </div>
           </div>
         </header>
 
-        <div className="flex gap-2 mb-4 flex-wrap bg-white/90 border border-violet-100 rounded-xl shadow-sm p-2">
-          <button onClick={() => setOnglet("calendrier")} className={"px-4 py-2 rounded-lg text-sm font-medium transition " + (onglet === "calendrier" ? "bg-violet-800 text-white shadow" : "bg-white text-violet-800 hover:bg-violet-100")}>📅 Calendario</button>
-          <button onClick={() => setOnglet("dashboard")} className={"px-4 py-2 rounded-lg text-sm font-medium transition " + (onglet === "dashboard" ? "bg-violet-800 text-white shadow" : "bg-white text-violet-800 hover:bg-violet-100")}>📈 Dashboard</button>
-          <button onClick={() => setOnglet("simulations")} className={"px-4 py-2 rounded-lg text-sm font-medium transition " + (onglet === "simulations" ? "bg-violet-800 text-white shadow" : "bg-white text-violet-800 hover:bg-violet-100")}>◫ Simulaciones</button>
-          <button onClick={() => setOnglet("stocks")} className={"px-4 py-2 rounded-lg text-sm font-medium transition " + (onglet === "stocks" ? "bg-violet-800 text-white shadow" : "bg-white text-violet-800 hover:bg-violet-100")}>📦 Estado de Stocks</button>
-          <button onClick={() => setOnglet("produits")} className={"px-4 py-2 rounded-lg text-sm font-medium transition " + (onglet === "produits" ? "bg-violet-800 text-white shadow" : "bg-white text-violet-800 hover:bg-violet-100")}>⚙️ Productos y Líneas{produitsNonAssignes.length > 0 ? " (" + produitsNonAssignes.length + ")" : ""}</button>
-          <button onClick={() => setOnglet("materias")} className={"px-4 py-2 rounded-lg text-sm font-medium transition " + (onglet === "materias" ? "bg-violet-800 text-white shadow" : "bg-white text-violet-800 hover:bg-violet-100")}>🧾 Materias primas</button>
-          <button onClick={() => setOnglet("diagnostic")} className={"px-4 py-2 rounded-lg text-sm font-medium transition " + (onglet === "diagnostic" ? "bg-violet-800 text-white shadow" : "bg-white text-violet-800 hover:bg-violet-100")}>📊 Diagnóstico</button>
-          <button onClick={() => { setOnglet("versions"); chargerVersions(); }} className={"px-4 py-2 rounded-lg text-sm font-medium transition " + (onglet === "versions" ? "bg-emerald-700 text-white shadow" : "bg-white text-emerald-800 hover:bg-emerald-50")}>🔒 Versiones</button>
-          <button onClick={() => { setOnglet("prioridades"); chargerPriorites(); }} className={"px-4 py-2 rounded-lg text-sm font-medium transition " + (onglet === "prioridades" ? "bg-emerald-700 text-white shadow" : "bg-white text-emerald-800 hover:bg-emerald-50")}>★ Prioridades</button>
-          {profil?.role === "admin" && <button onClick={() => { setOnglet("usuarios"); chargerUtilisateurs(); }} className={"px-4 py-2 rounded-lg text-sm font-medium transition " + (onglet === "usuarios" ? "bg-emerald-700 text-white shadow" : "bg-white text-emerald-800 hover:bg-emerald-50")}>👤 Usuarios</button>}
-              <button onClick={() => setOnglet("import")} className={"px-4 py-2 rounded-lg text-sm font-medium transition " + (onglet === "import" ? "bg-violet-800 text-white shadow" : "bg-white text-violet-800 hover:bg-violet-100")}>🔄 Importar / Exportar</button>
-        </div>
+        <nav className="app-nav mb-4" aria-label="Navegación principal">
+          <button onClick={() => setOnglet("calendrier")} className={"app-nav-item " + (onglet === "calendrier" ? "is-active" : "")}><span>📅</span>Calendario</button>
+          <button onClick={() => setOnglet("stocks")} className={"app-nav-item " + (onglet === "stocks" ? "is-active" : "")}><span>📦</span>Estado de Stocks</button>
+          <button onClick={() => setOnglet("dashboard")} className={"app-nav-item " + (onglet === "dashboard" ? "is-active" : "")}><span>📈</span>Dashboard</button>
+          <button onClick={() => setOnglet("simulations")} className={"app-nav-item " + (onglet === "simulations" ? "is-active" : "")}><span>◫</span>Simulaciones</button>
+          <button onClick={() => setOnglet("diagnostic")} className={"app-nav-item " + (onglet === "diagnostic" ? "is-active" : "")}><span>📊</span>Diagnóstico</button>
+          <button onClick={() => setOnglet("produits")} className={"app-nav-item " + (onglet === "produits" ? "is-active" : "")}><span>⚙️</span>Productos y Líneas{produitsNonAssignes.length > 0 && <b className="nav-count">{produitsNonAssignes.length}</b>}</button>
+          <button onClick={() => setOnglet("materias")} className={"app-nav-item " + (onglet === "materias" ? "is-active" : "")}><span>🧾</span>Materias primas</button>
+          <button onClick={() => { setOnglet("versions"); chargerVersions(); }} className={"app-nav-item " + (onglet === "versions" ? "is-active" : "")}><span>🔒</span>Versiones</button>
+          <button onClick={() => { setOnglet("prioridades"); chargerPriorites(); }} className={"app-nav-item " + (onglet === "prioridades" ? "is-active" : "")}><span>★</span>Prioridades</button>
+          {profil?.role === "admin" && <button onClick={() => { setOnglet("usuarios"); chargerUtilisateurs(); }} className={"app-nav-item " + (onglet === "usuarios" ? "is-active" : "")}><span>👤</span>Usuarios</button>}
+          <button onClick={() => setOnglet("import")} className={"app-nav-item " + (onglet === "import" ? "is-active" : "")}><span>🔄</span>Importar / Exportar</button>
+        </nav>
 
         {onglet === "usuarios" && profil?.role === "admin" && (
           <section className="bg-white border border-violet-100 rounded-xl shadow-sm p-4 md:p-6 mb-4">

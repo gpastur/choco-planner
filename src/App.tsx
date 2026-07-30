@@ -889,6 +889,12 @@ export default function PlanificateurChocolat() {
   const [msgOpti, setMsgOpti] = useState("");
   const [matieresResultat, setMatieresResultat] = useState(null);
   const [msgMatieres, setMsgMatieres] = useState("");
+  const [calculadoraProducto, setCalculadoraProducto] = useState("");
+  const [calculadoraKg, setCalculadoraKg] = useState("");
+  const [calculadoraItems, setCalculadoraItems] = useState<any[]>([]);
+  const [calculadoraResultado, setCalculadoraResultado] = useState<any>(null);
+  const [calculadoraMensaje, setCalculadoraMensaje] = useState("");
+  const [calculadoraCargando, setCalculadoraCargando] = useState(false);
   const [texteImportMatieres, setTexteImportMatieres] = useState("");
   const [stockMatieres, setStockMatieres] = useState([]);
   const [dateDebutOpti, setDateDebutOpti] = useState(() => cleDate(prochainLundiApres(new Date())));
@@ -1354,6 +1360,68 @@ export default function PlanificateurChocolat() {
     } catch (error) {
       setMsgMatieres("La funcion privada de recetas no esta disponible en esta previsualizacion local.");
     }
+  };
+
+  const agregarProductoCalculadora = () => {
+    const producto = produitsUsineTous.find((p) => String(p.id) === String(calculadoraProducto));
+    const kg = Number(String(calculadoraKg).replace(",", "."));
+    setCalculadoraMensaje("");
+    if (!producto) {
+      setCalculadoraMensaje("Selecciona un producto.");
+      return;
+    }
+    if (!Number.isFinite(kg) || kg <= 0) {
+      setCalculadoraMensaje("Indica una cantidad de kilos mayor que cero.");
+      return;
+    }
+    setCalculadoraItems((items) => {
+      const existente = items.find((item) => String(item.id) === String(producto.id));
+      if (existente) return items.map((item) => String(item.id) === String(producto.id) ? { ...item, kg: item.kg + kg } : item);
+      return [...items, { id: producto.id, nom: producto.nom, sku: producto.sku || "", kg }];
+    });
+    setCalculadoraProducto("");
+    setCalculadoraKg("");
+    setCalculadoraResultado(null);
+  };
+
+  const calcularProductoIndividual = async () => {
+    if (calculadoraItems.length === 0) {
+      setCalculadoraMensaje("Agrega al menos un producto al calculo.");
+      return;
+    }
+    setCalculadoraResultado(null);
+    setCalculadoraMensaje("");
+    setCalculadoraCargando(true);
+    try {
+      const resp = await fetch("/api/materias-primas", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ items: calculadoraItems.map((item) => ({ id: item.id, nom: item.nom, kg: Number(item.kg) || 0 })) }),
+      });
+      const data = await resp.json();
+      if (!resp.ok) {
+        setCalculadoraMensaje(data && (data.detalle || data.error) ? (data.detalle || data.error) : "No se pudo realizar el calculo.");
+        return;
+      }
+      setCalculadoraResultado(data);
+      if (data.sinReceta && data.sinReceta.length > 0) {
+        setCalculadoraMensaje("Calculo parcial: hay productos sin receta privada reconocida.");
+      } else {
+        setCalculadoraMensaje("Calculo agregado realizado para " + calculadoraItems.length + " producto(s).");
+      }
+    } catch (error) {
+      setCalculadoraMensaje("La funcion privada de recetas no esta disponible en esta previsualizacion local.");
+    } finally {
+      setCalculadoraCargando(false);
+    }
+  };
+
+  const limpiarCalculadora = () => {
+    setCalculadoraProducto("");
+    setCalculadoraKg("");
+    setCalculadoraItems([]);
+    setCalculadoraResultado(null);
+    setCalculadoraMensaje("");
   };
 
   const textoMateriasPrimas = () => {
@@ -3512,6 +3580,7 @@ export default function PlanificateurChocolat() {
           <button onClick={() => setOnglet("diagnostic")} className={"app-nav-item " + (onglet === "diagnostic" ? "is-active" : "")}><span>📊</span>Diagnóstico</button>
           <button onClick={() => setOnglet("produits")} className={"app-nav-item " + (onglet === "produits" ? "is-active" : "")}><span>⚙️</span>Productos y Líneas{produitsNonAssignes.length > 0 && <b className="nav-count">{produitsNonAssignes.length}</b>}</button>
           <button onClick={() => setOnglet("materias")} className={"app-nav-item " + (onglet === "materias" ? "is-active" : "")}><span>🧾</span>Materias primas</button>
+          <button onClick={() => setOnglet("calculadora")} className={"app-nav-item " + (onglet === "calculadora" ? "is-active" : "")}><span>∑</span>Calculadora</button>
           <button onClick={() => { setOnglet("versions"); chargerVersions(); }} className={"app-nav-item " + (onglet === "versions" ? "is-active" : "")}><span>🔒</span>Versiones</button>
           <button onClick={() => { setOnglet("prioridades"); chargerPriorites(); }} className={"app-nav-item " + (onglet === "prioridades" ? "is-active" : "")}><span>★</span>Prioridades</button>
           {profil?.role === "admin" && <button onClick={() => { setOnglet("usuarios"); chargerUtilisateurs(); }} className={"app-nav-item " + (onglet === "usuarios" ? "is-active" : "")}><span>👤</span>Usuarios</button>}
@@ -4606,6 +4675,143 @@ export default function PlanificateurChocolat() {
               )}
             </div>
           </div>
+        )}
+
+        {onglet === "calculadora" && (
+          <section className="space-y-4">
+            <div className="bg-white rounded-lg shadow-sm border border-violet-100 overflow-hidden">
+              <div className="bg-violet-950 px-5 py-4 text-white">
+                <h2 className="text-xl font-semibold">Calculadora de materias primas</h2>
+                <p className="text-sm text-violet-100 mt-1">Calcula las necesidades para un producto y una cantidad de produccion, incluyendo el desglose de Refinado.</p>
+              </div>
+              <div className="p-4 md:p-5 grid gap-4 lg:grid-cols-[1fr_220px_auto] lg:items-end">
+                <label className="block">
+                  <span className="block text-sm font-semibold text-slate-700 mb-1">Producto</span>
+                  <select
+                    className="w-full border border-slate-300 rounded-lg px-3 py-2.5 bg-white text-sm focus:border-violet-500 focus:ring-2 focus:ring-violet-100 outline-none"
+                    value={calculadoraProducto}
+                    onChange={(e) => { setCalculadoraProducto(e.target.value); setCalculadoraResultado(null); setCalculadoraMensaje(""); }}
+                  >
+                    <option value="">Seleccionar un producto...</option>
+                    {[...produitsUsineTous].sort((a, b) => a.nom.localeCompare(b.nom)).map((p) => (
+                      <option key={p.id} value={String(p.id)}>{p.sku ? p.sku + " · " : ""}{p.nom}</option>
+                    ))}
+                  </select>
+                </label>
+                <label className="block">
+                  <span className="block text-sm font-semibold text-slate-700 mb-1">Cantidad a producir</span>
+                  <div className="relative">
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.1"
+                      inputMode="decimal"
+                      className="w-full border border-slate-300 rounded-lg pl-3 pr-12 py-2.5 text-sm focus:border-violet-500 focus:ring-2 focus:ring-violet-100 outline-none"
+                      placeholder="Ej. 850"
+                      value={calculadoraKg}
+                      onChange={(e) => { setCalculadoraKg(e.target.value); setCalculadoraResultado(null); setCalculadoraMensaje(""); }}
+                      onKeyDown={(e) => { if (e.key === "Enter") agregarProductoCalculadora(); }}
+                    />
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-slate-500">kg</span>
+                  </div>
+                </label>
+                <div className="flex gap-2">
+                  <button type="button" onClick={agregarProductoCalculadora} className="px-5 py-2.5 bg-violet-700 text-white rounded-lg text-sm font-semibold hover:bg-violet-800">
+                    Agregar
+                  </button>
+                  <button type="button" onClick={limpiarCalculadora} className="px-3 py-2.5 border border-slate-300 text-slate-600 rounded-lg text-sm hover:bg-slate-50" title="Limpiar calculadora">Limpiar</button>
+                </div>
+              </div>
+              <div className="px-4 pb-5 md:px-5">
+                {calculadoraItems.length === 0 ? (
+                  <div className="rounded-lg border border-dashed border-slate-300 bg-slate-50 px-4 py-5 text-center text-sm text-slate-500">Agrega los productos y las cantidades que quieres producir.</div>
+                ) : (
+                  <div className="rounded-lg border border-slate-200 overflow-hidden">
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead><tr className="bg-slate-50 border-b text-left text-slate-500"><th className="px-3 py-2">Producto</th><th className="px-3 py-2 w-44 text-right">Cantidad</th><th className="px-3 py-2 w-14"></th></tr></thead>
+                        <tbody>{calculadoraItems.map((item) => (
+                          <tr key={item.id} className="border-b border-slate-100 last:border-0">
+                            <td className="px-3 py-2"><strong className="text-slate-800">{item.nom}</strong>{item.sku && <span className="block text-xs text-slate-400">{item.sku}</span>}</td>
+                            <td className="px-3 py-2">
+                              <div className="flex items-center justify-end gap-2"><input type="number" min="0.1" step="0.1" className="w-28 border border-slate-300 rounded-md px-2 py-1.5 text-right" value={item.kg} onChange={(e) => { const kg = Number(e.target.value); setCalculadoraItems((items) => items.map((x) => x.id === item.id ? { ...x, kg } : x)); setCalculadoraResultado(null); }} /><span className="text-slate-500">kg</span></div>
+                            </td>
+                            <td className="px-3 py-2 text-right"><button type="button" className="text-red-500 hover:text-red-700 px-2 py-1" title="Quitar producto" onClick={() => { setCalculadoraItems((items) => items.filter((x) => x.id !== item.id)); setCalculadoraResultado(null); }}>✕</button></td>
+                          </tr>
+                        ))}</tbody>
+                      </table>
+                    </div>
+                    <div className="flex flex-wrap items-center justify-between gap-3 bg-slate-50 border-t px-3 py-3">
+                      <span className="text-sm text-slate-600"><strong>{calculadoraItems.length}</strong> producto(s) · <strong>{fmtNb(calculadoraItems.reduce((s, item) => s + (Number(item.kg) || 0), 0))} kg</strong> en total</span>
+                      <button type="button" onClick={calcularProductoIndividual} disabled={calculadoraCargando || calculadoraItems.some((item) => !(Number(item.kg) > 0))} className="px-5 py-2.5 bg-emerald-700 disabled:bg-slate-300 text-white rounded-lg text-sm font-semibold hover:bg-emerald-800">
+                        {calculadoraCargando ? "Calculando..." : "Calcular necesidades"}
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {calculadoraMensaje && (
+              <div className={"rounded-lg border px-4 py-3 text-sm " + (calculadoraResultado && !(calculadoraResultado as any).sinReceta?.length ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-amber-200 bg-amber-50 text-amber-800")}>{calculadoraMensaje}</div>
+            )}
+
+            {calculadoraResultado && (
+              <div className="grid gap-4 xl:grid-cols-3">
+                <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-4">
+                  <div className="flex items-center justify-between gap-2 mb-3">
+                    <h3 className="font-semibold text-violet-950">Materias del producto</h3>
+                    <span className="text-xs font-semibold text-violet-700 bg-violet-50 border border-violet-200 rounded-full px-2 py-1">Nivel 1</span>
+                  </div>
+                  <p className="text-xs text-slate-500 mb-3">Componentes necesarios antes del desglose de las bases refinadas.</p>
+                  <div className="max-h-96 overflow-auto">
+                    <table className="w-full text-sm">
+                      <thead><tr className="border-b text-left text-slate-500"><th className="py-2 pr-2">Materia / base</th><th className="py-2 text-right">Kg</th></tr></thead>
+                      <tbody>{((calculadoraResultado as any).materias || []).map((m) => (
+                        <tr key={m.materia} className="border-b border-slate-100"><td className="py-2 pr-2 font-medium">{m.materia}</td><td className="py-2 text-right font-bold text-violet-800">{fmtNb(m.kg)}</td></tr>
+                      ))}</tbody>
+                    </table>
+                  </div>
+                </div>
+
+                <div className="bg-white rounded-lg shadow-sm border border-violet-200 p-4">
+                  <div className="flex items-center justify-between gap-2 mb-3">
+                    <h3 className="font-semibold text-violet-950">Bases de Refinado</h3>
+                    <span className="text-xs font-semibold text-violet-700 bg-violet-50 border border-violet-200 rounded-full px-2 py-1">Nivel 2</span>
+                  </div>
+                  <p className="text-xs text-slate-500 mb-3">Chocolates, pralinés y cremas que deben prepararse en Refinado.</p>
+                  {(calculadoraResultado as any).refinado?.configurado ? (
+                    (calculadoraResultado as any).refinado.bases.length > 0 ? (
+                      <div className="max-h-96 overflow-auto"><table className="w-full text-sm"><thead><tr className="border-b text-left text-slate-500"><th className="py-2 pr-2">Base</th><th className="py-2 text-right">Kg</th></tr></thead><tbody>
+                        {(calculadoraResultado as any).refinado.bases.map((m) => <tr key={m.materia} className="border-b border-violet-100"><td className="py-2 pr-2 font-medium">{m.materia}</td><td className="py-2 text-right font-bold text-violet-800">{fmtNb(m.kg)}</td></tr>)}
+                      </tbody></table></div>
+                    ) : <p className="rounded-lg bg-slate-50 border border-slate-200 p-3 text-sm text-slate-500">Este producto no utiliza una base configurada en Refinado.</p>
+                  ) : <p className="rounded-lg bg-amber-50 border border-amber-200 p-3 text-sm text-amber-800">Falta configurar RECETAS_REFINADO_JSON en Vercel.</p>}
+                </div>
+
+                <div className="bg-white rounded-lg shadow-sm border border-emerald-200 p-4">
+                  <div className="flex items-center justify-between gap-2 mb-3">
+                    <h3 className="font-semibold text-emerald-950">Materias para Refinado</h3>
+                    <span className="text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-full px-2 py-1">Detalle</span>
+                  </div>
+                  <p className="text-xs text-slate-500 mb-3">Insumos necesarios para fabricar las bases del segundo nivel.</p>
+                  {(calculadoraResultado as any).refinado?.materias?.length > 0 ? (
+                    <div className="max-h-96 overflow-auto"><table className="w-full text-sm"><thead><tr className="border-b text-left text-slate-500"><th className="py-2 pr-2">Materia prima</th><th className="py-2 text-right">Kg</th></tr></thead><tbody>
+                      {(calculadoraResultado as any).refinado.materias.map((m) => <tr key={m.materia} className="border-b border-emerald-100"><td className="py-2 pr-2 font-medium">{m.materia}</td><td className="py-2 text-right font-bold text-emerald-800">{fmtNb(m.kg)}</td></tr>)}
+                    </tbody></table></div>
+                  ) : <p className="rounded-lg bg-slate-50 border border-slate-200 p-3 text-sm text-slate-500">No hay materias de Refinado para mostrar.</p>}
+                </div>
+              </div>
+            )}
+
+            {calculadoraResultado && (calculadoraResultado as any).sinReceta?.length > 0 && (
+              <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                <strong>Sin receta privada:</strong> {(calculadoraResultado as any).sinReceta.map((item) => item.producto).join(", ")}. Los demás productos sí están incluidos en los totales.
+              </div>
+            )}
+
+            <p className="text-xs text-slate-500 px-1">Las recetas permanecen en las variables privadas de Vercel. La aplicacion envia solamente el producto y los kilos solicitados.</p>
+          </section>
         )}
 
         {onglet === "import" && (

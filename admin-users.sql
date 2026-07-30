@@ -24,6 +24,13 @@
     "min": 138
   },
   {
+    "nom": "LICOR IRLANDES BOTELLA (no se elabora)",
+    "sku": null,
+    "max": null,
+    "min": null,
+    "inactive": true
+  },
+  {
     "nom": "LICOR DDL BOTELLA",
     "sku": "VT-CFRA-000056",
     "max": 192,
@@ -129,19 +136,22 @@
     "nom": "Trufa x1 Bche",
     "sku": null,
     "max": null,
-    "min": null
+    "min": null,
+    "inactive": true
   },
   {
-    "nom": "BOMBON x16 Bche",
+    "nom": "TRUFA x3 Bche",
     "sku": "VT-CENV-0000413",
     "max": 28,
-    "min": 14
+    "min": 14,
+    "inactive": true
   },
   {
-    "nom": "BOMBON x32 Bche",
+    "nom": "TRUFA x10 Bche",
     "sku": "VT-CENV-0000414",
     "max": 23,
-    "min": 12
+    "min": 12,
+    "inactive": true
   },
   {
     "nom": "SURTIDO 250 BS AS",
@@ -168,13 +178,13 @@
     "min": 11
   },
   {
-    "nom": "Trufa x3 BS AS/Bche",
+    "nom": "TRUFA x 3 BsAs / Bche",
     "sku": "VT-CENV-0000413",
     "max": 145,
     "min": 73
   },
   {
-    "nom": "Trufa x10 BS AS/Bche",
+    "nom": "TRUFA x 10 BsAs / Bche",
     "sku": "VT-CENV-0000414",
     "max": 247,
     "min": 123

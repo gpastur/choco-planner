@@ -1,118 +1,30 @@
-function normalizar(valor) {
-  return String(valor || "")
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toUpperCase()
-    .replace(/\bBS\s+AS\b/g, "")
-    .replace(/\b(BSAS|VB)\b/g, "")
-    .replace(/\s+/g, " ")
-    .trim();
-}
+const fs = require("fs");
 
-function ratio(valor) {
-  if (typeof valor === "number") return valor > 1 ? valor / 100 : valor;
-  const texto = String(valor || "").replace(",", ".").trim();
-  if (!texto) return 0;
-  const n = Number(texto.replace("%", ""));
-  if (!Number.isFinite(n)) return 0;
-  return texto.includes("%") || n > 1 ? n / 100 : n;
-}
+const source = fs.readFileSync("src/App.tsx", "utf8");
+const names = [...source.matchAll(/mkEsandi\([^,]+,\s*"([^"]+)"/g)].map((match) => match[1]);
+const reference = require("../src/esandi-reference.json");
 
-const CAMPOS_TECNICOS = new Set([
-  "UNIDADES/BULTO",
-  "PESO/BULTO [KG]",
-  "PESO/BULTO",
-  "PESO/UNIDAD",
-  "PESO / U",
-  "U / BULTO",
-  "COD",
-]);
+const normalize = (value) => String(value || "")
+  .normalize("NFD")
+  .replace(/[\u0300-\u036f]/g, "")
+  .toUpperCase()
+  .replace(/\b(ENV|COMUN|VENTA|BULTO|UNI|GRAMOS|GR)\b/g, "")
+  .replace(/[^A-Z0-9]+/g, " ")
+  .trim();
 
-function esCampoTecnico(nombre) {
-  return CAMPOS_TECNICOS.has(normalizar(nombre));
-}
+const score = (left, right) => {
+  const a = new Set(normalize(left).split(" ").filter(Boolean));
+  const b = new Set(normalize(right).split(" ").filter(Boolean));
+  const intersection = [...a].filter((token) => b.has(token)).length;
+  return (2 * intersection) / (a.size + b.size);
+};
 
-function leerRecetasPrivadas() {
-  const fuentes = [
-    ["RECETAS_DULCES_JSON", process.env.RECETAS_DULCES_JSON],
-    ["RECETAS_ESANDI_JSON", process.env.RECETAS_ESANDI_JSON],
-    ["RECETAS_FATIMA_JSON", process.env.RECETAS_FATIMA_JSON],
-    ["RECETAS_MITRE_JSON", process.env.RECETAS_MITRE_JSON],
-    ["RECETAS_PRODUCTOS_JSON", process.env.RECETAS_PRODUCTOS_JSON],
-    ["RECETAS_EXTRA_JSON", process.env.RECETAS_EXTRA_JSON],
-  ].filter(([, valor]) => valor && String(valor).trim());
+const rows = names.map((name) => {
+  const [bestScore, match] = reference
+    .map((item) => [score(name, item.nom), item])
+    .sort((a, b) => b[0] - a[0])[0];
+  return { name, match: match.nom, score: Number(bestScore.toFixed(2)), sku: match.sku, min: match.min, max: match.max };
+});
 
-  if (fuentes.length === 0) {
-    return { error: "Configura al menos RECETAS_DULCES_JSON o RECETAS_ESANDI_JSON en Vercel. Las recetas no deben guardarse en GitHub." };
-  }
-
-  const recetas = {};
-  for (const [nombreVariable, valor] of fuentes) {
-    try {
-      Object.assign(recetas, JSON.parse(valor));
-    } catch (error) {
-      return { error: nombreVariable + " no es un JSON valido" };
-    }
-  }
-  return { recetas };
-}
-
-function corregirReceta(nombre, receta) {
-  const clave = normalizar(nombre);
-  const recetasCorregidas = {
-    "OSOS DDL GRANEL": { "Choco leche": "67%", "DDL clasico": "33%" },
-    "OSOS DDL X4": { "Choco leche": "67%", "DDL clasico": "33%" },
-    "OSOS DDL X6": { "Choco leche": "67%", "DDL clasico": "33%" },
-    "OSOS DDL X12": { "Choco leche": "67%", "DDL clasico": "33%" },
-    "CORAZON X5": { "Choco leche": "67%", "DDL clasico": "33%" },
-  };
-  return recetasCorregidas[clave] || receta;
-}
-
-export default function handler(req, res) {
-  if (req.method !== "POST") {
-    res.status(405).json({ error: "Metodo no permitido" });
-    return;
-  }
-
-  const privadas = leerRecetasPrivadas();
-  if (privadas.error && privadas.error.includes("Configura")) {
-    res.status(503).json({
-      error: "Recetas privadas no configuradas",
-      detalle: privadas.error,
-    });
-    return;
-  }
-  if (privadas.error) {
-    res.status(500).json({ error: privadas.error });
-    return;
-  }
-
-  const items = Array.isArray(req.body && req.body.items) ? req.body.items : [];
-  const recetasPorNombre = new Map(Object.entries(privadas.recetas).map(([nombre, receta]) => [normalizar(nombre), corregirReceta(nombre, receta)]));
-  const totales = {};
-  const sinReceta = [];
-
-  items.forEach((item) => {
-    const kg = Number(item && item.kg) || 0;
-    if (kg <= 0) return;
-    const clave = normalizar(item.nom || item.producto || item.name);
-    const receta = recetasPorNombre.get(clave);
-    if (!receta) {
-      sinReceta.push({ producto: item.nom || item.producto || item.name || "Producto sin nombre", kg });
-      return;
-    }
-    Object.entries(receta).forEach(([materia, valor]) => {
-      if (esCampoTecnico(materia)) return;
-      const kgMateria = kg * ratio(valor);
-      if (kgMateria > 0) totales[materia] = (totales[materia] || 0) + kgMateria;
-    });
-  });
-
-  res.status(200).json({
-    materias: Object.entries(totales)
-      .map(([materia, kg]) => ({ materia, kg }))
-      .sort((a, b) => a.materia.localeCompare(b.materia)),
-    sinReceta,
-  });
-}
+console.log(`app=${names.length} reference=${reference.length} score>=0.7=${rows.filter((row) => row.score >= 0.7).length}`);
+console.table(rows.filter((row) => row.score < 1));

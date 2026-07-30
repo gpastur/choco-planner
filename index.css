@@ -7,8 +7,8 @@ import {
   ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts";
 
-const APP_VERSION = "2026.07.29-stock-vb-mc";
-const PORTAIL_EMAIL_ACTIF = false;
+const APP_VERSION = "2026.07.29-stock-vb-trufas";
+const PORTAIL_EMAIL_ACTIF = true;
 
 const PALETTE = [
   { couleur: "bg-violet-600", clair: "bg-violet-100", bordure: "border-violet-600", texte: "text-violet-800" },
@@ -50,9 +50,10 @@ const LIGNES_INIT = [
   { id: "l3", nom: "GDG", capacite: 500, pal: 2, usine: "mitre" },
   { id: "l4", nom: "Sollich", capacite: 500, pal: 3, usine: "mitre" },
   { id: "l5", nom: "Bulher", capacite: 500, pal: 4, usine: "mitre" },
+  { id: "vb_refinado", nom: "Refinado / Beldos", capacite: 130, pal: 3, usine: "vb" },
   { id: "vb_stephan", nom: "Dulceria / Beldos", capacite: 130, pal: 0, usine: "vb" },
   { id: "vb_tostadora", nom: "Tostadora", capacite: 140, pal: 1, usine: "vb" },
-  { id: "vb_envasado", nom: "Envasado", capacite: 0, pal: 2, usine: "vb" },
+  { id: "vb_envasado", nom: "Envasado", capacite: 450, pal: 2, usine: "vb" },
   { id: "f_tabletas", nom: "Tabletas", capacite: 3200, pal: 1, usine: "fatima" },
 ];
 
@@ -400,6 +401,7 @@ const REFERENCES_ESANDI_PAR_NOM = new Map(
 
 const ligneVbPourProduit = (nom) => {
   const cle = NORMALISER_REFERENCE(nom);
+  if (/^CREMA (NUICCIOLA|MARROC|PISTACHO)/.test(cle)) return "vb_refinado";
   return /^(LICOR|JUGO|DULCE)/.test(cle) ? "vb_stephan" : "vb_envasado";
 };
 
@@ -432,9 +434,8 @@ const CONDITIONNEMENTS_VB = [
   ["SURTIDO 1 KG BS AS", 8, 1, 8],
   ["MEK BCHE", 18, 0.3, 5.4],
   ["MEK BS AS", 18, 0.3, 5.4],
-  ["TRUFA X1 BCHE", 72, 0.14, 10.08],
-  ["BOMBON X16 BCHE", 42, 0.036, 1.512],
-  ["BOMBON X32 BCHE", 18, 0.12, 2.16],
+  ["TRUFA X 3 BSAS BCHE", 42, 0.036, 1.512],
+  ["TRUFA X 10 BSAS BCHE", 18, 0.12, 2.16],
   ["TRUFA X15 BS AS BCHE", 18, 0.18, 3.24],
 ].map(([nom, unidadesBulto, pesoUnidad, pesoBulto]) => ({ cle: NORMALISER_REFERENCE(nom), unidadesBulto, pesoUnidad, pesoBulto }));
 
@@ -447,10 +448,10 @@ const ALIASES_STOCK_MC_VB = {
 const estProduitStockMcVb = (reference) => !!ALIASES_STOCK_MC_VB[reference.sku];
 
 const PRODUITS_AVEC_VB_MAESTRO = [...PRODUITS_BASE];
-vbReference
-  .filter((reference) => (typeof reference.min === "number" && typeof reference.max === "number") || conditionnementVb(reference.nom) || estProduitStockMcVb(reference))
-  .filter((reference) => !NORMALISER_REFERENCE(reference.nom).startsWith("FRASCO "))
-  .forEach((reference, index) => {
+vbReference.forEach((reference, index) => {
+    if ((reference as any).inactive) return;
+    if (!((typeof reference.min === "number" && typeof reference.max === "number") || conditionnementVb(reference.nom) || estProduitStockMcVb(reference))) return;
+    if (NORMALISER_REFERENCE(reference.nom).startsWith("FRASCO ")) return;
     const cle = NORMALISER_REFERENCE(reference.nom);
     const existant = PRODUITS_AVEC_VB_MAESTRO.find((produit) => produit.usine === "vb" && NORMALISER_REFERENCE(produit.nom) === cle);
     const conditionnement = conditionnementVb(reference.nom);
@@ -459,6 +460,7 @@ vbReference
       min: reference.min,
       max: reference.max,
       ligne: ligneVbPourProduit(reference.nom),
+      ...(reference.sku === "VN-CPOL-0000004" ? { capaciteTurno: 600 } : {}),
       ...(ALIASES_STOCK_MC_VB[reference.sku] ? { aliases: ALIASES_STOCK_MC_VB[reference.sku] } : {}),
       ...(conditionnement ? { unidadesBulto: conditionnement.unidadesBulto, pesoUnidad: conditionnement.pesoUnidad, pesoBulto: conditionnement.pesoBulto } : {}),
     };
@@ -571,8 +573,8 @@ function turnosUsine(usineId) { return TURNOS_PAR_USINE[usineId] || TURNOS_PAR_U
 function turnosLigne(ligne) {
   if (ligne && ligne.id === "f_franui") return TURNOS_FRANUI;
   const turnos = turnosUsine(ligne && ligne.usine);
-  if (ligne && ligne.id === "vb_stephan") return turnos.filter((t) => t.id !== "n");
-  if (ligne && ligne.id === "vb_tostadora") return turnos.filter((t) => t.id === "m");
+  if (ligne && ["vb_stephan", "vb_refinado"].includes(ligne.id)) return turnos.filter((t) => t.id !== "n");
+  if (ligne && ["vb_tostadora", "vb_envasado"].includes(ligne.id)) return turnos.filter((t) => t.id === "m");
   return turnos;
 }
 function turnosBaseAffiches(ligne) { return ligne && ligne.id === "f_franui" ? 2 : ligne && ligne.usine === "fatima" ? 1 : turnosLigne(ligne).length; }
@@ -592,11 +594,11 @@ function turnosLignePourDate(ligne, date) {
     return TURNOS_FRANUI;
   }
   const turnos = turnosUsinePourDate(ligne && ligne.usine, date);
-  if (ligne && ligne.id === "vb_stephan") {
+  if (ligne && ["vb_stephan", "vb_refinado"].includes(ligne.id)) {
     if (date instanceof Date && (date.getDay() === 0 || date.getDay() === 6)) return [];
     return turnos.filter((t) => t.id !== "n");
   }
-  if (ligne && ligne.id === "vb_tostadora") {
+  if (ligne && ["vb_tostadora", "vb_envasado"].includes(ligne.id)) {
     if (date instanceof Date && (date.getDay() === 0 || date.getDay() === 6)) return [];
     return turnos.filter((t) => t.id === "m");
   }
@@ -798,6 +800,8 @@ function fusionAvecBase(base: any[], sauvegarde: any[]) {
   (Array.isArray(sauvegarde) ? sauvegarde : []).forEach((item) => {
     if (["f_tabletas_bariloche", "f_franui", "vb_franui_1", "vb_franui_2"].includes(item.id)) return;
     if (idsObsoletes.has(item.id)) return;
+    if (item.usine === "vb" && NORMALISER_REFERENCE(item.nom) === "TRUFA X1 BCHE") return;
+    if (item.usine === "vb" && ["VT-CENV-0000413", "VT-CENV-0000414"].includes(item.sku) && !parId.has(item.id)) return;
     const fusionne = { ...(parId.get(item.id) || {}), ...item };
     const baseItem = parId.get(item.id);
     if (fusionne.id === "f_tabletas") {
@@ -807,6 +811,14 @@ function fusionAvecBase(base: any[], sauvegarde: any[]) {
     if (fusionne.id === "vb_stephan") {
       fusionne.nom = "Dulceria / Beldos";
       fusionne.capacite = 130;
+    }
+    if (fusionne.id === "vb_refinado") {
+      fusionne.nom = "Refinado / Beldos";
+      fusionne.capacite = 130;
+    }
+    if (fusionne.id === "vb_envasado") {
+      fusionne.nom = "Envasado";
+      fusionne.capacite = 450;
     }
     if (baseItem && fusionne.usine === "fatima" && fusionne.id >= 117 && fusionne.id <= 132) {
       fusionne.nom = baseItem.nom;
@@ -827,7 +839,15 @@ function fusionAvecBase(base: any[], sauvegarde: any[]) {
       fusionne.ligne = baseItem.ligne;
       fusionne.pesoBulto = baseItem.pesoBulto;
     }
-    if (baseItem && fusionne.usine === "vb" && baseItem.sku) fusionne.sku = baseItem.sku;
+    if (baseItem && fusionne.usine === "vb" && baseItem.sku) {
+      fusionne.nom = baseItem.nom;
+      fusionne.sku = baseItem.sku;
+      fusionne.ligne = baseItem.ligne;
+      fusionne.unidadesBulto = baseItem.unidadesBulto;
+      fusionne.pesoUnidad = baseItem.pesoUnidad;
+      fusionne.pesoBulto = baseItem.pesoBulto;
+      fusionne.capaciteTurno = baseItem.capaciteTurno;
+    }
     const referenceVb = baseItem && fusionne.usine === "vb" ? REFERENCES_VB_PAR_NOM.get(NORMALISER_REFERENCE(baseItem.nom)) : null;
     if (baseItem && referenceVb) {
       fusionne.sku = baseItem.sku || null;
@@ -869,6 +889,12 @@ export default function PlanificateurChocolat() {
   const [msgOpti, setMsgOpti] = useState("");
   const [matieresResultat, setMatieresResultat] = useState(null);
   const [msgMatieres, setMsgMatieres] = useState("");
+  const [calculadoraProducto, setCalculadoraProducto] = useState("");
+  const [calculadoraKg, setCalculadoraKg] = useState("");
+  const [calculadoraItems, setCalculadoraItems] = useState<any[]>([]);
+  const [calculadoraResultado, setCalculadoraResultado] = useState<any>(null);
+  const [calculadoraMensaje, setCalculadoraMensaje] = useState("");
+  const [calculadoraCargando, setCalculadoraCargando] = useState(false);
   const [texteImportMatieres, setTexteImportMatieres] = useState("");
   const [stockMatieres, setStockMatieres] = useState([]);
   const [dateDebutOpti, setDateDebutOpti] = useState(() => cleDate(prochainLundiApres(new Date())));
@@ -1179,7 +1205,7 @@ export default function PlanificateurChocolat() {
   };
 
   const diagnosticMatieres = useMemo(() => {
-    const besoins = matieresResultat ? ((matieresResultat as any).materias || []) : [];
+    const besoins = matieresResultat ? ((matieresResultat as any).materiasConsolidadas || (matieresResultat as any).materias || []) : [];
     const stocks = stockMatieres || [];
     const stockParCle = new Map(stocks.map((s: any) => [s.cle, s]));
     const lignesDiag = besoins.map((m) => {
@@ -1336,10 +1362,72 @@ export default function PlanificateurChocolat() {
     }
   };
 
+  const agregarProductoCalculadora = () => {
+    const producto = produitsUsineTous.find((p) => String(p.id) === String(calculadoraProducto));
+    const kg = Number(String(calculadoraKg).replace(",", "."));
+    setCalculadoraMensaje("");
+    if (!producto) {
+      setCalculadoraMensaje("Selecciona un producto.");
+      return;
+    }
+    if (!Number.isFinite(kg) || kg <= 0) {
+      setCalculadoraMensaje("Indica una cantidad de kilos mayor que cero.");
+      return;
+    }
+    setCalculadoraItems((items) => {
+      const existente = items.find((item) => String(item.id) === String(producto.id));
+      if (existente) return items.map((item) => String(item.id) === String(producto.id) ? { ...item, kg: item.kg + kg } : item);
+      return [...items, { id: producto.id, nom: producto.nom, sku: producto.sku || "", kg }];
+    });
+    setCalculadoraProducto("");
+    setCalculadoraKg("");
+    setCalculadoraResultado(null);
+  };
+
+  const calcularProductoIndividual = async () => {
+    if (calculadoraItems.length === 0) {
+      setCalculadoraMensaje("Agrega al menos un producto al calculo.");
+      return;
+    }
+    setCalculadoraResultado(null);
+    setCalculadoraMensaje("");
+    setCalculadoraCargando(true);
+    try {
+      const resp = await fetch("/api/materias-primas", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ items: calculadoraItems.map((item) => ({ id: item.id, nom: item.nom, kg: Number(item.kg) || 0 })) }),
+      });
+      const data = await resp.json();
+      if (!resp.ok) {
+        setCalculadoraMensaje(data && (data.detalle || data.error) ? (data.detalle || data.error) : "No se pudo realizar el calculo.");
+        return;
+      }
+      setCalculadoraResultado(data);
+      if (data.sinReceta && data.sinReceta.length > 0) {
+        setCalculadoraMensaje("Calculo parcial: hay productos sin receta privada reconocida.");
+      } else {
+        setCalculadoraMensaje("Calculo agregado realizado para " + calculadoraItems.length + " producto(s).");
+      }
+    } catch (error) {
+      setCalculadoraMensaje("La funcion privada de recetas no esta disponible en esta previsualizacion local.");
+    } finally {
+      setCalculadoraCargando(false);
+    }
+  };
+
+  const limpiarCalculadora = () => {
+    setCalculadoraProducto("");
+    setCalculadoraKg("");
+    setCalculadoraItems([]);
+    setCalculadoraResultado(null);
+    setCalculadoraMensaje("");
+  };
+
   const textoMateriasPrimas = () => {
     if (!matieresResultat) return "";
-    if (stockMatieres.length > 0) return texteDiagnosticMatieres();
-    const materias = (matieresResultat as any).materias || [];
+    const materias = (matieresResultat as any).materiasConsolidadas || (matieresResultat as any).materias || [];
+    const refinado = (matieresResultat as any).refinado;
     const sinReceta = (matieresResultat as any).sinReceta || [];
     const lineas = [
       "Necesidades de materias primas",
@@ -1349,6 +1437,9 @@ export default function PlanificateurChocolat() {
       "Materias primas:",
       ...materias.map((m) => "- " + m.materia + ": " + fmtNb(m.kg) + " kg"),
     ];
+    if (refinado && refinado.bases && refinado.bases.length > 0) {
+      lineas.push("", "Bases a producir en Refinado:", ...refinado.bases.map((m) => "- " + m.materia + ": " + fmtNb(m.kg) + " kg"));
+    }
     if (sinReceta.length > 0) {
       lineas.push("", "Sin receta privada configurada:");
       sinReceta.forEach((x) => lineas.push("- " + x.producto));
@@ -1395,12 +1486,7 @@ export default function PlanificateurChocolat() {
       return;
     }
     const q = (v) => '"' + String(v == null ? "" : v).replace(/"/g, '""') + '"';
-    const csv = stockMatieres.length > 0
-      ? [
-        "Materia prima;Kg necesarios;Stock kg;Minimo kg;Compra recomendada kg;Estado;Stock reconocido como",
-        ...diagnosticMatieres.lignes.map((m) => [m.materia, Math.round(m.besoinKg * 100) / 100, Math.round(m.stockKg * 100) / 100, Math.round(m.minKg * 100) / 100, Math.round(m.achatKg * 100) / 100, m.statut, m.source].map(q).join(";")),
-      ].join("\n")
-      : ["Materia prima;Kg necesarios", ...((matieresResultat as any).materias || []).map((m) => q(m.materia) + ";" + String(Math.round(m.kg * 100) / 100))].join("\n");
+    const csv = ["Materia prima;Kg necesarios", ...((matieresResultat as any).materiasConsolidadas || (matieresResultat as any).materias || []).map((m) => q(m.materia) + ";" + String(Math.round(m.kg * 100) / 100))].join("\n");
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -1443,6 +1529,10 @@ export default function PlanificateurChocolat() {
     return regle ? regle.capacite : (ligne.capacite || 0);
   };
   const kgBlocPlanning = (ligne, turno = null, date = null) => capaciteLigneDate(ligne, date) * ((turno && turno.facteur) || 1);
+  const kgBlocProduitPlanning = (produit, ligne, turno = null, date = null) => {
+    const capaciteProduit = Number(produit && produit.capaciteTurno);
+    return (capaciteProduit > 0 ? capaciteProduit : capaciteLigneDate(ligne, date)) * ((turno && turno.facteur) || 1);
+  };
   const capaciteJourPlanning = (ligne, date) => turnosLignePourDate(ligne, date).reduce((s, t) => s + kgBlocPlanning(ligne, t, date), 0);
   const optionProduitPlanning = (p) => {
     if (!estConfigure(p)) return "○ " + p.nom + " · sin min/max";
@@ -1806,7 +1896,7 @@ export default function PlanificateurChocolat() {
   });
 
   const accesPublic = !PORTAIL_EMAIL_ACTIF;
-  const cloudUtilisateurActif = PORTAIL_EMAIL_ACTIF && supabaseConfigured && !!session?.user;
+  const cloudUtilisateurActif = supabaseConfigured && !!session?.user;
   const peutPlanifier = accesPublic || !supabaseConfigured || ["admin", "planner"].includes(profil?.role);
   const peutSaisirReel = accesPublic || !supabaseConfigured || ["admin", "planner", "production"].includes(profil?.role);
   const peutGererPriorites = accesPublic || !supabaseConfigured || ["admin", "planner", "production"].includes(profil?.role);
@@ -1846,14 +1936,13 @@ export default function PlanificateurChocolat() {
   const connecter = async (e) => {
     e.preventDefault();
     if (!supabase) return;
-    if (!authEmail.trim()) return;
-    setAuthMessage("Enviando enlace seguro...");
-    const emailRedirectTo = `${window.location.origin}${window.location.pathname}`;
-    const { error } = await supabase.auth.signInWithOtp({
+    if (!authEmail.trim() || !authPassword) return;
+    setAuthMessage("Verificando acceso...");
+    const { error } = await supabase.auth.signInWithPassword({
       email: authEmail.trim(),
-      options: { emailRedirectTo, shouldCreateUser: false },
+      password: authPassword,
     });
-    setAuthMessage(error ? error.message : "Revisa tu email y abre el enlace para entrar. No necesitas contraseña.");
+    setAuthMessage(error ? (error.message === "Invalid login credentials" ? "Email o contraseña incorrectos." : error.message) : "Acceso autorizado.");
   };
 
   const definirMotDePasse = async (e) => {
@@ -2306,7 +2395,8 @@ export default function PlanificateurChocolat() {
       if (pid === "") delete np[cle];
       else {
         const actuel = lireBloc(np[cle], ligne);
-        np[cle] = { p: Number(pid), kg: kgBlocPlanning(ligne, turno, date), note: actuel?.note || "" };
+        const produit = produits.find((item) => memeId(item.id, pid));
+        np[cle] = { p: Number(pid), kg: kgBlocProduitPlanning(produit, ligne, turno, date), note: actuel?.note || "" };
       }
       return np;
     });
@@ -2451,7 +2541,6 @@ export default function PlanificateurChocolat() {
             if (kgpbReel) stockSim[blocReel.p] = (stockSim[blocReel.p] || 0) + kgEffectifBloc(blocReel) / kgpbReel;
             return;
           }
-          const kgb_ligne = kgBlocPlanning(ligne, turno, jour.date); // kg disponibles por turno
           // Produit le plus en déficit sous le plancher vert. La quantité est divisible.
           let meilleur = null, meilleurScore = -Infinity;
           let meilleureRegle = null;
@@ -2496,6 +2585,7 @@ export default function PlanificateurChocolat() {
           }
           const s = seuils(meilleur);
           const kgpb = kgParBulto(meilleur);
+          const kgb_ligne = kgBlocProduitPlanning(meilleur, ligne, turno, jour.date); // capacidad especifica del producto o de la linea
           const stockProjeteFinAvant = stockSim[meilleur.id] - demandeJour(meilleur) * joursRestantsHorizon;
           const stockProjeteFinPlein = stockProjeteFinAvant + kgb_ligne / kgpb;
           const limitePleinRaisonnable = s.max * 1.1;
@@ -2614,9 +2704,12 @@ export default function PlanificateurChocolat() {
       if (!isNaN(vMin) || !isNaN(vMax)) avecMinMax++;
       const champs = { ...(sku ? { sku } : {}), ...(isNaN(vStock) ? {} : { stock: vStock }), ...(isNaN(vMin) ? {} : { min: vMin }), ...(isNaN(vMax) ? {} : { max: vMax }) };
       const cibleFatima = usine !== "fatima" ? trouverProduitFatimaProtege(nouveaux, nom) : null;
-      const exact = cibleFatima ? null : nouveaux.find((p) => p.usine === usine && p.nom.toLowerCase() === nom.toLowerCase());
+      const cibleSkuVb = usine === "vb" && ["VT-CENV-0000413", "VT-CENV-0000414"].includes(sku)
+        ? nouveaux.find((p) => p.usine === "vb" && p.sku === sku)
+        : null;
+      const exact = cibleFatima || cibleSkuVb ? null : nouveaux.find((p) => p.usine === usine && p.nom.toLowerCase() === nom.toLowerCase());
       const cibleAutreUsine = !exact && !cibleFatima ? trouverProduitAutreUsinePredefini(nouveaux, usine, nom) : null;
-      const existant = cibleFatima || exact || cibleAutreUsine || trouverProduitExistant(nouveaux, usine, nom);
+      const existant = cibleFatima || cibleSkuVb || exact || cibleAutreUsine || trouverProduitExistant(nouveaux, usine, nom);
       if (existant) {
         nouveaux = nouveaux.map((p) => (p.id === existant.id ? { ...p, ...champs } : p));
         maj++;
@@ -3317,12 +3410,17 @@ export default function PlanificateurChocolat() {
         <form onSubmit={connecter} className="w-full max-w-sm bg-white border border-violet-100 shadow-lg rounded-xl p-6">
           <div className="text-3xl mb-2">🍫</div>
           <h1 className="text-2xl font-bold text-violet-950">Choco Planner</h1>
-          <p className="text-sm text-slate-500 mt-1 mb-5">Acceso sin contraseña, reservado a usuarios previamente autorizados.</p>
+          <p className="text-sm text-slate-500 mt-1 mb-5">Acceso reservado a usuarios autorizados en Supabase.</p>
           <label className="block text-sm font-medium text-slate-700 mb-3">
             Email
             <input type="email" required autoComplete="email" className="mt-1 w-full border border-slate-300 rounded-lg px-3 py-2" value={authEmail} onChange={(e) => setAuthEmail(e.target.value)} />
           </label>
-          <button type="submit" className="w-full bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg px-4 py-2 font-medium">Recibir enlace de acceso</button>
+          <label className="block text-sm font-medium text-slate-700 mb-4">
+            Contraseña
+            <input type="password" required autoComplete="current-password" className="mt-1 w-full border border-slate-300 rounded-lg px-3 py-2" value={authPassword} onChange={(e) => setAuthPassword(e.target.value)} />
+          </label>
+          <button type="submit" className="w-full bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg px-4 py-2 font-medium">Ingresar</button>
+          <button type="button" onClick={demanderReinitialisation} className="mt-3 w-full text-sm font-medium text-violet-800 hover:text-violet-950">Olvidé mi contraseña / cambiar contraseña</button>
           {authMessage && <p className="mt-3 text-sm text-red-700">{authMessage}</p>}
         </form>
       </div>
@@ -3445,45 +3543,58 @@ export default function PlanificateurChocolat() {
   const usineActive = USINES.find((u) => u.id === usine);
 
   return (
-    <div className="min-h-screen bg-violet-50 p-4 font-sans text-slate-800">
+    <div className="app-shell min-h-screen p-3 md:p-5 font-sans text-slate-800">
       <div className="max-w-7xl mx-auto">
-        <header className="mb-4 flex flex-wrap items-center justify-between gap-3 bg-white/95 border border-violet-100 rounded-xl shadow-sm p-4">
-          <div>
-            <h1 className="text-2xl font-bold text-violet-900">🍫 Fábrica {usineActive ? usineActive.nom : ""}</h1>
-            <p className="text-sm text-violet-700">Stocks en bultos · capacidades en kg/turno · producción divisible</p>
-            <p className="text-[10px] text-slate-400 mt-0.5">Versión {APP_VERSION}</p>
-            <div className="flex flex-wrap gap-2 mt-2 text-xs">
-              <span className="px-2 py-1 rounded-full bg-violet-50 text-violet-800 border border-violet-100">{lignesUsine.length} línea(s)</span>
-              <span className="px-2 py-1 rounded-full bg-sky-50 text-sky-800 border border-sky-100">{produitsUsine.length} producto(s)</span>
-              <span className="px-2 py-1 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-100">{produitsUsine.filter(estConfigure).length} configurado(s)</span>
-              {produitsNonAssignes.length > 0 && <span className="px-2 py-1 rounded-full bg-orange-50 text-orange-700 border border-orange-100">{produitsNonAssignes.length} sin línea</span>}
+        <header className="app-header mb-3 md:mb-4 overflow-hidden rounded-lg border border-violet-200 bg-white shadow-sm">
+          <div className="flex flex-wrap items-center justify-between gap-4 p-4 md:px-5 md:py-4">
+            <div className="flex min-w-0 items-center gap-3 md:gap-4">
+              <div className="brand-tile" aria-hidden="true">R</div>
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                  <h1 className="text-xl md:text-2xl font-bold text-violet-950">Fábrica {usineActive ? usineActive.nom : ""}</h1>
+                  <span className="text-[10px] font-semibold uppercase text-slate-400">Choco Planner · {APP_VERSION}</span>
+                </div>
+                <p className="mt-0.5 text-sm text-slate-500">Stocks en bultos · capacidades en kg/turno · producción divisible</p>
+                <div className="mt-2.5 flex flex-wrap gap-1.5 text-xs">
+                  <span className="metric-chip metric-chip-violet"><strong>{lignesUsine.length}</strong> líneas</span>
+                  <span className="metric-chip metric-chip-sky"><strong>{produitsUsine.length}</strong> productos</span>
+                  <span className="metric-chip metric-chip-green"><strong>{produitsUsine.filter(estConfigure).length}</strong> configurados</span>
+                  {produitsNonAssignes.length > 0 && <span className="metric-chip metric-chip-orange"><strong>{produitsNonAssignes.length}</strong> sin línea</span>}
+                </div>
+              </div>
             </div>
-          </div>
-          <div className="flex flex-wrap items-center justify-end gap-2">
-            {PORTAIL_EMAIL_ACTIF && supabaseConfigured && profil && (
-              <span className="text-xs text-slate-500 text-right">
-                <strong className="block text-slate-700">{profil.full_name || session?.user?.email}</strong>
-                {profil.role}
-              </span>
-            )}
-            <button onClick={() => setUsine(null)} className="px-3 py-2 bg-white border border-violet-300 rounded-lg text-sm text-violet-800 hover:bg-violet-100">⇄ Cambiar fábrica</button>
-            {PORTAIL_EMAIL_ACTIF && supabaseConfigured && <button onClick={deconnecter} className="px-3 py-2 bg-white border border-slate-300 rounded-lg text-sm text-slate-600 hover:bg-slate-100">Salir</button>}
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              {supabaseConfigured && session?.user ? (
+                <span className="text-xs text-slate-500 text-right rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5">
+                  <strong className="block text-emerald-900">{profil?.full_name || session.user.email}</strong>
+                  <span>{session.user.email}{profil?.role ? " · " + profil.role : ""}</span>
+                </span>
+              ) : supabaseConfigured ? (
+                <button type="button" onClick={() => setOnglet("versions")} className="text-left rounded-lg border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs text-amber-800 hover:bg-amber-100">
+                  <strong className="block">Acceso público</strong>
+                  Sin usuario identificado
+                </button>
+              ) : null}
+              <button onClick={() => setUsine(null)} className="app-secondary-button">⇄ Cambiar fábrica</button>
+              {supabaseConfigured && session?.user && <button onClick={deconnecter} className="app-secondary-button text-slate-600">Salir</button>}
+            </div>
           </div>
         </header>
 
-        <div className="flex gap-2 mb-4 flex-wrap bg-white/90 border border-violet-100 rounded-xl shadow-sm p-2">
-          <button onClick={() => setOnglet("calendrier")} className={"px-4 py-2 rounded-lg text-sm font-medium transition " + (onglet === "calendrier" ? "bg-violet-800 text-white shadow" : "bg-white text-violet-800 hover:bg-violet-100")}>📅 Calendario</button>
-          <button onClick={() => setOnglet("dashboard")} className={"px-4 py-2 rounded-lg text-sm font-medium transition " + (onglet === "dashboard" ? "bg-violet-800 text-white shadow" : "bg-white text-violet-800 hover:bg-violet-100")}>📈 Dashboard</button>
-          <button onClick={() => setOnglet("simulations")} className={"px-4 py-2 rounded-lg text-sm font-medium transition " + (onglet === "simulations" ? "bg-violet-800 text-white shadow" : "bg-white text-violet-800 hover:bg-violet-100")}>◫ Simulaciones</button>
-          <button onClick={() => setOnglet("stocks")} className={"px-4 py-2 rounded-lg text-sm font-medium transition " + (onglet === "stocks" ? "bg-violet-800 text-white shadow" : "bg-white text-violet-800 hover:bg-violet-100")}>📦 Estado de Stocks</button>
-          <button onClick={() => setOnglet("produits")} className={"px-4 py-2 rounded-lg text-sm font-medium transition " + (onglet === "produits" ? "bg-violet-800 text-white shadow" : "bg-white text-violet-800 hover:bg-violet-100")}>⚙️ Productos y Líneas{produitsNonAssignes.length > 0 ? " (" + produitsNonAssignes.length + ")" : ""}</button>
-          <button onClick={() => setOnglet("materias")} className={"px-4 py-2 rounded-lg text-sm font-medium transition " + (onglet === "materias" ? "bg-violet-800 text-white shadow" : "bg-white text-violet-800 hover:bg-violet-100")}>🧾 Materias primas</button>
-          <button onClick={() => setOnglet("diagnostic")} className={"px-4 py-2 rounded-lg text-sm font-medium transition " + (onglet === "diagnostic" ? "bg-violet-800 text-white shadow" : "bg-white text-violet-800 hover:bg-violet-100")}>📊 Diagnóstico</button>
-          <button onClick={() => { setOnglet("versions"); chargerVersions(); }} className={"px-4 py-2 rounded-lg text-sm font-medium transition " + (onglet === "versions" ? "bg-emerald-700 text-white shadow" : "bg-white text-emerald-800 hover:bg-emerald-50")}>🔒 Versiones</button>
-          <button onClick={() => { setOnglet("prioridades"); chargerPriorites(); }} className={"px-4 py-2 rounded-lg text-sm font-medium transition " + (onglet === "prioridades" ? "bg-emerald-700 text-white shadow" : "bg-white text-emerald-800 hover:bg-emerald-50")}>★ Prioridades</button>
-          {profil?.role === "admin" && <button onClick={() => { setOnglet("usuarios"); chargerUtilisateurs(); }} className={"px-4 py-2 rounded-lg text-sm font-medium transition " + (onglet === "usuarios" ? "bg-emerald-700 text-white shadow" : "bg-white text-emerald-800 hover:bg-emerald-50")}>👤 Usuarios</button>}
-              <button onClick={() => setOnglet("import")} className={"px-4 py-2 rounded-lg text-sm font-medium transition " + (onglet === "import" ? "bg-violet-800 text-white shadow" : "bg-white text-violet-800 hover:bg-violet-100")}>🔄 Importar / Exportar</button>
-        </div>
+        <nav className="app-nav mb-4" aria-label="Navegación principal">
+          <button onClick={() => setOnglet("calendrier")} className={"app-nav-item " + (onglet === "calendrier" ? "is-active" : "")}><span>📅</span>Calendario</button>
+          <button onClick={() => setOnglet("stocks")} className={"app-nav-item " + (onglet === "stocks" ? "is-active" : "")}><span>📦</span>Estado de Stocks</button>
+          <button onClick={() => setOnglet("dashboard")} className={"app-nav-item " + (onglet === "dashboard" ? "is-active" : "")}><span>📈</span>Dashboard</button>
+          <button onClick={() => setOnglet("simulations")} className={"app-nav-item " + (onglet === "simulations" ? "is-active" : "")}><span>◫</span>Simulaciones</button>
+          <button onClick={() => setOnglet("diagnostic")} className={"app-nav-item " + (onglet === "diagnostic" ? "is-active" : "")}><span>📊</span>Diagnóstico</button>
+          <button onClick={() => setOnglet("produits")} className={"app-nav-item " + (onglet === "produits" ? "is-active" : "")}><span>⚙️</span>Productos y Líneas{produitsNonAssignes.length > 0 && <b className="nav-count">{produitsNonAssignes.length}</b>}</button>
+          <button onClick={() => setOnglet("materias")} className={"app-nav-item " + (onglet === "materias" ? "is-active" : "")}><span>🧾</span>Materias primas</button>
+          <button onClick={() => setOnglet("calculadora")} className={"app-nav-item " + (onglet === "calculadora" ? "is-active" : "")}><span>∑</span>Calculadora</button>
+          <button onClick={() => { setOnglet("versions"); chargerVersions(); }} className={"app-nav-item " + (onglet === "versions" ? "is-active" : "")}><span>🔒</span>Versiones</button>
+          <button onClick={() => { setOnglet("prioridades"); chargerPriorites(); }} className={"app-nav-item " + (onglet === "prioridades" ? "is-active" : "")}><span>★</span>Prioridades</button>
+          {profil?.role === "admin" && <button onClick={() => { setOnglet("usuarios"); chargerUtilisateurs(); }} className={"app-nav-item " + (onglet === "usuarios" ? "is-active" : "")}><span>👤</span>Usuarios</button>}
+          <button onClick={() => setOnglet("import")} className={"app-nav-item " + (onglet === "import" ? "is-active" : "")}><span>🔄</span>Importar / Exportar</button>
+        </nav>
 
         {onglet === "usuarios" && profil?.role === "admin" && (
           <section className="bg-white border border-violet-100 rounded-xl shadow-sm p-4 md:p-6 mb-4">
@@ -4197,7 +4308,7 @@ export default function PlanificateurChocolat() {
                 </table>
               </div>
             )}
-            <p className="text-xs text-gray-500 mt-2">Cada turno produce segun los horarios de la fabrica: Fatima trabaja de lunes a viernes un turno completo dividido en medio turno manana y medio turno tarde, y no trabaja sabado ni domingo; Esandi trabaja manana y tarde, con solo manana el sabado; Mitre/VB trabajan 3 turnos base, con solo manana el sabado. Excepcion: Dulceria / Beldos trabaja solo lunes a viernes, manana y tarde. La cantidad es <strong>divisible</strong>. La gomita de color muestra el estado del stock justo despues de ese bloque, simulando la demanda dia por dia.</p>
+            <p className="text-xs text-gray-500 mt-2">Cada turno produce segun los horarios de la fabrica: Fatima trabaja de lunes a viernes un turno completo dividido en medio turno manana y medio turno tarde, y no trabaja sabado ni domingo; Esandi trabaja manana y tarde, con solo manana el sabado; Mitre/VB trabajan 3 turnos base, con solo manana el sabado. Excepcion: Dulceria / Beldos y Refinado / Beldos trabajan solo lunes a viernes, manana y tarde. La cantidad es <strong>divisible</strong>. La gomita de color muestra el estado del stock justo despues de ese bloque, simulando la demanda dia por dia.</p>
             <Legende />
           </div>
         )}
@@ -4214,7 +4325,16 @@ export default function PlanificateurChocolat() {
 
             {!cloudUtilisateurActif ? (
               <div className="border border-amber-200 bg-amber-50 rounded-lg p-4 text-sm text-amber-900">
-                El acceso público temporal está activo. La aplicación funciona localmente, pero las versiones compartidas requieren reactivar la identificación por email.
+                <h3 className="font-semibold text-base">Identifícate para guardar versiones</h3>
+                <p className="mt-1 text-amber-800">El acceso al planner sigue siendo público. La identificación sirve únicamente para guardar, aprobar y congelar planificaciones con tu nombre.</p>
+                <form onSubmit={connecter} className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-end">
+                  <label className="flex-1 text-sm font-medium text-slate-700">
+                    Email autorizado en Supabase
+                    <input type="email" required className="mt-1 w-full rounded-lg border border-amber-300 bg-white px-3 py-2 text-slate-800 outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-100" placeholder="nombre@empresa.com" value={authEmail} onChange={(e) => setAuthEmail(e.target.value)} />
+                  </label>
+                  <button type="submit" className="rounded-lg bg-violet-800 px-4 py-2 text-white font-semibold hover:bg-violet-900">Recibir enlace de acceso</button>
+                </form>
+                {authMessage && <p className="mt-3 rounded-lg bg-white/70 px-3 py-2 text-sm">{authMessage}</p>}
               </div>
             ) : (
               <>
@@ -4434,7 +4554,7 @@ export default function PlanificateurChocolat() {
                     <div key={p.id} className={"flex items-center gap-2 p-2 rounded-lg " + (nonAssigne ? "bg-orange-50 border border-orange-300" : "bg-gray-50")}>
                       <div className="flex-1 min-w-0">
                         <input className="w-full bg-transparent border-b border-transparent focus:border-violet-400 outline-none text-sm" value={p.nom} onChange={(e) => majProduit(p.id, "nom", e.target.value)} />
-                        <div className="text-[11px] text-slate-500 mt-0.5">SKU: {p.sku || "sin SKU"}</div>
+                        <div className="text-[11px] text-slate-500 mt-0.5">SKU: {p.sku || "sin SKU"}{Number(p.capaciteTurno) > 0 ? " · cap. específica " + fmtNb(p.capaciteTurno) + " kg/turno" : ""}</div>
                       </div>
                       <select className={"text-xs border rounded p-1 " + (nonAssigne ? "border-orange-400 text-orange-700" : "")} value={p.ligne || ""} onChange={(e) => majProduit(p.id, "ligne", e.target.value || null)}>
                         <option value="">Por asignar...</option>
@@ -4462,37 +4582,8 @@ export default function PlanificateurChocolat() {
               </div>
               <div className="flex flex-wrap gap-2">
                 <button onClick={calcularMateriasPrimas} className="px-4 py-2 bg-emerald-700 text-white rounded-lg text-sm hover:bg-emerald-800">Calcular necesidades</button>
-                <button onClick={actualiserStockMatieresGoogle} className="px-4 py-2 bg-sky-700 text-white rounded-lg text-sm hover:bg-sky-800">Actualizar stock MP</button>
               </div>
-              {!GOOGLE_MP_STOCK_SHEETS[usine] && <p className="text-xs text-amber-700 mt-2">Stock MP automatico aun no configurado para esta fabrica.</p>}
               {msgMatieres && <p className="text-sm text-emerald-800 mt-3">{msgMatieres}</p>}
-              <div className="mt-4 border-t pt-3">
-                <h3 className="font-semibold text-sm text-slate-700 mb-2">Stock MP</h3>
-                <p className="text-xs text-slate-500 mb-2">Valores en kg. Si la misma materia aparece en varias columnas por proveedor, la app la consolida.</p>
-                <textarea
-                  className="w-full border rounded-lg p-2 text-xs h-24 font-mono"
-                  placeholder="(opcional: pega aqui el stock de materias primas)"
-                  value={texteImportMatieres}
-                  onChange={(e) => setTexteImportMatieres(e.target.value)}
-                />
-                <div className="flex flex-wrap gap-2 mt-2">
-                  <button onClick={() => importerStockMatieres()} className="px-3 py-2 bg-white border border-slate-300 text-slate-700 rounded-lg text-xs hover:bg-slate-50">Importar stock MP pegado</button>
-                </div>
-                <div className="grid grid-cols-3 gap-2 mt-3 text-center">
-                  <div className="rounded-lg bg-slate-50 border border-slate-200 p-2">
-                    <div className="text-lg font-bold text-slate-800">{stockMatieres.length}</div>
-                    <div className="text-[11px] text-slate-500">MP consolidadas</div>
-                  </div>
-                  <div className="rounded-lg bg-red-50 border border-red-100 p-2">
-                    <div className="text-lg font-bold text-red-700">{diagnosticMatieres.lignes.filter((l) => l.achatKg > 0).length}</div>
-                    <div className="text-[11px] text-red-600">a comprar</div>
-                  </div>
-                  <div className="rounded-lg bg-amber-50 border border-amber-100 p-2">
-                    <div className="text-lg font-bold text-amber-700">{diagnosticMatieres.lignes.filter((l) => !l.reconnu).length}</div>
-                    <div className="text-[11px] text-amber-600">no determinado</div>
-                  </div>
-                </div>
-              </div>
               <div className="mt-4 border-t pt-3">
                 <h3 className="font-semibold text-sm text-slate-700 mb-2">Productos planificados</h3>
                 {planningProduitsMatieres.length === 0 ? (
@@ -4513,10 +4604,10 @@ export default function PlanificateurChocolat() {
               </div>
             </div>
             <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-4">
-              <h2 className="font-semibold text-violet-900 mb-2">Diagnostico MP y compras</h2>
+              <h2 className="font-semibold text-violet-900 mb-2">Necesidades de materias primas</h2>
               {!matieresResultat ? (
                 <div className="p-4 rounded-lg bg-slate-50 border border-slate-200 text-sm text-slate-500">
-                  Pulsa calcular para ver los kg por materia prima. Luego actualiza el stock MP para saber que falta comprar.
+                  Pulsa calcular para ver los kg necesarios según la planificación seleccionada.
                 </div>
               ) : (
                 <>
@@ -4535,32 +4626,63 @@ export default function PlanificateurChocolat() {
                       <thead><tr className="text-left text-slate-500 border-b">
                         <th className="py-1 pr-2">Materia prima</th>
                         <th className="py-1 text-right">Necesidad</th>
-                        <th className="py-1 text-right">Stock</th>
-                        <th className="py-1 text-right">Min.</th>
-                        <th className="py-1 text-right">Comprar</th>
-                        <th className="py-1 text-right">Estado</th>
                       </tr></thead>
                       <tbody>
-                        {(stockMatieres.length > 0 ? diagnosticMatieres.lignes : ((matieresResultat as any).materias || []).map((m) => ({ materia: m.materia, besoinKg: m.kg, stockKg: 0, minKg: 0, achatKg: 0, statut: "Necesidad", reconocido: true, source: "" }))).map((m) => (
+                        {((matieresResultat as any).materiasConsolidadas || (matieresResultat as any).materias || []).map((m) => (
                           <tr key={m.materia} className="border-b border-slate-100">
-                            <td className="py-2 pr-2 font-medium">
-                              {m.materia}
-                              {m.source && m.source !== m.materia && <div className="text-[11px] text-slate-400">Stock: {m.source}</div>}
-                            </td>
-                            <td className="py-2 text-right font-semibold">{fmtNb(m.besoinKg)} kg</td>
-                            <td className="py-2 text-right">{stockMatieres.length > 0 ? fmtNb(m.stockKg) + " kg" : "-"}</td>
-                            <td className="py-2 text-right">{stockMatieres.length > 0 ? fmtNb(m.minKg) + " kg" : "-"}</td>
-                            <td className={"py-2 text-right font-bold " + (m.achatKg > 0 ? "text-red-700" : "text-emerald-700")}>{stockMatieres.length > 0 ? fmtNb(m.achatKg) + " kg" : "-"}</td>
-                            <td className={"py-2 text-right " + (m.statut === "Comprar" ? "text-red-700 font-semibold" : m.statut === "No determinado" ? "text-amber-700 font-semibold" : "text-emerald-700")}>{stockMatieres.length > 0 ? m.statut : "Necesidad"}</td>
+                            <td className="py-2 pr-2 font-medium">{m.materia}</td>
+                            <td className="py-2 text-right font-semibold">{fmtNb(m.kg)} kg</td>
                           </tr>
                         ))}
                       </tbody>
                     </table>
                   </div>
-                  {stockMatieres.length > 0 && diagnosticMatieres.stockSansBesoin.length > 0 && (
-                    <div className="mt-4 p-3 rounded-lg bg-slate-50 border border-slate-200 text-xs text-slate-500">
-                      MP con stock cargado pero sin necesidad en el planning seleccionado: {diagnosticMatieres.stockSansBesoin.slice(0, 12).map((m: any) => m.nom).join(", ")}{diagnosticMatieres.stockSansBesoin.length > 12 ? "..." : ""}
-                    </div>
+                  {(matieresResultat as any).refinado && (matieresResultat as any).refinado.configurado && (
+                    <section className="mt-5 border-t border-slate-200 pt-4">
+                      <div className="flex flex-wrap items-start justify-between gap-2 mb-3">
+                        <div>
+                          <h3 className="font-semibold text-violet-900">Subsegmento Refinado</h3>
+                          <p className="text-xs text-slate-500 mt-1">Desglose de los chocolates y pralinés requeridos por la planificación. Las recetas permanecen en la función privada.</p>
+                        </div>
+                        <span className="rounded-full border border-violet-200 bg-violet-50 px-3 py-1 text-xs font-semibold text-violet-700">Segundo nivel</span>
+                      </div>
+                      {(matieresResultat as any).refinado.bases.length === 0 ? (
+                        <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-500">La planificación seleccionada no utiliza bases configuradas en Refinado.</div>
+                      ) : (
+                        <div className="grid gap-4 xl:grid-cols-2">
+                          <div className="rounded-lg border border-violet-100 bg-violet-50/40 p-3">
+                            <h4 className="text-sm font-semibold text-violet-900 mb-2">Bases a producir</h4>
+                            <div className="max-h-72 overflow-auto">
+                              <table className="w-full text-sm">
+                                <thead><tr className="border-b text-left text-slate-500"><th className="py-1 pr-2">Base refinada</th><th className="py-1 text-right">Kg</th></tr></thead>
+                                <tbody>{(matieresResultat as any).refinado.bases.map((m) => (
+                                  <tr key={m.materia} className="border-b border-violet-100"><td className="py-2 pr-2 font-medium">{m.materia}</td><td className="py-2 text-right font-bold text-violet-800">{fmtNb(m.kg)} kg</td></tr>
+                                ))}</tbody>
+                              </table>
+                            </div>
+                          </div>
+                          <div className="rounded-lg border border-emerald-100 bg-emerald-50/40 p-3">
+                            <h4 className="text-sm font-semibold text-emerald-900 mb-2">Materias para Refinado</h4>
+                            <div className="max-h-72 overflow-auto">
+                              <table className="w-full text-sm">
+                                <thead><tr className="border-b text-left text-slate-500"><th className="py-1 pr-2">Materia prima</th><th className="py-1 text-right">Kg</th></tr></thead>
+                                <tbody>{(matieresResultat as any).refinado.materias.map((m) => (
+                                  <tr key={m.materia} className="border-b border-emerald-100"><td className="py-2 pr-2 font-medium">{m.materia}</td><td className="py-2 text-right font-bold text-emerald-800">{fmtNb(m.kg)} kg</td></tr>
+                                ))}</tbody>
+                              </table>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                      {(matieresResultat as any).refinado.alertas && (matieresResultat as any).refinado.alertas.length > 0 && (
+                        <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+                          <strong>Revisar receta:</strong> la suma declarada no está entre 98% y 102% para {(matieresResultat as any).refinado.alertas.map((a) => a.base + " (" + fmtNb(a.totalPct) + "%)").join(", ")}.
+                        </div>
+                      )}
+                    </section>
+                  )}
+                  {(matieresResultat as any).refinado && !(matieresResultat as any).refinado.configurado && (
+                    <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">Configura <strong>RECETAS_REFINADO_JSON</strong> en Vercel para activar el segundo nivel de desglose.</div>
                   )}
                   {(matieresResultat as any).sinReceta && (matieresResultat as any).sinReceta.length > 0 && (
                     <div className="mt-4 p-3 rounded-lg bg-amber-50 border border-amber-200 text-sm text-amber-800">
@@ -4571,6 +4693,143 @@ export default function PlanificateurChocolat() {
               )}
             </div>
           </div>
+        )}
+
+        {onglet === "calculadora" && (
+          <section className="space-y-4">
+            <div className="bg-white rounded-lg shadow-sm border border-violet-100 overflow-hidden">
+              <div className="bg-violet-950 px-5 py-4 text-white">
+                <h2 className="text-xl font-semibold">Calculadora de materias primas</h2>
+                <p className="text-sm text-violet-100 mt-1">Calcula las necesidades para un producto y una cantidad de produccion, incluyendo el desglose de Refinado.</p>
+              </div>
+              <div className="p-4 md:p-5 grid gap-4 lg:grid-cols-[1fr_220px_auto] lg:items-end">
+                <label className="block">
+                  <span className="block text-sm font-semibold text-slate-700 mb-1">Producto</span>
+                  <select
+                    className="w-full border border-slate-300 rounded-lg px-3 py-2.5 bg-white text-sm focus:border-violet-500 focus:ring-2 focus:ring-violet-100 outline-none"
+                    value={calculadoraProducto}
+                    onChange={(e) => { setCalculadoraProducto(e.target.value); setCalculadoraResultado(null); setCalculadoraMensaje(""); }}
+                  >
+                    <option value="">Seleccionar un producto...</option>
+                    {[...produitsUsineTous].sort((a, b) => a.nom.localeCompare(b.nom)).map((p) => (
+                      <option key={p.id} value={String(p.id)}>{p.sku ? p.sku + " · " : ""}{p.nom}</option>
+                    ))}
+                  </select>
+                </label>
+                <label className="block">
+                  <span className="block text-sm font-semibold text-slate-700 mb-1">Cantidad a producir</span>
+                  <div className="relative">
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.1"
+                      inputMode="decimal"
+                      className="w-full border border-slate-300 rounded-lg pl-3 pr-12 py-2.5 text-sm focus:border-violet-500 focus:ring-2 focus:ring-violet-100 outline-none"
+                      placeholder="Ej. 850"
+                      value={calculadoraKg}
+                      onChange={(e) => { setCalculadoraKg(e.target.value); setCalculadoraResultado(null); setCalculadoraMensaje(""); }}
+                      onKeyDown={(e) => { if (e.key === "Enter") agregarProductoCalculadora(); }}
+                    />
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-slate-500">kg</span>
+                  </div>
+                </label>
+                <div className="flex gap-2">
+                  <button type="button" onClick={agregarProductoCalculadora} className="px-5 py-2.5 bg-violet-700 text-white rounded-lg text-sm font-semibold hover:bg-violet-800">
+                    Agregar
+                  </button>
+                  <button type="button" onClick={limpiarCalculadora} className="px-3 py-2.5 border border-slate-300 text-slate-600 rounded-lg text-sm hover:bg-slate-50" title="Limpiar calculadora">Limpiar</button>
+                </div>
+              </div>
+              <div className="px-4 pb-5 md:px-5">
+                {calculadoraItems.length === 0 ? (
+                  <div className="rounded-lg border border-dashed border-slate-300 bg-slate-50 px-4 py-5 text-center text-sm text-slate-500">Agrega los productos y las cantidades que quieres producir.</div>
+                ) : (
+                  <div className="rounded-lg border border-slate-200 overflow-hidden">
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead><tr className="bg-slate-50 border-b text-left text-slate-500"><th className="px-3 py-2">Producto</th><th className="px-3 py-2 w-44 text-right">Cantidad</th><th className="px-3 py-2 w-14"></th></tr></thead>
+                        <tbody>{calculadoraItems.map((item) => (
+                          <tr key={item.id} className="border-b border-slate-100 last:border-0">
+                            <td className="px-3 py-2"><strong className="text-slate-800">{item.nom}</strong>{item.sku && <span className="block text-xs text-slate-400">{item.sku}</span>}</td>
+                            <td className="px-3 py-2">
+                              <div className="flex items-center justify-end gap-2"><input type="number" min="0.1" step="0.1" className="w-28 border border-slate-300 rounded-md px-2 py-1.5 text-right" value={item.kg} onChange={(e) => { const kg = Number(e.target.value); setCalculadoraItems((items) => items.map((x) => x.id === item.id ? { ...x, kg } : x)); setCalculadoraResultado(null); }} /><span className="text-slate-500">kg</span></div>
+                            </td>
+                            <td className="px-3 py-2 text-right"><button type="button" className="text-red-500 hover:text-red-700 px-2 py-1" title="Quitar producto" onClick={() => { setCalculadoraItems((items) => items.filter((x) => x.id !== item.id)); setCalculadoraResultado(null); }}>✕</button></td>
+                          </tr>
+                        ))}</tbody>
+                      </table>
+                    </div>
+                    <div className="flex flex-wrap items-center justify-between gap-3 bg-slate-50 border-t px-3 py-3">
+                      <span className="text-sm text-slate-600"><strong>{calculadoraItems.length}</strong> producto(s) · <strong>{fmtNb(calculadoraItems.reduce((s, item) => s + (Number(item.kg) || 0), 0))} kg</strong> en total</span>
+                      <button type="button" onClick={calcularProductoIndividual} disabled={calculadoraCargando || calculadoraItems.some((item) => !(Number(item.kg) > 0))} className="px-5 py-2.5 bg-emerald-700 disabled:bg-slate-300 text-white rounded-lg text-sm font-semibold hover:bg-emerald-800">
+                        {calculadoraCargando ? "Calculando..." : "Calcular necesidades"}
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {calculadoraMensaje && (
+              <div className={"rounded-lg border px-4 py-3 text-sm " + (calculadoraResultado && !(calculadoraResultado as any).sinReceta?.length ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-amber-200 bg-amber-50 text-amber-800")}>{calculadoraMensaje}</div>
+            )}
+
+            {calculadoraResultado && (
+              <div className="grid gap-4 xl:grid-cols-3">
+                <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-4">
+                  <div className="flex items-center justify-between gap-2 mb-3">
+                    <h3 className="font-semibold text-violet-950">Materias del producto</h3>
+                    <span className="text-xs font-semibold text-violet-700 bg-violet-50 border border-violet-200 rounded-full px-2 py-1">Nivel 1</span>
+                  </div>
+                  <p className="text-xs text-slate-500 mb-3">Componentes necesarios antes del desglose de las bases refinadas.</p>
+                  <div className="max-h-96 overflow-auto">
+                    <table className="w-full text-sm">
+                      <thead><tr className="border-b text-left text-slate-500"><th className="py-2 pr-2">Materia / base</th><th className="py-2 text-right">Kg</th></tr></thead>
+                      <tbody>{((calculadoraResultado as any).materias || []).map((m) => (
+                        <tr key={m.materia} className="border-b border-slate-100"><td className="py-2 pr-2 font-medium">{m.materia}</td><td className="py-2 text-right font-bold text-violet-800">{fmtNb(m.kg)}</td></tr>
+                      ))}</tbody>
+                    </table>
+                  </div>
+                </div>
+
+                <div className="bg-white rounded-lg shadow-sm border border-violet-200 p-4">
+                  <div className="flex items-center justify-between gap-2 mb-3">
+                    <h3 className="font-semibold text-violet-950">Bases de Refinado</h3>
+                    <span className="text-xs font-semibold text-violet-700 bg-violet-50 border border-violet-200 rounded-full px-2 py-1">Nivel 2</span>
+                  </div>
+                  <p className="text-xs text-slate-500 mb-3">Chocolates, pralinés y cremas que deben prepararse en Refinado.</p>
+                  {(calculadoraResultado as any).refinado?.configurado ? (
+                    (calculadoraResultado as any).refinado.bases.length > 0 ? (
+                      <div className="max-h-96 overflow-auto"><table className="w-full text-sm"><thead><tr className="border-b text-left text-slate-500"><th className="py-2 pr-2">Base</th><th className="py-2 text-right">Kg</th></tr></thead><tbody>
+                        {(calculadoraResultado as any).refinado.bases.map((m) => <tr key={m.materia} className="border-b border-violet-100"><td className="py-2 pr-2 font-medium">{m.materia}</td><td className="py-2 text-right font-bold text-violet-800">{fmtNb(m.kg)}</td></tr>)}
+                      </tbody></table></div>
+                    ) : <p className="rounded-lg bg-slate-50 border border-slate-200 p-3 text-sm text-slate-500">Este producto no utiliza una base configurada en Refinado.</p>
+                  ) : <p className="rounded-lg bg-amber-50 border border-amber-200 p-3 text-sm text-amber-800">Falta configurar RECETAS_REFINADO_JSON en Vercel.</p>}
+                </div>
+
+                <div className="bg-white rounded-lg shadow-sm border border-emerald-200 p-4">
+                  <div className="flex items-center justify-between gap-2 mb-3">
+                    <h3 className="font-semibold text-emerald-950">Materias para Refinado</h3>
+                    <span className="text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-full px-2 py-1">Detalle</span>
+                  </div>
+                  <p className="text-xs text-slate-500 mb-3">Insumos necesarios para fabricar las bases del segundo nivel.</p>
+                  {(calculadoraResultado as any).refinado?.materias?.length > 0 ? (
+                    <div className="max-h-96 overflow-auto"><table className="w-full text-sm"><thead><tr className="border-b text-left text-slate-500"><th className="py-2 pr-2">Materia prima</th><th className="py-2 text-right">Kg</th></tr></thead><tbody>
+                      {(calculadoraResultado as any).refinado.materias.map((m) => <tr key={m.materia} className="border-b border-emerald-100"><td className="py-2 pr-2 font-medium">{m.materia}</td><td className="py-2 text-right font-bold text-emerald-800">{fmtNb(m.kg)}</td></tr>)}
+                    </tbody></table></div>
+                  ) : <p className="rounded-lg bg-slate-50 border border-slate-200 p-3 text-sm text-slate-500">No hay materias de Refinado para mostrar.</p>}
+                </div>
+              </div>
+            )}
+
+            {calculadoraResultado && (calculadoraResultado as any).sinReceta?.length > 0 && (
+              <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                <strong>Sin receta privada:</strong> {(calculadoraResultado as any).sinReceta.map((item) => item.producto).join(", ")}. Los demás productos sí están incluidos en los totales.
+              </div>
+            )}
+
+            <p className="text-xs text-slate-500 px-1">Las recetas permanecen en las variables privadas de Vercel. La aplicacion envia solamente el producto y los kilos solicitados.</p>
+          </section>
         )}
 
         {onglet === "import" && (

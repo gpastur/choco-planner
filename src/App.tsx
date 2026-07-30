@@ -759,6 +759,16 @@ function lireBloc(cell, ligne) {
 function kgEffectifBloc(b) {
   return b && b.realKg != null && b.realKg !== "" && Number(b.realKg) >= 0 ? Number(b.realKg) : (b ? b.kg : 0);
 }
+function produitsParTurno(ligne) {
+  if (!ligne) return 1;
+  if (["e_pf", "e_pc"].includes(ligne.id)) return 2;
+  if (ligne.id === "e_dec") return 3;
+  return 1;
+}
+function cleSousBloc(cleTurno, index) { return index === 0 ? cleTurno : cleTurno + "|" + (index + 1); }
+function clesSousBlocs(cleTurno, ligne) {
+  return Array.from({ length: produitsParTurno(ligne) }, (_, index) => cleSousBloc(cleTurno, index));
+}
 
 const STORAGE_KEY = "choco-planner-state-v9";
 const LINE_SETTINGS_STORAGE_KEY = "choco-planner-line-settings-v3";
@@ -1569,19 +1579,20 @@ export default function PlanificateurChocolat() {
       produitsUsine.forEach((p) => { if (estConfigure(p)) stockSim[p.id] -= demandeJour(p); });
       lignesUsine.forEach((ligne) => {
         turnosLignePourDate(ligne, j.date).forEach((turno) => {
-          const cle = j.cle + "|" + ligne.id + "|" + turno.id;
-          const b = lireBloc(plan[cle], ligne);
-          if (!b || b.p == null) return;
-          const prod = produits.find((p) => memeId(p.id, b.p));
-          const kgpb = kgParBulto(prod);
-          if (kgpb) stockSim[b.p] = (stockSim[b.p] || 0) + kgEffectifBloc(b) / kgpb;
-          if (prod && estConfigure(prod)) {
-            const s = seuils(prod);
-            const statut = statutStock(stockSim[b.p] || 0, s.min, s.max);
+          const cleTurno = j.cle + "|" + ligne.id + "|" + turno.id;
+          clesSousBlocs(cleTurno, ligne).forEach((cle) => {
+            const b = lireBloc(plan[cle], ligne);
+            if (!b || b.p == null) return;
+            const prod = produits.find((p) => memeId(p.id, b.p));
             const kgpb = kgParBulto(prod);
-            const ecartVertKg = kgpb ? ((stockSim[b.p] || 0) - s.min * 1.5) * kgpb : 0;
-            if (clesVisibles.has(j.cle)) resultat[cle] = { badge: statut.badge, label: statut.label, stock: stockSim[b.p] || 0, ecartVertKg };
-          }
+            if (kgpb) stockSim[b.p] = (stockSim[b.p] || 0) + kgEffectifBloc(b) / kgpb;
+            if (prod && estConfigure(prod)) {
+              const s = seuils(prod);
+              const statut = statutStock(stockSim[b.p] || 0, s.min, s.max);
+              const ecartVertKg = kgpb ? ((stockSim[b.p] || 0) - s.min * 1.5) * kgpb : 0;
+              if (clesVisibles.has(j.cle)) resultat[cle] = { badge: statut.badge, label: statut.label, stock: stockSim[b.p] || 0, ecartVertKg };
+            }
+          });
         });
       });
     }
@@ -2411,8 +2422,16 @@ export default function PlanificateurChocolat() {
       else {
         const actuel = lireBloc(np[cle], ligne);
         const produit = produits.find((item) => memeId(item.id, pid));
-        np[cle] = { p: Number(pid), kg: kgBlocProduitPlanning(produit, ligne, turno, date), note: actuel?.note || "" };
+        const capacitePartagee = kgBlocPlanning(ligne, turno, date) / produitsParTurno(ligne);
+        np[cle] = { p: Number(pid), kg: Math.min(kgBlocProduitPlanning(produit, ligne, turno, date), capacitePartagee), note: actuel?.note || "" };
       }
+      const cleTurno = cle.split("|").slice(0, 3).join("|");
+      const blocs = clesSousBlocs(cleTurno, ligne).map((slot) => ({ slot, bloc: lireBloc(np[slot], ligne) })).filter((item) => item.bloc && item.bloc.p != null);
+      const part = blocs.length > 0 ? kgBlocPlanning(ligne, turno, date) / blocs.length : 0;
+      blocs.forEach(({ slot, bloc }) => {
+        const produit = produits.find((item) => memeId(item.id, bloc.p));
+        np[slot] = { ...(np[slot] as any), kg: Math.min(part, kgBlocProduitPlanning(produit, ligne, turno, date)) };
+      });
       return np;
     });
   };
@@ -2548,7 +2567,9 @@ export default function PlanificateurChocolat() {
         const prods = produitsUsine.filter((p) => produitCompatibleLigne(p, ligne.id) && estConfigure(p) && kgParBulto(p) && seuils(p).max > 0);
         if (prods.length === 0) return;
         turnosLignePourDate(ligne, jour.date).forEach((turno) => {
-          const cleExistante = jour.cle + "|" + ligne.id + "|" + turno.id;
+          const cleTurno = jour.cle + "|" + ligne.id + "|" + turno.id;
+          const clesTurno = clesSousBlocs(cleTurno, ligne);
+          clesTurno.forEach((cleExistante) => {
           const blocReel = lireBloc(nouveauPlan[cleExistante], ligne);
           if (blocReel && blocReel.p != null && blocReel.realKg != null && blocReel.realKg !== "") {
             const prodReel = produits.find((p) => memeId(p.id, blocReel.p));
@@ -2561,6 +2582,7 @@ export default function PlanificateurChocolat() {
           let meilleureRegle = null;
           const joursRestantsHorizon = Math.max(0, datesHorizon.length - jourIndex - 1);
           prods.forEach((p) => {
+            if (clesTurno.some((slot) => { const existant = lireBloc(nouveauPlan[slot], ligne); return existant && memeId(existant.p, p.id); })) return;
             const s = seuils(p);
             const reglesProduit = prioritesActives.filter((regle) => String(regle.product_id) === String(p.id));
             const multiplicateurCible = reglesProduit.reduce((max, regle) => Math.max(max, Number(regle.target_multiplier) || 1.5), 1.5);
@@ -2600,7 +2622,8 @@ export default function PlanificateurChocolat() {
           }
           const s = seuils(meilleur);
           const kgpb = kgParBulto(meilleur);
-          const kgb_ligne = kgBlocProduitPlanning(meilleur, ligne, turno, jour.date); // capacidad especifica del producto o de la linea
+          const capacitePartagee = kgBlocPlanning(ligne, turno, jour.date) / produitsParTurno(ligne);
+          const kgb_ligne = Math.min(kgBlocProduitPlanning(meilleur, ligne, turno, jour.date), capacitePartagee);
           const stockProjeteFinAvant = stockSim[meilleur.id] - demandeJour(meilleur) * joursRestantsHorizon;
           const stockProjeteFinPlein = stockProjeteFinAvant + kgb_ligne / kgpb;
           const limitePleinRaisonnable = s.max * 1.1;
@@ -2616,11 +2639,24 @@ export default function PlanificateurChocolat() {
               ? "Prioridad admin: " + (meilleureRegle.rule_type === "never_stockout" ? "producto crítico" : meilleureRegle.rule_type === "sequence" ? "secuencia obligatoria" : meilleureRegle.rule_type === "due_date" ? "fecha límite" : "stock objetivo reforzado")
               : (stockSim[meilleur.id] < s.min ? "Prioridad: salir de zona roja" : "Protección del stock final"));
           const raison = raisonPriorite + (doitAjuster ? " · Cantidad ajustada para evitar sobrestock extremo" : " · Producción a capacidad completa");
-          nouveauPlan[jour.cle + "|" + ligne.id + "|" + turno.id] = { p: meilleur.id, kg: kgProduit, raison };
+          nouveauPlan[cleExistante] = { p: meilleur.id, kg: kgProduit, raison };
           stockSim[meilleur.id] += kgProduit / kgpb;
           derniereFamilleParLigne[ligne.id] = famille;
           derniereFamilleParLigne[ligne.id + "_produit"] = meilleur.id;
           blocsUtilises++;
+          });
+          const contientReel = clesTurno.some((slot) => { const bloc = lireBloc(nouveauPlan[slot], ligne); return bloc && bloc.realKg != null && bloc.realKg !== ""; });
+          if (!contientReel) {
+            const blocsTurno = clesTurno.map((slot) => ({ slot, bloc: lireBloc(nouveauPlan[slot], ligne) })).filter((item) => item.bloc && item.bloc.p != null);
+            const part = blocsTurno.length > 0 ? kgBlocPlanning(ligne, turno, jour.date) / blocsTurno.length : 0;
+            blocsTurno.forEach(({ slot, bloc }) => {
+              const produit = produits.find((p) => memeId(p.id, bloc.p));
+              const nouveauKg = Math.min(part, kgBlocProduitPlanning(produit, ligne, turno, jour.date));
+              const kgpb = kgParBulto(produit);
+              if (kgpb) stockSim[bloc.p] = (stockSim[bloc.p] || 0) + (nouveauKg - Number(bloc.kg || 0)) / kgpb;
+              nouveauPlan[slot] = { ...(nouveauPlan[slot] as any), kg: nouveauKg };
+            });
+          }
         });
       });
     });
@@ -2911,12 +2947,12 @@ export default function PlanificateurChocolat() {
   const totalSemaineLigne = (ligneId) => {
     const ligne = lignes.find((l) => l.id === ligneId); if (!ligne) return 0;
     let total = 0;
-    joursSemaine.forEach((j) => { turnosLignePourDate(ligne, j.date).forEach((turno) => { const b = lireBloc(plan[j.cle + "|" + ligneId + "|" + turno.id], ligne); if (b) total += kgEffectifBloc(b); }); });
+    joursSemaine.forEach((j) => { turnosLignePourDate(ligne, j.date).forEach((turno) => { const cleTurno = j.cle + "|" + ligneId + "|" + turno.id; clesSousBlocs(cleTurno, ligne).forEach((cle) => { const b = lireBloc(plan[cle], ligne); if (b) total += kgEffectifBloc(b); }); }); });
     return total;
   };
   const totalJourLigne = (ligne, jour) => turnosLignePourDate(ligne, jour.date).reduce((total, turno) => {
-    const b = lireBloc(plan[jour.cle + "|" + ligne.id + "|" + turno.id], ligne);
-    return total + (b ? kgEffectifBloc(b) : 0);
+    const cleTurno = jour.cle + "|" + ligne.id + "|" + turno.id;
+    return total + clesSousBlocs(cleTurno, ligne).reduce((somme, cle) => { const b = lireBloc(plan[cle], ligne); return somme + (b ? kgEffectifBloc(b) : 0); }, 0);
   }, 0);
 
   const produitsCritiquesAldo = () => produitsUsine
@@ -4236,7 +4272,7 @@ export default function PlanificateurChocolat() {
                       const pal = getPal(ligne);
                       return (
                         <tr key={ligne.id}>
-                          <td className={"p-2 font-semibold align-top " + pal.texte}>{ligne.nom}<div className="text-xs font-normal text-gray-500">{fmtNb(ligne.capacite)} {uniteCapacite(ligne)}/turno<br />{turnosBaseAffiches(ligne)} turno(s)/dia base</div></td>
+                          <td className={"p-2 font-semibold align-top " + pal.texte}>{ligne.nom}<div className="text-xs font-normal text-gray-500">{fmtNb(ligne.capacite)} {uniteCapacite(ligne)}/turno<br />{turnosBaseAffiches(ligne)} turno(s)/dia base{produitsParTurno(ligne) > 1 && <><br /><span className="text-violet-600">Hasta {produitsParTurno(ligne)} productos/turno</span></>}</div></td>
                           {joursSemaine.map((j) => {
                             const turnosJour = turnosLignePourDate(ligne, j.date);
                             const utiliseJour = totalJourLigne(ligne, j);
@@ -4246,8 +4282,9 @@ export default function PlanificateurChocolat() {
                               <div className="text-[10px] text-gray-400 text-center mb-1">{fmtNb(utiliseJour)} / {fmtNb(capJour)} {uniteCapacite(ligne)}</div>
                               {turnosJour.length === 0 ? (
                                 <div className="w-full text-xs rounded p-1.5 border-2 border-dashed border-gray-200 bg-gray-50 text-gray-400 text-center min-h-10">Sin turno</div>
-                              ) : turnosJour.map((turno) => {
-                                const cle = j.cle + "|" + ligne.id + "|" + turno.id;
+                              ) : turnosJour.flatMap((turno) => {
+                                const cleTurno = j.cle + "|" + ligne.id + "|" + turno.id;
+                                return clesSousBlocs(cleTurno, ligne).map((cle, sousIndex) => {
                                 const b = lireBloc(plan[cle], ligne);
                                 const prod = b ? produits.find((p) => memeId(p.id, b.p)) : null;
                                 const enEdition = selection === cle;
@@ -4265,7 +4302,7 @@ export default function PlanificateurChocolat() {
                                 const ecartKg = b && b.realKg != null && b.realKg !== "" ? kgEff - b.kg : null;
                                 const zone = prod ? etiquetaZonaProducto(prod) : "";
                                 return (
-                                  <div key={turno.id} className="mb-1" onDragOver={(e) => e.preventDefault()} onDrop={() => onDrop(cle)}>
+                                  <div key={cle} className="mb-1" onDragOver={(e) => e.preventDefault()} onDrop={() => onDrop(cle)}>
                                     {enEdition ? (
                                       <div className="rounded-lg border border-violet-300 bg-white p-1.5 shadow-sm">
                                         <select autoFocus disabled={planningFige || !peutPlanifier} className="w-full disabled:bg-slate-100 text-xs border rounded p-1" value={b ? b.p : ""} onChange={(e) => assigner(cle, e.target.value)}>
@@ -4299,7 +4336,7 @@ export default function PlanificateurChocolat() {
                                       <div draggable={!!prod && !planningFige && peutPlanifier} onDragStart={() => setDragKey(cle)} onClick={() => setSelection(cle)} title={b ? "Plan: " + fmtNb(b.kg) + " kg" + (b.realKg != null && b.realKg !== "" ? " · Real: " + fmtNb(kgEff) + " kg" : "") + (kgpb ? " · ≈ " + fmtNb(bultos) + " bultos" : " · conversión faltante") + (etatBloc ? " · " + (etatBloc.actuel ? "stock actual: " : "stock despues del bloque: ") + fmtNb(etatBloc.stock) + " (" + etatBloc.label + ")" : "") + ((b as any).raison ? " · " + (b as any).raison : "") + (b.note ? " · Nota: " + b.note : "") : ""}
                                         className={"w-full text-xs rounded p-1.5 border-2 text-left min-h-10 transition cursor-pointer " + (prod ? pal.clair + " " + pal.bordure + " " + pal.texte + " font-medium" : "bg-gray-50 border-dashed border-gray-300 text-gray-400 hover:bg-gray-100") + (dragKey === cle ? " opacity-40" : "")}>
                                         <span className="flex items-center justify-between">
-                                          <span className="text-[10px] opacity-60">{turno.nom}</span>
+                                          <span className="text-[10px] opacity-60">{turno.nom}{produitsParTurno(ligne) > 1 ? " · " + (sousIndex + 1) + "/" + produitsParTurno(ligne) : ""}</span>
                                           <span className="flex items-center gap-1">
                                             {etatBloc && Math.round(etatBloc.ecartVertKg || 0) !== 0 && <span className="text-[10px] opacity-70">{etatBloc.ecartVertKg > 0 ? "+" : ""}{fmtNb(etatBloc.ecartVertKg)} kg</span>}
                                             {pastille && <span className={"w-2.5 h-2.5 rounded-full " + pastille}></span>}
@@ -4312,6 +4349,7 @@ export default function PlanificateurChocolat() {
                                     )}
                                   </div>
                                 );
+                                })
                               })}
                             </td>
                           );})}

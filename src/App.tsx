@@ -1896,7 +1896,7 @@ export default function PlanificateurChocolat() {
   });
 
   const accesPublic = !PORTAIL_EMAIL_ACTIF;
-  const cloudUtilisateurActif = PORTAIL_EMAIL_ACTIF && supabaseConfigured && !!session?.user;
+  const cloudUtilisateurActif = supabaseConfigured && !!session?.user;
   const peutPlanifier = accesPublic || !supabaseConfigured || ["admin", "planner"].includes(profil?.role);
   const peutSaisirReel = accesPublic || !supabaseConfigured || ["admin", "planner", "production"].includes(profil?.role);
   const peutGererPriorites = accesPublic || !supabaseConfigured || ["admin", "planner", "production"].includes(profil?.role);
@@ -3560,14 +3560,19 @@ export default function PlanificateurChocolat() {
               </div>
             </div>
             <div className="flex flex-wrap items-center justify-end gap-2">
-              {PORTAIL_EMAIL_ACTIF && supabaseConfigured && profil && (
-                <span className="text-xs text-slate-500 text-right">
-                  <strong className="block text-slate-700">{profil.full_name || session?.user?.email}</strong>
-                  {profil.role}
+              {supabaseConfigured && session?.user ? (
+                <span className="text-xs text-slate-500 text-right rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5">
+                  <strong className="block text-emerald-900">{profil?.full_name || session.user.email}</strong>
+                  <span>{session.user.email}{profil?.role ? " · " + profil.role : ""}</span>
                 </span>
-              )}
+              ) : supabaseConfigured ? (
+                <button type="button" onClick={() => setOnglet("versions")} className="text-left rounded-lg border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs text-amber-800 hover:bg-amber-100">
+                  <strong className="block">Acceso público</strong>
+                  Sin usuario identificado
+                </button>
+              ) : null}
               <button onClick={() => setUsine(null)} className="app-secondary-button">⇄ Cambiar fábrica</button>
-              {PORTAIL_EMAIL_ACTIF && supabaseConfigured && <button onClick={deconnecter} className="app-secondary-button text-slate-600">Salir</button>}
+              {supabaseConfigured && session?.user && <button onClick={deconnecter} className="app-secondary-button text-slate-600">Salir</button>}
             </div>
           </div>
         </header>
@@ -4316,7 +4321,16 @@ export default function PlanificateurChocolat() {
 
             {!cloudUtilisateurActif ? (
               <div className="border border-amber-200 bg-amber-50 rounded-lg p-4 text-sm text-amber-900">
-                El acceso público temporal está activo. La aplicación funciona localmente, pero las versiones compartidas requieren reactivar la identificación por email.
+                <h3 className="font-semibold text-base">Identifícate para guardar versiones</h3>
+                <p className="mt-1 text-amber-800">El acceso al planner sigue siendo público. La identificación sirve únicamente para guardar, aprobar y congelar planificaciones con tu nombre.</p>
+                <form onSubmit={connecter} className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-end">
+                  <label className="flex-1 text-sm font-medium text-slate-700">
+                    Email autorizado en Supabase
+                    <input type="email" required className="mt-1 w-full rounded-lg border border-amber-300 bg-white px-3 py-2 text-slate-800 outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-100" placeholder="nombre@empresa.com" value={authEmail} onChange={(e) => setAuthEmail(e.target.value)} />
+                  </label>
+                  <button type="submit" className="rounded-lg bg-violet-800 px-4 py-2 text-white font-semibold hover:bg-violet-900">Recibir enlace de acceso</button>
+                </form>
+                {authMessage && <p className="mt-3 rounded-lg bg-white/70 px-3 py-2 text-sm">{authMessage}</p>}
               </div>
             ) : (
               <>

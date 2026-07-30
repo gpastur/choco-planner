@@ -7,8 +7,8 @@ import {
   ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts";
 
-const APP_VERSION = "2026.07.29-stock-vb-trufas";
-const PORTAIL_EMAIL_ACTIF = false;
+const APP_VERSION = "2026.07.30-seguridad-calculadora";
+const PORTAIL_EMAIL_ACTIF = true;
 
 const PALETTE = [
   { couleur: "bg-violet-600", clair: "bg-violet-100", bordure: "border-violet-600", texte: "text-violet-800" },
@@ -1936,14 +1936,13 @@ export default function PlanificateurChocolat() {
   const connecter = async (e) => {
     e.preventDefault();
     if (!supabase) return;
-    if (!authEmail.trim()) return;
-    setAuthMessage("Enviando enlace seguro...");
-    const emailRedirectTo = `${window.location.origin}${window.location.pathname}`;
-    const { error } = await supabase.auth.signInWithOtp({
+    if (!authEmail.trim() || !authPassword) return;
+    setAuthMessage("Verificando acceso...");
+    const { error } = await supabase.auth.signInWithPassword({
       email: authEmail.trim(),
-      options: { emailRedirectTo, shouldCreateUser: false },
+      password: authPassword,
     });
-    setAuthMessage(error ? error.message : "Revisa tu email y abre el enlace para entrar. No necesitas contraseña.");
+    setAuthMessage(error ? (error.message === "Invalid login credentials" ? "Email o contraseña incorrectos." : error.message) : "Acceso autorizado.");
   };
 
   const definirMotDePasse = async (e) => {
@@ -3411,12 +3410,17 @@ export default function PlanificateurChocolat() {
         <form onSubmit={connecter} className="w-full max-w-sm bg-white border border-violet-100 shadow-lg rounded-xl p-6">
           <div className="text-3xl mb-2">🍫</div>
           <h1 className="text-2xl font-bold text-violet-950">Choco Planner</h1>
-          <p className="text-sm text-slate-500 mt-1 mb-5">Acceso sin contraseña, reservado a usuarios previamente autorizados.</p>
+          <p className="text-sm text-slate-500 mt-1 mb-5">Acceso reservado a usuarios autorizados en Supabase.</p>
           <label className="block text-sm font-medium text-slate-700 mb-3">
             Email
             <input type="email" required autoComplete="email" className="mt-1 w-full border border-slate-300 rounded-lg px-3 py-2" value={authEmail} onChange={(e) => setAuthEmail(e.target.value)} />
           </label>
-          <button type="submit" className="w-full bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg px-4 py-2 font-medium">Recibir enlace de acceso</button>
+          <label className="block text-sm font-medium text-slate-700 mb-4">
+            Contraseña
+            <input type="password" required autoComplete="current-password" className="mt-1 w-full border border-slate-300 rounded-lg px-3 py-2" value={authPassword} onChange={(e) => setAuthPassword(e.target.value)} />
+          </label>
+          <button type="submit" className="w-full bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg px-4 py-2 font-medium">Ingresar</button>
+          <button type="button" onClick={demanderReinitialisation} className="mt-3 w-full text-sm font-medium text-violet-800 hover:text-violet-950">Olvidé mi contraseña / cambiar contraseña</button>
           {authMessage && <p className="mt-3 text-sm text-red-700">{authMessage}</p>}
         </form>
       </div>

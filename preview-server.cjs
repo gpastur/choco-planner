@@ -1,26 +1,189 @@
-{
-  "name": "choco-planner",
-  "private": true,
-  "version": "0.1.0",
-  "type": "module",
-  "scripts": {
-    "dev": "vite",
-    "build": "tsc -b && vite build",
-    "preview": "vite preview",
-    "typecheck": "tsc -b --pretty false"
-  },
-  "dependencies": {
-    "@supabase/supabase-js": "^2.110.7",
-    "react": "^19.2.7",
-    "react-dom": "^19.2.7",
-    "recharts": "^3.9.2"
-  },
-  "devDependencies": {
-    "@vitejs/plugin-react": "^6.0.2",
-    "autoprefixer": "^10.4.20",
-    "postcss": "^8.5.15",
-    "tailwindcss": "^3.4.17",
-    "typescript": "^6.0.3",
-    "vite": "^8.0.16"
+const http = require("http");
+const fs = require("fs");
+const path = require("path");
+
+const root = path.join(__dirname, "dist");
+const types = {
+  ".html": "text/html; charset=utf-8",
+  ".js": "text/javascript; charset=utf-8",
+  ".css": "text/css; charset=utf-8",
+  ".json": "application/json; charset=utf-8",
+  ".svg": "image/svg+xml",
+};
+
+const SHEET_ID = "1EgT_gHFf8qht-dNF_H0XTV0QVNMQIvCG";
+const DEFAULT_GID = "237875513";
+const RECETAS_PRIVADAS_LOCAL = path.join(__dirname, "..", "RECETAS_COMPLETAS_VERCEL_PRIVADO.json");
+
+function parseCsv(text) {
+  const rows = [];
+  let row = [];
+  let value = "";
+  let inQuotes = false;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    const next = text[i + 1];
+    if (ch === '"' && inQuotes && next === '"') {
+      value += '"';
+      i++;
+    } else if (ch === '"') {
+      inQuotes = !inQuotes;
+    } else if (ch === "," && !inQuotes) {
+      row.push(value);
+      value = "";
+    } else if ((ch === "\n" || ch === "\r") && !inQuotes) {
+      if (ch === "\r" && next === "\n") i++;
+      row.push(value);
+      rows.push(row);
+      row = [];
+      value = "";
+    } else {
+      value += ch;
+    }
+  }
+  row.push(value);
+  rows.push(row);
+  return rows.filter((r) => r.some((c) => String(c || "").trim() !== ""));
+}
+
+function readBody(req) {
+  return new Promise((resolve, reject) => {
+    let body = "";
+    req.on("data", (chunk) => { body += chunk; });
+    req.on("end", () => resolve(body));
+    req.on("error", reject);
+  });
+}
+
+function normalizar(valor) {
+  return String(valor || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toUpperCase()
+    .replace(/\bBS\s+AS\b/g, "")
+    .replace(/\b(BSAS|VB)\b/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function ratio(valor) {
+  if (typeof valor === "number") return valor > 1 ? valor / 100 : valor;
+  const texto = String(valor || "").replace(",", ".").trim();
+  if (!texto) return 0;
+  const n = Number(texto.replace("%", ""));
+  if (!Number.isFinite(n)) return 0;
+  return texto.includes("%") || n > 1 ? n / 100 : n;
+}
+
+const CAMPOS_TECNICOS = new Set([
+  "UNIDADES/BULTO",
+  "PESO/BULTO [KG]",
+  "PESO/BULTO",
+  "PESO/UNIDAD",
+  "PESO / U",
+  "U / BULTO",
+  "COD",
+]);
+
+function esCampoTecnico(nombre) {
+  return CAMPOS_TECNICOS.has(normalizar(nombre));
+}
+
+function corregirReceta(nombre, receta) {
+  const clave = normalizar(nombre);
+  const recetasCorregidas = {
+    "OSOS DDL GRANEL": { "Choco leche": "67%", "DDL clasico": "33%" },
+    "OSOS DDL X4": { "Choco leche": "67%", "DDL clasico": "33%" },
+    "OSOS DDL X6": { "Choco leche": "67%", "DDL clasico": "33%" },
+    "OSOS DDL X12": { "Choco leche": "67%", "DDL clasico": "33%" },
+    "CORAZON X5": { "Choco leche": "67%", "DDL clasico": "33%" },
+  };
+  return recetasCorregidas[clave] || receta;
+}
+
+function sendJson(res, status, payload) {
+  res.writeHead(status, { "Content-Type": "application/json; charset=utf-8" });
+  res.end(JSON.stringify(payload));
+}
+
+async function handleSheet(req, res, requestUrl) {
+  const sheetId = requestUrl.searchParams.get("sheetId") || SHEET_ID;
+  const gid = requestUrl.searchParams.get("gid") || DEFAULT_GID;
+  const csvUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&gid=${encodeURIComponent(gid)}`;
+  try {
+    const response = await fetch(csvUrl);
+    if (!response.ok) throw new Error("Google Sheets HTTP " + response.status);
+    const csv = await response.text();
+    const rows = parseCsv(csv);
+    const texto = rows.map((r) => r.map((c) => String(c || "").trim()).join("\t")).join("\n");
+    sendJson(res, 200, { rows: rows.length, texto });
+  } catch (error) {
+    sendJson(res, 500, { error: "Error leyendo Google Sheets", detalle: String(error.message || error) });
   }
 }
+
+async function handleMateriasPrimas(req, res) {
+  if (req.method !== "POST") {
+    sendJson(res, 405, { error: "Metodo no permitido" });
+    return;
+  }
+  try {
+    if (!fs.existsSync(RECETAS_PRIVADAS_LOCAL)) {
+      sendJson(res, 503, { error: "Recetas privadas no configuradas", detalle: "No se encontro el archivo privado local de recetas." });
+      return;
+    }
+    const body = JSON.parse(await readBody(req) || "{}");
+    const items = Array.isArray(body.items) ? body.items : [];
+    const recetas = JSON.parse(fs.readFileSync(RECETAS_PRIVADAS_LOCAL, "utf8"));
+    const recetasPorNombre = new Map(Object.entries(recetas).map(([nombre, receta]) => [normalizar(nombre), corregirReceta(nombre, receta)]));
+    const totales = {};
+    const sinReceta = [];
+    items.forEach((item) => {
+      const kg = Number(item && item.kg) || 0;
+      if (kg <= 0) return;
+      const clave = normalizar(item.nom || item.producto || item.name);
+      const receta = recetasPorNombre.get(clave);
+      if (!receta) {
+        sinReceta.push({ producto: item.nom || item.producto || item.name || "Producto sin nombre", kg });
+        return;
+      }
+      Object.entries(receta).forEach(([materia, valor]) => {
+        if (esCampoTecnico(materia)) return;
+        const kgMateria = kg * ratio(valor);
+        if (kgMateria > 0) totales[materia] = (totales[materia] || 0) + kgMateria;
+      });
+    });
+    sendJson(res, 200, {
+      materias: Object.entries(totales).map(([materia, kg]) => ({ materia, kg })).sort((a, b) => a.materia.localeCompare(b.materia)),
+      sinReceta,
+    });
+  } catch (error) {
+    sendJson(res, 500, { error: "Error calculando materias primas", detalle: String(error.message || error) });
+  }
+}
+
+http.createServer((req, res) => {
+  const requestUrl = new URL(req.url || "/", "http://127.0.0.1:5173");
+  if ((req.url || "").startsWith("/api/google-sheet")) {
+    handleSheet(req, res, requestUrl);
+    return;
+  }
+  if ((req.url || "").startsWith("/api/google-stock")) {
+    handleSheet(req, res, requestUrl);
+    return;
+  }
+  if ((req.url || "").startsWith("/api/materias-primas")) {
+    handleMateriasPrimas(req, res);
+    return;
+  }
+  const urlPath = decodeURIComponent((req.url || "/").split("?")[0]);
+  let file = path.join(root, urlPath === "/" ? "index.html" : urlPath);
+  if (!file.startsWith(root)) {
+    res.writeHead(403);
+    res.end("Forbidden");
+    return;
+  }
+  if (!fs.existsSync(file) || fs.statSync(file).isDirectory()) file = path.join(root, "index.html");
+  res.writeHead(200, { "Content-Type": types[path.extname(file)] || "application/octet-stream" });
+  fs.createReadStream(file).pipe(res);
+}).listen(5173, "0.0.0.0");

@@ -309,7 +309,7 @@ const PRODUITS_BASE = [
   { ...mkVB(135, "DULCE FRUTOS DEL BOSQUE VB", "vb_stephan", 4.62), min: 57, max: 114 },
   { ...mkVB(136, "DULCE MOSQUETA 420gr VB", "vb_stephan", 4.62), min: 76, max: 152 },
   { ...mkVB(137, "DULCE SAUCO 420gr VB", "vb_stephan", 4.62), min: 73, max: 146 },
-  { ...mkFatima(117, "TABLETA DE PISTACHO, SAL Y CARAMELO BsAs", "f_tabletas", 3.8, ["TAB SAL CARAMELO 100gr", "TABLETA DE PISTACHO, SAL Y CARAMELO BsAs"]), sku: "VT-CTAB-0000486" },
+  { ...mkEsandi(117, "TABLETA DE PISTACHO, SAL Y CARAMELO BsAs", "e_crem", 3.8), aliases: ["TAB SAL CARAMELO 100gr", "TABLETA DE PISTACHO, SAL Y CARAMELO BsAs"], sku: "VT-CTAB-0000486" },
   { ...mkFatima(118, "TAB CHOC LECHE PURO 80G BsAs", "f_tabletas", 3.04, ["TABLETA LECHE PURO X80gr solo BsAs stock max p/4 meses min 2", "TAB CHOC LECHE PURO 80G BsAs"]), sku: "VT-CTAB-0000550" },
   { ...mkFatima(119, "TABLETA CHOC AMARGO 70% BsAs", "f_tabletas", 3.04, ["TABLETA 70 solo BsAs stock max p/4 meses min 2", "TABLETA CHOC AMARGO 70% BsAs"]), sku: "VT-CTAB-0000995" },
   { ...mkFatima(120, "TAB 100GS CHOCO LECHE Y ALM BsAs", "f_tabletas", 3.8, ["TABLETA LECHE ALMENDRA solo BsAs stock max p/4 meses min 2", "TAB 100GS CHOCO LECHE Y ALM BsAs"]), sku: "VT-CTAB-0000998" },
@@ -706,7 +706,13 @@ function trouverProduitExistant(produitsListe, usineId, nomImporte) {
   });
   return meilleur ? meilleur.produit : null;
 }
+function esPistachoSalCarameloBsAs(nom) {
+  const valor = String(nom || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase();
+  const esBsAs = valor.includes("BSAS") || valor.includes("BS AS") || valor.includes("BUENOS AIRES") || valor.includes("TAB SAL CARAMELO");
+  return esBsAs && valor.includes("PISTACHO") || valor.includes("TAB SAL CARAMELO");
+}
 function trouverProduitFatimaProtege(produitsListe, nomImporte) {
+  if (esPistachoSalCarameloBsAs(nomImporte)) return null;
   const cleImport = tokensProduit(nomImporte).join(" ");
   if (!cleImport) return null;
   const protege = NOMS_FATIMA_PROTEGES.some((nom) => {
@@ -724,6 +730,7 @@ function trouverProduitAutreUsinePredefini(produitsListe, usineCourante, nomImpo
   return candidats[0] || null;
 }
 function estNomFatimaProtege(nomProduit) {
+  if (esPistachoSalCarameloBsAs(nomProduit)) return false;
   const cleProduit = tokensProduit(nomProduit).join(" ");
   return NOMS_FATIMA_PROTEGES.some((nom) => {
     const cle = tokensProduit(nom).join(" ");
@@ -866,6 +873,14 @@ function fusionAvecBase(base: any[], sauvegarde: any[]) {
       fusionne.sku = baseItem.sku || null;
       fusionne.min = baseItem.min;
       fusionne.max = baseItem.max;
+    }
+    if (baseItem && fusionne.id === 117) {
+      fusionne.usine = "esandi";
+      fusionne.ligne = "e_crem";
+      fusionne.nom = baseItem.nom;
+      fusionne.sku = baseItem.sku;
+      fusionne.pesoBulto = baseItem.pesoBulto;
+      fusionne.aliases = baseItem.aliases;
     }
     parId.set(item.id, fusionne);
   });

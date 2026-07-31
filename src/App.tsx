@@ -7,7 +7,7 @@ import {
   ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts";
 
-const APP_VERSION = "2026.07.31-campana-mensual-frascos-vb";
+const APP_VERSION = "2026.07.31-frascos-segun-necesidad-mp-por-linea";
 const PORTAIL_EMAIL_ACTIF = true;
 
 const PALETTE = [
@@ -1448,26 +1448,39 @@ export default function PlanificateurChocolat() {
       if (!bloc || bloc.p == null || !(Number(bloc.kg) > 0)) return;
       const produit = produits.find((item) => memeId(item.id, bloc.p));
       if (!produit) return;
-      parProduit[produit.id] = parProduit[produit.id] || { id: produit.id, nom: produit.nom, sku: produit.sku || "", kg: 0 };
-      parProduit[produit.id].kg += Number(bloc.kg) || 0;
+      const claveProductoLinea = ligne.id + "|" + produit.id;
+      parProduit[claveProductoLinea] = parProduit[claveProductoLinea] || { id: produit.id, nom: produit.nom, sku: produit.sku || "", kg: 0, lineaId: ligne.id, lineaNom: ligne.nom };
+      parProduit[claveProductoLinea].kg += Number(bloc.kg) || 0;
     });
     const items = Object.values(parProduit).sort((a: any, b: any) => a.nom.localeCompare(b.nom));
-    setMateriasDia({ jour, items, cargando: true, resultado: null, error: "" });
+    setMateriasDia({ jour, items, cargando: true, resultado: null, resultadosLinea: [], error: "" });
     if (items.length === 0) {
-      setMateriasDia({ jour, items, cargando: false, resultado: null, error: "No hay producción planificada para este día." });
+      setMateriasDia({ jour, items, cargando: false, resultado: null, resultadosLinea: [], error: "No hay producción planificada para este día." });
       return;
     }
     try {
-      const resp = await fetch("/api/materias-primas", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ items }),
-      });
-      const data = await resp.json();
-      if (!resp.ok) throw new Error((data && (data.detalle || data.error)) || "No se pudo calcular las materias primas.");
-      setMateriasDia({ jour, items, cargando: false, resultado: data, error: "" });
+      const solicitarCalculo = async (productosLinea) => {
+        const resp = await fetch("/api/materias-primas", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ items: productosLinea }),
+        });
+        const data = await resp.json();
+        if (!resp.ok) throw new Error((data && (data.detalle || data.error)) || "No se pudo calcular las materias primas.");
+        return data;
+      };
+      const gruposLinea = Object.values(items.reduce((grupos: any, item: any) => {
+        grupos[item.lineaId] = grupos[item.lineaId] || { lineaId: item.lineaId, lineaNom: item.lineaNom, items: [] };
+        grupos[item.lineaId].items.push(item);
+        return grupos;
+      }, {}));
+      const [data, resultadosLinea] = await Promise.all([
+        solicitarCalculo(items),
+        Promise.all(gruposLinea.map(async (grupo: any) => ({ ...grupo, resultado: await solicitarCalculo(grupo.items) }))),
+      ]);
+      setMateriasDia({ jour, items, cargando: false, resultado: data, resultadosLinea, error: "" });
     } catch (error) {
-      setMateriasDia({ jour, items, cargando: false, resultado: null, error: String(error && error.message ? error.message : error) });
+      setMateriasDia({ jour, items, cargando: false, resultado: null, resultadosLinea: [], error: String(error && error.message ? error.message : error) });
     }
   };
 
@@ -2662,6 +2675,7 @@ export default function PlanificateurChocolat() {
     let blocsUtilises = 0;
     let blocsSansBesoin = 0;
     let blocsAjustes = 0;
+    let frascoCampanaActivo = null;
     const derniereFamilleParLigne = {};
     const prioritesActives = prioritesProduction.filter((regle) => regle.active && regle.factory_id === usine);
     datesHorizon.forEach((jour, jourIndex) => {
@@ -2673,11 +2687,10 @@ export default function PlanificateurChocolat() {
           && estConfigure(p)
           && kgParBulto(p)
           && seuils(p).max > 0
-          && !idsCampanaFrascos.has(String(p.id))
+          && (!idsCampanaFrascos.has(String(p.id)) || campanaFrascos.some((item) => memeId(item.producto.id, p.id) && item.restanteKg > 0.01))
           && !(regleDulceUneSemaineSurDeux && ligne.id === "vb_stephan" && jour.semaine % 2 === 1 && NORMALISER_REFERENCE(p.nom).startsWith("DULCE "))
         );
-        const lineaTieneCampanaFrascos = ligne.id === "vb_stephan" && campanaFrascos.some((item) => item.restanteKg > 0.01);
-        if (prods.length === 0 && !lineaTieneCampanaFrascos) return;
+        if (prods.length === 0) return;
         turnosLignePourDate(ligne, jour.date).forEach((turno) => {
           const cleTurno = jour.cle + "|" + ligne.id + "|" + turno.id;
           const clesTurno = clesSousBlocs(cleTurno, ligne);
@@ -2690,7 +2703,7 @@ export default function PlanificateurChocolat() {
             return;
           }
           // Produit le plus en déficit sous le plancher vert. La quantité est divisible.
-          const frascoCampana = ligne.id === "vb_stephan" ? campanaFrascos.find((item) => item.restanteKg > 0.01) : null;
+          let frascoCampana = ligne.id === "vb_stephan" && frascoCampanaActivo && frascoCampanaActivo.restanteKg > 0.01 ? frascoCampanaActivo : null;
           let meilleur = frascoCampana ? frascoCampana.producto : null, meilleurScore = -Infinity;
           let meilleureRegle = null;
           const joursRestantsHorizon = Math.max(0, datesHorizon.length - jourIndex - 1);
@@ -2702,6 +2715,8 @@ export default function PlanificateurChocolat() {
             const plancher = Math.min(s.max, s.min * multiplicateurCible);
             const stockProjeteFin = stockSim[p.id] - demandeJour(p) * joursRestantsHorizon;
             const urgence = plancher - stockProjeteFin; // anticipe le risque jusqu'à la fin de période
+            const campanaCandidata = campanaFrascos.find((item) => memeId(item.producto.id, p.id));
+            if (campanaCandidata && stockSim[p.id] >= s.min && stockProjeteFin >= s.min) return;
             if (urgence <= 0) return;
             const deficitMax = Math.max(0, s.max - stockSim[p.id]);
             const bonusRouge = stockSim[p.id] < s.min ? 1000000000 + (s.min - stockSim[p.id]) * 100000 : 0;
@@ -2733,6 +2748,13 @@ export default function PlanificateurChocolat() {
             blocsSansBesoin++;
             return;
           }
+          if (!frascoCampana) {
+            const campanaSeleccionada = campanaFrascos.find((item) => memeId(item.producto.id, meilleur.id) && item.restanteKg > 0.01);
+            if (campanaSeleccionada) {
+              frascoCampana = campanaSeleccionada;
+              frascoCampanaActivo = campanaSeleccionada;
+            }
+          }
           const s = seuils(meilleur);
           const kgpb = kgParBulto(meilleur);
           const kgb_ligne = kgProduitPourPartTurno(meilleur, ligne, turno, jour.date, produitsParTurno(ligne));
@@ -2748,7 +2770,7 @@ export default function PlanificateurChocolat() {
           if (doitAjuster) blocsAjustes++;
           const famille = familleProduit(meilleur);
           const raisonPriorite = frascoCampana
-            ? "Campaña mensual de Frascos agrupada (1 vez cada 4 semanas)"
+            ? "Lote mínimo mensual de esta variedad de Frasco, activado por necesidad de stock"
             : (derniereFamilleParLigne[ligne.id] === famille)
             ? "Agrupado por familia similar (" + famille + ")"
             : (meilleureRegle
@@ -2757,7 +2779,10 @@ export default function PlanificateurChocolat() {
           const raison = raisonPriorite + (doitAjuster ? " · Cantidad ajustada para evitar sobrestock extremo" : " · Producción a capacidad completa");
           nouveauPlan[cleExistante] = { p: meilleur.id, kg: kgProduit, raison };
           stockSim[meilleur.id] += kgProduit / kgpb;
-          if (frascoCampana) frascoCampana.restanteKg = Math.max(0, frascoCampana.restanteKg - kgProduit);
+          if (frascoCampana) {
+            frascoCampana.restanteKg = Math.max(0, frascoCampana.restanteKg - kgProduit);
+            if (frascoCampana.restanteKg <= 0.01) frascoCampanaActivo = null;
+          }
           derniereFamilleParLigne[ligne.id] = famille;
           derniereFamilleParLigne[ligne.id + "_produit"] = meilleur.id;
           blocsUtilises++;
@@ -5280,11 +5305,39 @@ export default function PlanificateurChocolat() {
                     <h3 className="mb-2 font-semibold text-violet-900">Producción planificada</h3>
                     <div className="overflow-x-auto">
                       <table className="w-full text-sm">
-                        <thead><tr className="border-b text-left text-slate-500"><th className="py-2 pr-3">Producto</th><th className="py-2 pr-3">SKU</th><th className="py-2 text-right">Kg</th></tr></thead>
-                        <tbody>{materiasDia.items.map((item) => <tr key={item.id} className="border-b border-slate-100"><td className="py-2 pr-3 font-medium">{item.nom}</td><td className="py-2 pr-3 text-xs text-slate-500">{item.sku || "—"}</td><td className="py-2 text-right font-semibold">{fmtNb(item.kg)}</td></tr>)}</tbody>
+                        <thead><tr className="border-b text-left text-slate-500"><th className="py-2 pr-3">Línea</th><th className="py-2 pr-3">Producto</th><th className="py-2 pr-3">SKU</th><th className="py-2 text-right">Kg</th></tr></thead>
+                        <tbody>{materiasDia.items.map((item) => <tr key={item.lineaId + "|" + item.id} className="border-b border-slate-100"><td className="py-2 pr-3 text-xs font-semibold text-violet-700">{item.lineaNom}</td><td className="py-2 pr-3 font-medium">{item.nom}</td><td className="py-2 pr-3 text-xs text-slate-500">{item.sku || "—"}</td><td className="py-2 text-right font-semibold">{fmtNb(item.kg)}</td></tr>)}</tbody>
                       </table>
                     </div>
                   </section>
+                  <section>
+                    <h3 className="mb-3 font-semibold text-violet-900">Detalle por línea de producción</h3>
+                    <div className="space-y-4">
+                      {(materiasDia.resultadosLinea || []).map((grupo) => {
+                        const resultado = grupo.resultado || {};
+                        const materias = resultado.materiasConsolidadas || resultado.materias || [];
+                        const refinado = resultado.refinado || {};
+                        return <div key={grupo.lineaId} className="rounded-lg border border-violet-100 bg-violet-50/40 p-4">
+                          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                            <h4 className="font-bold text-violet-950">{grupo.lineaNom}</h4>
+                            <span className="text-xs font-semibold text-violet-700">{fmtNb(grupo.items.reduce((total, item) => total + Number(item.kg || 0), 0))} kg planificados</span>
+                          </div>
+                          <div className="grid gap-5 md:grid-cols-2">
+                            <div>
+                              <div className="mb-1 text-xs font-bold uppercase text-emerald-700">Materias primas</div>
+                              {materias.length > 0 ? <table className="w-full text-sm"><tbody>{materias.map((item) => <tr key={item.materia} className="border-b border-white"><td className="py-1.5 pr-3">{item.materia}</td><td className="py-1.5 text-right font-semibold text-emerald-800">{fmtNb(item.kg)} kg</td></tr>)}</tbody></table> : <p className="text-sm text-slate-400">Sin materias configuradas.</p>}
+                            </div>
+                            <div>
+                              <div className="mb-1 text-xs font-bold uppercase text-sky-700">Refinado</div>
+                              {refinado.configurado && refinado.materias?.length > 0 ? <table className="w-full text-sm"><tbody>{refinado.materias.map((item) => <tr key={item.materia} className="border-b border-white"><td className="py-1.5 pr-3">{item.materia}</td><td className="py-1.5 text-right font-semibold text-sky-800">{fmtNb(item.kg)} kg</td></tr>)}</tbody></table> : <p className="text-sm text-slate-400">Sin detalle de Refinado para esta línea.</p>}
+                            </div>
+                          </div>
+                          {resultado.sinReceta?.length > 0 && <p className="mt-3 text-xs text-amber-700"><strong>Sin receta:</strong> {resultado.sinReceta.map((item) => item.producto).join(", ")}</p>}
+                        </div>;
+                      })}
+                    </div>
+                  </section>
+                  <h3 className="font-semibold text-slate-700">Resumen consolidado de la fábrica</h3>
                   <div className="grid gap-6 md:grid-cols-2">
                     <section>
                       <h3 className="mb-2 font-semibold text-emerald-800">Materias primas necesarias</h3>

@@ -7,7 +7,7 @@ import {
   ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts";
 
-const APP_VERSION = "2026.07.31-submarino-piggy-decorado";
+const APP_VERSION = "2026.07.31-sans-dulce-frutos-rojos";
 const PORTAIL_EMAIL_ACTIF = true;
 
 const PALETTE = [
@@ -296,7 +296,6 @@ const PRODUITS_BASE = [
   mkEsandi(139, "TABLETA 70 ECUADOR VB", "e_bomb", 3.04),
   mkEsandi(140, "TABLETA 80 TUMACO VB", "e_bomb", 3.04),
   mkEsandi(143, "HUESITO FIG MACIZA", "e_bomb", 7.98),
-  { ...mkVB(147, "DULCE FRUTOS ROJOS", "vb_stephan", 4.62), sku: "VM-CFRA-0000072", capaciteTurno: 130 },
   mkVB(148, "Cafe Crudo", "vb_tostadora", null),
   { ...mkVB(112, "DULCE FRAMBUESA 420gr BsAs", "vb_stephan", 4.62), sku: "VT-DULC-0000900", min: 82, max: 163, capaciteTurno: 130 },
   { ...mkVB(113, "DULCE FRUTILLA 420gr BsAs", "vb_stephan", 4.62), sku: "VT-DULC-0000902", min: 39, max: 78, capaciteTurno: 130 },
@@ -847,7 +846,7 @@ function htmlEscape(value) {
 }
 function fusionAvecBase(base: any[], sauvegarde: any[]) {
   const parId = new Map(base.map((item) => [item.id, item]));
-  const idsObsoletes = new Set([111, 138, 141, 142, 144, 145, 146, 3050, 3051, 3052, 3053, 3054, 3055, 3056, 3057, 3058, 3059, 3060, 5101, 5201, 5202, 5203]);
+  const idsObsoletes = new Set([111, 138, 141, 142, 144, 145, 146, 147, 3050, 3051, 3052, 3053, 3054, 3055, 3056, 3057, 3058, 3059, 3060, 5101, 5201, 5202, 5203]);
   (Array.isArray(sauvegarde) ? sauvegarde : []).forEach((item) => {
     if (item.id === "vb_refinado") return;
     if (["f_tabletas_bariloche", "f_franui", "vb_franui_1", "vb_franui_2"].includes(item.id)) return;

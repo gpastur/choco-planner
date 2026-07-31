@@ -13,7 +13,8 @@ const types = {
 
 const SHEET_ID = "1EgT_gHFf8qht-dNF_H0XTV0QVNMQIvCG";
 const DEFAULT_GID = "237875513";
-const RECETAS_PRIVADAS_LOCAL = path.join(__dirname, "..", "RECETAS_COMPLETAS_VERCEL_PRIVADO.json");
+const RECETAS_PRIVADAS_LOCAL = path.join(__dirname, "..", "RECETAS_PRODUCTOS_JSON_VERCEL_MAESTRO.txt");
+const RECETAS_REFINADO_LOCAL = path.join(__dirname, "..", "RECETAS_REFINADO_JSON_VERCEL_COMPACT.txt");
 
 function parseCsv(text) {
   const rows = [];
@@ -133,30 +134,15 @@ async function handleMateriasPrimas(req, res) {
       return;
     }
     const body = JSON.parse(await readBody(req) || "{}");
-    const items = Array.isArray(body.items) ? body.items : [];
-    const recetas = JSON.parse(fs.readFileSync(RECETAS_PRIVADAS_LOCAL, "utf8"));
-    const recetasPorNombre = new Map(Object.entries(recetas).map(([nombre, receta]) => [normalizar(nombre), corregirReceta(nombre, receta)]));
-    const totales = {};
-    const sinReceta = [];
-    items.forEach((item) => {
-      const kg = Number(item && item.kg) || 0;
-      if (kg <= 0) return;
-      const clave = normalizar(item.nom || item.producto || item.name);
-      const receta = recetasPorNombre.get(clave);
-      if (!receta) {
-        sinReceta.push({ producto: item.nom || item.producto || item.name || "Producto sin nombre", kg });
-        return;
-      }
-      Object.entries(receta).forEach(([materia, valor]) => {
-        if (esCampoTecnico(materia)) return;
-        const kgMateria = kg * ratio(valor);
-        if (kgMateria > 0) totales[materia] = (totales[materia] || 0) + kgMateria;
-      });
-    });
-    sendJson(res, 200, {
-      materias: Object.entries(totales).map(([materia, kg]) => ({ materia, kg })).sort((a, b) => a.materia.localeCompare(b.materia)),
-      sinReceta,
-    });
+    process.env.RECETAS_PRODUCTOS_JSON = fs.readFileSync(RECETAS_PRIVADAS_LOCAL, "utf8");
+    if (fs.existsSync(RECETAS_REFINADO_LOCAL)) process.env.RECETAS_REFINADO_JSON = fs.readFileSync(RECETAS_REFINADO_LOCAL, "utf8");
+    const { default: handler } = await import("./api/materias-primas.js");
+    const response = {
+      statusCode: 200,
+      status(code) { this.statusCode = code; return this; },
+      json(payload) { sendJson(res, this.statusCode, payload); },
+    };
+    await handler({ method: req.method, body }, response);
   } catch (error) {
     sendJson(res, 500, { error: "Error calculando materias primas", detalle: String(error.message || error) });
   }

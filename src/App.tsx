@@ -7,7 +7,7 @@ import {
   ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts";
 
-const APP_VERSION = "2026.07.31-recetas-maestro-por-sku";
+const APP_VERSION = "2026.07.31-campana-mensual-frascos-vb";
 const PORTAIL_EMAIL_ACTIF = true;
 
 const PALETTE = [
@@ -945,6 +945,7 @@ export default function PlanificateurChocolat() {
   const [msgOpti, setMsgOpti] = useState("");
   const [matieresResultat, setMatieresResultat] = useState(null);
   const [msgMatieres, setMsgMatieres] = useState("");
+  const [materiasDia, setMateriasDia] = useState<any>(null);
   const [calculadoraProducto, setCalculadoraProducto] = useState("");
   const [calculadoraKg, setCalculadoraKg] = useState("");
   const [calculadoraItems, setCalculadoraItems] = useState<any[]>([]);
@@ -1433,6 +1434,40 @@ export default function PlanificateurChocolat() {
       setMsgMatieres("Materias primas calculadas para la planificacion seleccionada.");
     } catch (error) {
       setMsgMatieres("La funcion privada de recetas no esta disponible en esta previsualizacion local.");
+    }
+  };
+
+  const calcularMateriasPrimasDia = async (jour) => {
+    const parProduit = {};
+    Object.entries(plan).forEach(([cle, cell]) => {
+      const [dt, ligneId] = cle.split("|");
+      if (dt !== jour.cle) return;
+      const ligne = lignes.find((item) => item.id === ligneId);
+      if (!ligne || ligne.usine !== usine) return;
+      const bloc = lireBloc(cell, ligne);
+      if (!bloc || bloc.p == null || !(Number(bloc.kg) > 0)) return;
+      const produit = produits.find((item) => memeId(item.id, bloc.p));
+      if (!produit) return;
+      parProduit[produit.id] = parProduit[produit.id] || { id: produit.id, nom: produit.nom, sku: produit.sku || "", kg: 0 };
+      parProduit[produit.id].kg += Number(bloc.kg) || 0;
+    });
+    const items = Object.values(parProduit).sort((a: any, b: any) => a.nom.localeCompare(b.nom));
+    setMateriasDia({ jour, items, cargando: true, resultado: null, error: "" });
+    if (items.length === 0) {
+      setMateriasDia({ jour, items, cargando: false, resultado: null, error: "No hay producción planificada para este día." });
+      return;
+    }
+    try {
+      const resp = await fetch("/api/materias-primas", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ items }),
+      });
+      const data = await resp.json();
+      if (!resp.ok) throw new Error((data && (data.detalle || data.error)) || "No se pudo calcular las materias primas.");
+      setMateriasDia({ jour, items, cargando: false, resultado: data, error: "" });
+    } catch (error) {
+      setMateriasDia({ jour, items, cargando: false, resultado: null, error: String(error && error.message ? error.message : error) });
     }
   };
 
@@ -2603,6 +2638,27 @@ export default function PlanificateurChocolat() {
     const stockSim = {};
     produitsUsine.forEach((p) => { stockSim[p.id] = p.stock; });
 
+    const volumenFrascoMensual = (producto) => {
+      if (usine !== "vb" || producto.ligne !== "vb_stephan") return 0;
+      const nombre = NORMALISER_REFERENCE(producto.nom);
+      if (nombre.includes("FRASCO NUICCIOLA")) return 1000;
+      if (nombre.includes("FRASCO MARROC")) return 1000;
+      if (nombre.includes("FRASCO CREMA PISTACHO")) return 500;
+      return 0;
+    };
+    const campanaFrascos = produitsUsine
+      .map((producto) => ({ producto, objetivoKg: volumenFrascoMensual(producto), restanteKg: volumenFrascoMensual(producto) }))
+      .filter((item) => item.objetivoKg > 0);
+    const idsCampanaFrascos = new Set(campanaFrascos.map((item) => String(item.producto.id)));
+    Object.entries(nouveauPlan).forEach(([clave, valor]) => {
+      const [fecha, lineaId] = clave.split("|");
+      if (!datesSet.has(fecha) || lineaId !== "vb_stephan") return;
+      const bloque = lireBloc(valor, lignes.find((linea) => linea.id === lineaId));
+      if (!bloque || bloque.p == null) return;
+      const item = campanaFrascos.find((campana) => memeId(campana.producto.id, bloque.p));
+      if (item) item.restanteKg = Math.max(0, item.restanteKg - kgEffectifBloc(bloque));
+    });
+
     let blocsUtilises = 0;
     let blocsSansBesoin = 0;
     let blocsAjustes = 0;
@@ -2617,9 +2673,11 @@ export default function PlanificateurChocolat() {
           && estConfigure(p)
           && kgParBulto(p)
           && seuils(p).max > 0
+          && !idsCampanaFrascos.has(String(p.id))
           && !(regleDulceUneSemaineSurDeux && ligne.id === "vb_stephan" && jour.semaine % 2 === 1 && NORMALISER_REFERENCE(p.nom).startsWith("DULCE "))
         );
-        if (prods.length === 0) return;
+        const lineaTieneCampanaFrascos = ligne.id === "vb_stephan" && campanaFrascos.some((item) => item.restanteKg > 0.01);
+        if (prods.length === 0 && !lineaTieneCampanaFrascos) return;
         turnosLignePourDate(ligne, jour.date).forEach((turno) => {
           const cleTurno = jour.cle + "|" + ligne.id + "|" + turno.id;
           const clesTurno = clesSousBlocs(cleTurno, ligne);
@@ -2632,10 +2690,11 @@ export default function PlanificateurChocolat() {
             return;
           }
           // Produit le plus en déficit sous le plancher vert. La quantité est divisible.
-          let meilleur = null, meilleurScore = -Infinity;
+          const frascoCampana = ligne.id === "vb_stephan" ? campanaFrascos.find((item) => item.restanteKg > 0.01) : null;
+          let meilleur = frascoCampana ? frascoCampana.producto : null, meilleurScore = -Infinity;
           let meilleureRegle = null;
           const joursRestantsHorizon = Math.max(0, datesHorizon.length - jourIndex - 1);
-          prods.forEach((p) => {
+          if (!frascoCampana) prods.forEach((p) => {
             if (clesTurno.some((slot) => { const existant = lireBloc(nouveauPlan[slot], ligne); return existant && memeId(existant.p, p.id); })) return;
             const s = seuils(p);
             const reglesProduit = prioritesActives.filter((regle) => String(regle.product_id) === String(p.id));
@@ -2681,12 +2740,16 @@ export default function PlanificateurChocolat() {
           const stockProjeteFinPlein = stockProjeteFinAvant + kgb_ligne / kgpb;
           const limitePleinRaisonnable = s.max * 1.1;
           const kgPourFinirAuMaximum = Math.max(0, (s.max - stockProjeteFinAvant) * kgpb);
-          const doitAjuster = stockProjeteFinPlein > limitePleinRaisonnable && kgPourFinirAuMaximum > 0;
-          const kgProduit = doitAjuster ? Math.min(kgb_ligne, kgPourFinirAuMaximum) : kgb_ligne;
+          const doitAjuster = !frascoCampana && stockProjeteFinPlein > limitePleinRaisonnable && kgPourFinirAuMaximum > 0;
+          const kgProduit = frascoCampana
+            ? Math.min(kgb_ligne, frascoCampana.restanteKg)
+            : (doitAjuster ? Math.min(kgb_ligne, kgPourFinirAuMaximum) : kgb_ligne);
           if (kgProduit <= 0) return;
           if (doitAjuster) blocsAjustes++;
           const famille = familleProduit(meilleur);
-          const raisonPriorite = (derniereFamilleParLigne[ligne.id] === famille)
+          const raisonPriorite = frascoCampana
+            ? "Campaña mensual de Frascos agrupada (1 vez cada 4 semanas)"
+            : (derniereFamilleParLigne[ligne.id] === famille)
             ? "Agrupado por familia similar (" + famille + ")"
             : (meilleureRegle
               ? "Prioridad admin: " + (meilleureRegle.rule_type === "never_stockout" ? "producto crítico" : meilleureRegle.rule_type === "sequence" ? "secuencia obligatoria" : meilleureRegle.rule_type === "due_date" ? "fecha límite" : "stock objetivo reforzado")
@@ -2694,6 +2757,7 @@ export default function PlanificateurChocolat() {
           const raison = raisonPriorite + (doitAjuster ? " · Cantidad ajustada para evitar sobrestock extremo" : " · Producción a capacidad completa");
           nouveauPlan[cleExistante] = { p: meilleur.id, kg: kgProduit, raison };
           stockSim[meilleur.id] += kgProduit / kgpb;
+          if (frascoCampana) frascoCampana.restanteKg = Math.max(0, frascoCampana.restanteKg - kgProduit);
           derniereFamilleParLigne[ligne.id] = famille;
           derniereFamilleParLigne[ligne.id + "_produit"] = meilleur.id;
           blocsUtilises++;
@@ -2703,6 +2767,7 @@ export default function PlanificateurChocolat() {
             const blocsTurno = clesTurno.map((slot) => ({ slot, bloc: lireBloc(nouveauPlan[slot], ligne) })).filter((item) => item.bloc && item.bloc.p != null);
             blocsTurno.forEach(({ slot, bloc }) => {
               const produit = produits.find((p) => memeId(p.id, bloc.p));
+              if (idsCampanaFrascos.has(String(produit && produit.id))) return;
               const nouveauKg = kgProduitPourPartTurno(produit, ligne, turno, jour.date, blocsTurno.length);
               const kgpb = kgParBulto(produit);
               if (kgpb) stockSim[bloc.p] = (stockSim[bloc.p] || 0) + (nouveauKg - Number(bloc.kg || 0)) / kgpb;
@@ -4372,7 +4437,7 @@ export default function PlanificateurChocolat() {
                   <thead>
                     <tr>
                       <th className="p-2 text-left text-sm text-violet-900 w-32">Línea</th>
-                      {joursSemaine.map((j) => <th key={j.cle} className="p-2 text-center text-sm text-violet-900">{j.nom}<br /><span className="text-xs font-normal text-violet-600">{fmtDate(j.date)}</span></th>)}
+                      {joursSemaine.map((j) => <th key={j.cle} className="p-2 text-center text-sm text-violet-900">{j.nom}<br /><span className="text-xs font-normal text-violet-600">{fmtDate(j.date)}</span><br /><button type="button" onClick={() => calcularMateriasPrimasDia(j)} className="mt-1 inline-flex items-center gap-1 rounded border border-emerald-200 bg-emerald-50 px-2 py-1 text-[10px] font-semibold text-emerald-800 hover:bg-emerald-100" title="Ver materias primas necesarias para este día">🧾 MP</button></th>)}
                       <th className="p-2 text-center text-sm text-violet-900">Total</th>
                     </tr>
                   </thead>
@@ -5194,6 +5259,57 @@ export default function PlanificateurChocolat() {
           );
         })()}
       </div>
+      {materiasDia && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/40 p-4" onMouseDown={(e) => { if (e.target === e.currentTarget) setMateriasDia(null); }}>
+          <div className="flex max-h-[88vh] w-full max-w-4xl flex-col overflow-hidden rounded-lg bg-white shadow-2xl">
+            <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
+              <div>
+                <h2 className="text-lg font-bold text-violet-950">Materias primas del día</h2>
+                <p className="text-sm text-slate-500">{usineActive ? usineActive.nom : usine} · {materiasDia.jour.nom} {fmtDate(materiasDia.jour.date)}</p>
+              </div>
+              <button type="button" onClick={() => setMateriasDia(null)} className="h-9 w-9 rounded-full text-xl text-slate-500 hover:bg-slate-100" title="Cerrar">×</button>
+            </div>
+            <div className="overflow-y-auto p-5">
+              {materiasDia.cargando ? (
+                <p className="py-12 text-center text-emerald-700">Calculando necesidades del día...</p>
+              ) : materiasDia.error ? (
+                <div className="rounded border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">{materiasDia.error}</div>
+              ) : (
+                <div className="space-y-6">
+                  <section>
+                    <h3 className="mb-2 font-semibold text-violet-900">Producción planificada</h3>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead><tr className="border-b text-left text-slate-500"><th className="py-2 pr-3">Producto</th><th className="py-2 pr-3">SKU</th><th className="py-2 text-right">Kg</th></tr></thead>
+                        <tbody>{materiasDia.items.map((item) => <tr key={item.id} className="border-b border-slate-100"><td className="py-2 pr-3 font-medium">{item.nom}</td><td className="py-2 pr-3 text-xs text-slate-500">{item.sku || "—"}</td><td className="py-2 text-right font-semibold">{fmtNb(item.kg)}</td></tr>)}</tbody>
+                      </table>
+                    </div>
+                  </section>
+                  <div className="grid gap-6 md:grid-cols-2">
+                    <section>
+                      <h3 className="mb-2 font-semibold text-emerald-800">Materias primas necesarias</h3>
+                      <table className="w-full text-sm">
+                        <tbody>{((materiasDia.resultado as any).materiasConsolidadas || (materiasDia.resultado as any).materias || []).map((item) => <tr key={item.materia} className="border-b border-slate-100"><td className="py-2 pr-3">{item.materia}</td><td className="py-2 text-right font-semibold text-emerald-800">{fmtNb(item.kg)} kg</td></tr>)}</tbody>
+                      </table>
+                    </section>
+                    <section>
+                      <h3 className="mb-2 font-semibold text-sky-800">Detalle de Refinado</h3>
+                      {(materiasDia.resultado as any).refinado?.configurado ? (
+                        <>
+                          {(materiasDia.resultado as any).refinado.bases?.length > 0 && <div className="mb-3 text-xs text-slate-500">Bases: {(materiasDia.resultado as any).refinado.bases.map((item) => item.materia + " " + fmtNb(item.kg) + " kg").join(" · ")}</div>}
+                          <table className="w-full text-sm"><tbody>{((materiasDia.resultado as any).refinado.materias || []).map((item) => <tr key={item.materia} className="border-b border-slate-100"><td className="py-2 pr-3">{item.materia}</td><td className="py-2 text-right font-semibold text-sky-800">{fmtNb(item.kg)} kg</td></tr>)}</tbody></table>
+                          {!(materiasDia.resultado as any).refinado.materias?.length && <p className="text-sm text-slate-400">No hay componentes de Refinado para esta producción.</p>}
+                        </>
+                      ) : <p className="text-sm text-slate-400">Refinado no configurado.</p>}
+                    </section>
+                  </div>
+                  {(materiasDia.resultado as any).sinReceta?.length > 0 && <div className="rounded border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800"><strong>Sin receta en el Maestro:</strong> {(materiasDia.resultado as any).sinReceta.map((item) => item.producto).join(", ")}</div>}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
       <div className="fixed bottom-4 right-4 z-50">
         {aldoOuvert && (
           <div className="mb-3 w-[min(360px,calc(100vw-2rem))] bg-white border border-emerald-200 rounded-lg shadow-xl overflow-hidden">

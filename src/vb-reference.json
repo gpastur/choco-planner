@@ -1,24 +1,24 @@
 [
   {
-    "nom": "CREMA NUICCIOLA 380G",
+    "nom": "FRASCO NUICCIOLA 380 GR Bche",
     "sku": "VT-CFRA-0000432",
     "max": 102,
     "min": 51
   },
   {
-    "nom": "CREMA MARROC 380 G",
+    "nom": "FRASCO MARROC 380 GR Bche",
     "sku": "VT-CFRA-0000430",
     "max": 94,
     "min": 47
   },
   {
-    "nom": "CREMA PISTACHO 380G",
+    "nom": "FRASCO CREMA PISTACHO Bche",
     "sku": "VT-CFRA-0000029",
     "max": 86,
     "min": 43
   },
   {
-    "nom": "LICOR DE CHOCOLATE BOTELLA",
+    "nom": "LICOR DE CHOCOLATE BOTELLA Bche",
     "sku": "VT-CFRA-0004310",
     "max": 276,
     "min": 138
@@ -31,43 +31,43 @@
     "inactive": true
   },
   {
-    "nom": "LICOR DDL BOTELLA",
+    "nom": "LICOR DDL BOTELLA Bche",
     "sku": "VT-CFRA-000056",
     "max": 192,
     "min": 96
   },
   {
-    "nom": "JUGO DE FRAM/FRUT BOTELLA",
+    "nom": "JUGO DE FRAM/FRUT BOTELLA Bche",
     "sku": "VT-CFRA-0000993",
     "max": 67,
     "min": 34
   },
   {
-    "nom": "DULCE SAUCO 420gr VB",
+    "nom": "DULCE SAUCO 420gr Bche",
     "sku": "VT-DULC-0000904",
     "max": 146,
     "min": 73
   },
   {
-    "nom": "DULCE FRUTILLA 420gr VB",
+    "nom": "DULCE FRUTILLA 420gr Bche",
     "sku": "VT-DULC-0000902",
     "max": 146,
     "min": 73
   },
   {
-    "nom": "DULCE MOSQUETA 420gr VB",
+    "nom": "DULCE MOSQUETA 420gr Bche",
     "sku": "VT-DULC-0000901",
     "max": 152,
     "min": 76
   },
   {
-    "nom": "DULCE FRAMBUESA  420gr VB",
+    "nom": "DULCE FRAMBUESA  420gr Bche",
     "sku": "VT-DULC-0000900",
     "max": 402,
     "min": 201
   },
   {
-    "nom": "DULCE FRUTOS DEL BOSQUE VB",
+    "nom": "DULCE FRUTOS DEL BOSQUE Bche",
     "sku": "VT-DULC-0000905",
     "max": 114,
     "min": 57
@@ -154,20 +154,20 @@
     "inactive": true
   },
   {
-    "nom": "SURTIDO 250 BS AS",
+    "nom": "SURTIDO 250 BsAs",
     "sku": "VT-CENV-0000448",
     "max": 654,
     "min": 327
   },
   {
-    "nom": "SURTIDO 500 BS AS",
+    "nom": "SURTIDO 500 BsAs",
     "sku": "VT-CENV-0000449",
     "max": 664,
     "min": 332
   },
   {
-    "nom": "SURTIDO 1 Kg BS AS",
-    "sku": "VT-CGRA-0000400",
+    "nom": "SURTIDO 1 Kg BsAs",
+    "sku": "VT-CENV-0000450",
     "max": 87,
     "min": 43
   },
@@ -175,7 +175,7 @@
     "nom": "MEK BS AS",
     "sku": "VT-CENV-0000492",
     "max": 42,
-    "min": 11
+    "min": 10.5
   },
   {
     "nom": "TRUFA x 3 BsAs / Bche",

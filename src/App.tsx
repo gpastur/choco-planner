@@ -7,7 +7,7 @@ import {
   ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts";
 
-const APP_VERSION = "2026.07.30-seguridad-calculadora";
+const APP_VERSION = "2026.07.31-capacidades-surtidos";
 const PORTAIL_EMAIL_ACTIF = true;
 
 const PALETTE = [
@@ -304,11 +304,17 @@ const PRODUITS_BASE = [
   { ...mkVB(114, "DULCE FRUTOS DEL BOSQUE BsAs", "vb_stephan", 4.62), sku: "VT-DULC-0000905", min: 22, max: 44 },
   { ...mkVB(115, "DULCE MOSQUETA 420gr BsAs", "vb_stephan", 4.62), sku: "VT-DULC-0000901", min: 62, max: 124 },
   { ...mkVB(116, "DULCE SAUCO 420gr BsAs", "vb_stephan", 4.62), sku: "VT-DULC-0000904", min: 28, max: 57 },
-  { ...mkVB(133, "DULCE FRAMBUESA 420gr VB", "vb_stephan", 4.62), min: 201, max: 402 },
-  { ...mkVB(134, "DULCE FRUTILLA 420gr VB", "vb_stephan", 4.62), min: 73, max: 146 },
-  { ...mkVB(135, "DULCE FRUTOS DEL BOSQUE VB", "vb_stephan", 4.62), min: 57, max: 114 },
-  { ...mkVB(136, "DULCE MOSQUETA 420gr VB", "vb_stephan", 4.62), min: 76, max: 152 },
-  { ...mkVB(137, "DULCE SAUCO 420gr VB", "vb_stephan", 4.62), min: 73, max: 146 },
+  { ...mkVB(133, "DULCE FRAMBUESA 420gr Bche", "vb_stephan", 4.62), sku: "VT-DULC-0000900" },
+  { ...mkVB(134, "DULCE FRUTILLA 420gr Bche", "vb_stephan", 4.62), sku: "VT-DULC-0000902" },
+  { ...mkVB(135, "DULCE FRUTOS DEL BOSQUE Bche", "vb_stephan", 4.62), sku: "VT-DULC-0000905" },
+  { ...mkVB(136, "DULCE MOSQUETA 420gr Bche", "vb_stephan", 4.62), sku: "VT-DULC-0000901" },
+  { ...mkVB(137, "DULCE SAUCO 420gr Bche", "vb_stephan", 4.62), sku: "VT-DULC-0000904" },
+  { ...mkVB(149, "FRASCO NUICCIOLA 380 GR BsAs", "vb_refinado", 4.18), sku: "VT-CFRA-0000432" },
+  { ...mkVB(150, "FRASCO MARROC 380 GR BsAs", "vb_refinado", 4.18), sku: "VT-CFRA-0000430" },
+  { ...mkVB(151, "FRASCO CREMA PISTACHO BsAs", "vb_refinado", 4.18), sku: "VT-CFRA-0000029" },
+  { ...mkVB(152, "LICOR DE CHOCOLATE BOTELLA BsAs", "vb_stephan", 5), sku: "VT-CFRA-0004310" },
+  { ...mkVB(153, "LICOR DDL BOTELLA BsAs", "vb_stephan", 5), sku: "VT-CFRA-000056" },
+  { ...mkVB(154, "JUGO DE FRAM/FRUT BOTELLA BsAs", "vb_stephan", 4.4), sku: "VT-CFRA-0000993" },
   { ...mkEsandi(117, "TABLETA DE PISTACHO, SAL Y CARAMELO BsAs", "e_crem", 3.8), aliases: ["TAB SAL CARAMELO 100gr", "TABLETA DE PISTACHO, SAL Y CARAMELO BsAs"], sku: "VT-CTAB-0000486" },
   { ...mkFatima(118, "TAB CHOC LECHE PURO 80G BsAs", "f_tabletas", 3.04, ["TABLETA LECHE PURO X80gr solo BsAs stock max p/4 meses min 2", "TAB CHOC LECHE PURO 80G BsAs"]), sku: "VT-CTAB-0000550" },
   { ...mkFatima(119, "TABLETA CHOC AMARGO 70% BsAs", "f_tabletas", 3.04, ["TABLETA 70 solo BsAs stock max p/4 meses min 2", "TABLETA CHOC AMARGO 70% BsAs"]), sku: "VT-CTAB-0000995" },
@@ -401,12 +407,28 @@ const REFERENCES_ESANDI_PAR_NOM = new Map(
 
 const ligneVbPourProduit = (nom) => {
   const cle = NORMALISER_REFERENCE(nom);
-  if (/^CREMA (NUICCIOLA|MARROC|PISTACHO)/.test(cle)) return "vb_refinado";
+  if (/^(CREMA|FRASCO) (NUICCIOLA|MARROC|CREMA PISTACHO|PISTACHO)/.test(cle)) return "vb_refinado";
   return /^(LICOR|JUGO|DULCE)/.test(cle) ? "vb_stephan" : "vb_envasado";
 };
 
 const poidsBultoVb = (nom) => NORMALISER_REFERENCE(nom).startsWith("DULCE ") ? 4.62 : null;
 const REFERENCES_VB_PAR_NOM = new Map(vbReference.map((item) => [NORMALISER_REFERENCE(item.nom), item]));
+
+// Capacidades observadas en el analisis historico de Envasado VB, redondeadas para planificacion.
+const CAPACITES_SURTIDOS_VB = new Map([
+  ["SURTIDO 95 BCHE", 270],
+  ["SURTIDO 210 BCHE", 300],
+  ["SURTIDO 250 BCHE", 440],
+  ["SURTIDO 250 BSAS", 570],
+  ["SURTIDO 350 BCHE", 390],
+  ["SURTIDO 430 BCHE", 270],
+  ["SURTIDO 500 BCHE", 370],
+  ["SURTIDO 500 BSAS", 560],
+  ["SURTIDO 560 BCHE", 280],
+  ["SURTIDO 1 KG BCHE", 360],
+  ["SURTIDO 1 KG BSAS", 360],
+]);
+const capaciteSurtidoVb = (nom) => CAPACITES_SURTIDOS_VB.get(NORMALISER_REFERENCE(nom)) || null;
 
 const CONDITIONNEMENTS_VB = [
   ["CREMA NUICCIOLA 380G", 11, 0.38, 4.18],
@@ -424,14 +446,14 @@ const CONDITIONNEMENTS_VB = [
   ["SURTIDO 95 BCHE", 42, 0.095, 3.99],
   ["SURTIDO 210 BCHE", 16, 0.21, 3.36],
   ["SURTIDO 250 BCHE", 24, 0.25, 6],
-  ["SURTIDO 250 BS AS", 24, 0.25, 6],
+  ["SURTIDO 250 BSAS", 24, 0.25, 6],
   ["SURTIDO 350 BCHE", 16, 0.35, 5.6],
   ["SURTIDO 430 BCHE", 9, 0.43, 3.87],
   ["SURTIDO 500 BCHE", 10, 0.5, 5],
-  ["SURTIDO 500 BS AS", 10, 0.5, 5],
+  ["SURTIDO 500 BSAS", 10, 0.5, 5],
   ["SURTIDO 560 BCHE", 8, 0.56, 4.48],
   ["SURTIDO 1 KG BCHE", 8, 1, 8],
-  ["SURTIDO 1 KG BS AS", 8, 1, 8],
+  ["SURTIDO 1 KG BSAS", 8, 1, 8],
   ["MEK BCHE", 18, 0.3, 5.4],
   ["MEK BS AS", 18, 0.3, 5.4],
   ["TRUFA X 3 BSAS BCHE", 42, 0.036, 1.512],
@@ -439,12 +461,15 @@ const CONDITIONNEMENTS_VB = [
   ["TRUFA X15 BS AS BCHE", 18, 0.18, 3.24],
 ].map(([nom, unidadesBulto, pesoUnidad, pesoBulto]) => ({ cle: NORMALISER_REFERENCE(nom), unidadesBulto, pesoUnidad, pesoBulto }));
 
-const conditionnementVb = (nom) => CONDITIONNEMENTS_VB.find((item) => item.cle === NORMALISER_REFERENCE(nom)) || null;
-const ALIASES_STOCK_MC_VB = {
-  "VT-CFRA-0000432": ["FRASCO NUICCIOLA 380 GR"],
-  "VT-CFRA-0000430": ["FRASCO MARROC 380 GR"],
-  "VT-CFRA-0000029": ["FRASCO CREMA PISTACHO"],
-};
+const cleConditionnementVb = (nom) => NORMALISER_REFERENCE(nom)
+  .replace(/^FRASCO CREMA /, "CREMA ")
+  .replace(/^FRASCO /, "CREMA ")
+  .replace(/(\d+)\s*(GR|G|GS|GRAMOS)\b/g, "$1")
+  .replace(/\b(BCHE|BSAS|BS AS|VB)\b/g, " ")
+  .replace(/\s+/g, " ")
+  .trim();
+const conditionnementVb = (nom) => CONDITIONNEMENTS_VB.find((item) => cleConditionnementVb(item.cle) === cleConditionnementVb(nom)) || null;
+const ALIASES_STOCK_MC_VB = {};
 const estProduitStockMcVb = (reference) => !!ALIASES_STOCK_MC_VB[reference.sku];
 
 const PRODUITS_AVEC_VB_MAESTRO = [...PRODUITS_BASE];
@@ -461,6 +486,7 @@ vbReference.forEach((reference, index) => {
       max: reference.max,
       ligne: ligneVbPourProduit(reference.nom),
       ...(reference.sku === "VN-CPOL-0000004" ? { capaciteTurno: 600 } : {}),
+      ...(capaciteSurtidoVb(reference.nom) ? { capaciteTurno: capaciteSurtidoVb(reference.nom) } : {}),
       ...(ALIASES_STOCK_MC_VB[reference.sku] ? { aliases: ALIASES_STOCK_MC_VB[reference.sku] } : {}),
       ...(conditionnement ? { unidadesBulto: conditionnement.unidadesBulto, pesoUnidad: conditionnement.pesoUnidad, pesoBulto: conditionnement.pesoBulto } : {}),
     };
@@ -2722,9 +2748,21 @@ export default function PlanificateurChocolat() {
     });
     let idxMax = rows.findIndex((r) => estLigneLibelle(r, ["stock max", "máximo", "maximo"]));
     let idxMin = rows.findIndex((r) => estLigneLibelle(r, ["stock min", "mínimo", "minimo"]));
-    const idxSku = rows.findIndex((r) => estLigneLibelle(r, ["sku"]));
-    if (idxMax === -1 && idxMin === -1) { idxMax = 1; idxMin = 2; } else if (idxMax === -1) idxMax = Math.max(0, idxMin - 1); else if (idxMin === -1) idxMin = idxMax + 1;
-    const ligneNoms = rows[Math.max(0, Math.min(idxMax, idxMin) - 1)] || [];
+    const ressembleSku = (valeur) => /^(VT|VN|VM|CF)-[A-Z0-9]+-[A-Z0-9-]+$/i.test(String(valeur || "").trim());
+    const idxSku = rows.findIndex((r) => estLigneLibelle(r, ["sku"]) || r.slice(1).filter(ressembleSku).length >= 2);
+    let idxNoms = Math.max(0, Math.min(idxMax, idxMin) - 1);
+    if (idxMax === -1 && idxMin === -1 && idxSku >= 0) {
+      idxNoms = idxSku + 1;
+      idxMax = idxNoms + 1;
+      idxMin = idxNoms + 2;
+    } else if (idxMax === -1 && idxMin === -1) {
+      idxNoms = 0; idxMax = 1; idxMin = 2;
+    } else {
+      if (idxMax === -1) idxMax = Math.max(0, idxMin - 1);
+      if (idxMin === -1) idxMin = idxMax + 1;
+      idxNoms = Math.max(0, Math.min(idxMax, idxMin) - 1);
+    }
+    const ligneNoms = rows[idxNoms] || [];
     const ligneMax = rows[idxMax] || [], ligneMin = rows[idxMin] || [];
     const ligneSku = idxSku >= 0 ? rows[idxSku] : [];
     let idxStock = -1;

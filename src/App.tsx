@@ -7,7 +7,7 @@ import {
   ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts";
 
-const APP_VERSION = "2026.07.31-stephan-buldos";
+const APP_VERSION = "2026.07.31-alignement-vercel";
 const PORTAIL_EMAIL_ACTIF = true;
 
 const PALETTE = [
@@ -803,9 +803,10 @@ function clesSousBlocs(cleTurno, ligne) {
   return Array.from({ length: produitsParTurno(ligne) }, (_, index) => cleSousBloc(cleTurno, index));
 }
 
-const STORAGE_KEY = "choco-planner-state-v9";
-const LINE_SETTINGS_STORAGE_KEY = "choco-planner-line-settings-v3";
-const OLD_STORAGE_KEYS = ["choco-planner-state-v4", "choco-planner-state-v5", "choco-planner-state-v6", "choco-planner-state-v7", "choco-planner-state-v8", "choco-planner-line-settings-v1", "choco-planner-line-settings-v2"];
+const STORAGE_KEY = "choco-planner-state-v10";
+const LINE_SETTINGS_STORAGE_KEY = "choco-planner-line-settings-v4";
+const LINE_SETTINGS_RESET_KEY = "choco-planner-line-settings-reset-2026-07-31";
+const OLD_STORAGE_KEYS = ["choco-planner-state-v4", "choco-planner-state-v5", "choco-planner-state-v6", "choco-planner-state-v7", "choco-planner-state-v8", "choco-planner-state-v9", "choco-planner-line-settings-v1", "choco-planner-line-settings-v2", "choco-planner-line-settings-v3"];
 
 function chargerActivationLocale(usineId) {
   try {
@@ -1090,7 +1091,7 @@ export default function PlanificateurChocolat() {
       .from("production_line_settings")
       .select("line_id, active")
       .eq("factory_id", usine)
-      .then(({ data, error }) => {
+      .then(async ({ data, error }) => {
         if (!actif) return;
         if (error) {
           setActivationLignes(activationLocale);
@@ -1099,12 +1100,30 @@ export default function PlanificateurChocolat() {
         }
         const mapa: Record<string, boolean> = {};
         (data || []).forEach((item) => { mapa[item.line_id] = item.active !== false; });
-        const fusion = { ...activationLocale, ...mapa };
+        let fusion = { ...activationLocale, ...mapa };
+        const doitAlignerVb = usine === "vb"
+          && ["admin", "planner"].includes(profil?.role)
+          && localStorage.getItem(LINE_SETTINGS_RESET_KEY) !== APP_VERSION;
+        if (doitAlignerVb) {
+          const toutesActives = Object.fromEntries(LIGNES_INIT.filter((ligne) => ligne.usine === "vb").map((ligne) => [ligne.id, true]));
+          fusion = { ...fusion, ...toutesActives };
+          const lignesAEnregistrer = Object.keys(toutesActives).map((lineId) => ({
+            factory_id: "vb",
+            line_id: lineId,
+            active: true,
+            updated_by: session.user.id,
+            updated_at: new Date().toISOString(),
+          }));
+          const { error: erreurAlignement } = await supabase.from("production_line_settings").upsert(lignesAEnregistrer, { onConflict: "factory_id,line_id" });
+          if (!erreurAlignement) localStorage.setItem(LINE_SETTINGS_RESET_KEY, APP_VERSION);
+          else setMsgActivationLignes("Las líneas se muestran activas localmente, pero Supabase no pudo sincronizar la configuración compartida.");
+        }
+        if (!actif) return;
         setActivationLignes(fusion);
         sauverActivationLocale(usine, fusion);
       });
     return () => { actif = false; };
-  }, [usine, session?.user?.id]);
+  }, [usine, session?.user?.id, profil?.role]);
   const periodeOpti = useMemo(() => {
     const debut = debutJour(dateDepuisCle(dateDebutOpti));
     let fin = debutJour(dateDepuisCle(dateFinOpti));

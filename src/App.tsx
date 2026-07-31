@@ -7,7 +7,7 @@ import {
   ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts";
 
-const APP_VERSION = "2026.07.31-beldos-unificada";
+const APP_VERSION = "2026.07.31-stephan-buldos";
 const PORTAIL_EMAIL_ACTIF = true;
 
 const PALETTE = [
@@ -50,7 +50,7 @@ const LIGNES_INIT = [
   { id: "l3", nom: "GDG", capacite: 500, pal: 2, usine: "mitre" },
   { id: "l4", nom: "Sollich", capacite: 500, pal: 3, usine: "mitre" },
   { id: "l5", nom: "Bulher", capacite: 500, pal: 4, usine: "mitre" },
-  { id: "vb_stephan", nom: "Beldos", capacite: 400, pal: 0, usine: "vb" },
+  { id: "vb_stephan", nom: "Stephan / Buldos", capacite: 400, pal: 0, usine: "vb" },
   { id: "vb_tostadora", nom: "Tostadora", capacite: 140, pal: 1, usine: "vb" },
   { id: "vb_envasado", nom: "Envasado", capacite: 450, pal: 2, usine: "vb" },
   { id: "f_tabletas", nom: "Tabletas", capacite: 3200, pal: 1, usine: "fatima" },
@@ -298,22 +298,22 @@ const PRODUITS_BASE = [
   mkEsandi(143, "HUESITO FIG MACIZA", "e_bomb", 7.98),
   { ...mkVB(147, "DULCE FRUTOS ROJOS", "vb_stephan", 4.62), sku: "VM-CFRA-0000072", capaciteTurno: 130 },
   mkVB(148, "Cafe Crudo", "vb_tostadora", null),
-  { ...mkVB(112, "DULCE FRAMBUESA 420gr BsAs", "vb_stephan", 4.62), sku: "VT-DULC-0000900", min: 82, max: 163 },
-  { ...mkVB(113, "DULCE FRUTILLA 420gr BsAs", "vb_stephan", 4.62), sku: "VT-DULC-0000902", min: 39, max: 78 },
-  { ...mkVB(114, "DULCE FRUTOS DEL BOSQUE BsAs", "vb_stephan", 4.62), sku: "VT-DULC-0000905", min: 22, max: 44 },
-  { ...mkVB(115, "DULCE MOSQUETA 420gr BsAs", "vb_stephan", 4.62), sku: "VT-DULC-0000901", min: 62, max: 124 },
-  { ...mkVB(116, "DULCE SAUCO 420gr BsAs", "vb_stephan", 4.62), sku: "VT-DULC-0000904", min: 28, max: 57 },
-  { ...mkVB(133, "DULCE FRAMBUESA 420gr Bche", "vb_stephan", 4.62), sku: "VT-DULC-0000900" },
-  { ...mkVB(134, "DULCE FRUTILLA 420gr Bche", "vb_stephan", 4.62), sku: "VT-DULC-0000902" },
-  { ...mkVB(135, "DULCE FRUTOS DEL BOSQUE Bche", "vb_stephan", 4.62), sku: "VT-DULC-0000905" },
-  { ...mkVB(136, "DULCE MOSQUETA 420gr Bche", "vb_stephan", 4.62), sku: "VT-DULC-0000901" },
-  { ...mkVB(137, "DULCE SAUCO 420gr Bche", "vb_stephan", 4.62), sku: "VT-DULC-0000904" },
+  { ...mkVB(112, "DULCE FRAMBUESA 420gr BsAs", "vb_stephan", 4.62), sku: "VT-DULC-0000900", min: 82, max: 163, capaciteTurno: 130 },
+  { ...mkVB(113, "DULCE FRUTILLA 420gr BsAs", "vb_stephan", 4.62), sku: "VT-DULC-0000902", min: 39, max: 78, capaciteTurno: 130 },
+  { ...mkVB(114, "DULCE FRUTOS DEL BOSQUE BsAs", "vb_stephan", 4.62), sku: "VT-DULC-0000905", min: 22, max: 44, capaciteTurno: 130 },
+  { ...mkVB(115, "DULCE MOSQUETA 420gr BsAs", "vb_stephan", 4.62), sku: "VT-DULC-0000901", min: 62, max: 124, capaciteTurno: 130 },
+  { ...mkVB(116, "DULCE SAUCO 420gr BsAs", "vb_stephan", 4.62), sku: "VT-DULC-0000904", min: 28, max: 57, capaciteTurno: 130 },
+  { ...mkVB(133, "DULCE FRAMBUESA 420gr Bche", "vb_stephan", 4.62), sku: "VT-DULC-0000900", capaciteTurno: 130 },
+  { ...mkVB(134, "DULCE FRUTILLA 420gr Bche", "vb_stephan", 4.62), sku: "VT-DULC-0000902", capaciteTurno: 130 },
+  { ...mkVB(135, "DULCE FRUTOS DEL BOSQUE Bche", "vb_stephan", 4.62), sku: "VT-DULC-0000905", capaciteTurno: 130 },
+  { ...mkVB(136, "DULCE MOSQUETA 420gr Bche", "vb_stephan", 4.62), sku: "VT-DULC-0000901", capaciteTurno: 130 },
+  { ...mkVB(137, "DULCE SAUCO 420gr Bche", "vb_stephan", 4.62), sku: "VT-DULC-0000904", capaciteTurno: 130 },
   { ...mkVB(149, "FRASCO NUICCIOLA 380 GR BsAs", "vb_stephan", 4.18), sku: "VT-CFRA-0000432", capaciteTurno: 400 },
   { ...mkVB(150, "FRASCO MARROC 380 GR BsAs", "vb_stephan", 4.18), sku: "VT-CFRA-0000430", capaciteTurno: 400 },
   { ...mkVB(151, "FRASCO CREMA PISTACHO BsAs", "vb_stephan", 4.18), sku: "VT-CFRA-0000029", capaciteTurno: 400 },
-  { ...mkVB(152, "LICOR DE CHOCOLATE BOTELLA BsAs", "vb_stephan", 5), sku: "VT-CFRA-0004310" },
-  { ...mkVB(153, "LICOR DDL BOTELLA BsAs", "vb_stephan", 5), sku: "VT-CFRA-000056" },
-  { ...mkVB(154, "JUGO DE FRAM/FRUT BOTELLA BsAs", "vb_stephan", 4.4), sku: "VT-CFRA-0000993" },
+  { ...mkVB(152, "LICOR DE CHOCOLATE BOTELLA BsAs", "vb_stephan", 5), sku: "VT-CFRA-0004310", capaciteTurno: 400 },
+  { ...mkVB(153, "LICOR DDL BOTELLA BsAs", "vb_stephan", 5), sku: "VT-CFRA-000056", capaciteTurno: 400 },
+  { ...mkVB(154, "JUGO DE FRAM/FRUT BOTELLA BsAs", "vb_stephan", 4.4), sku: "VT-CFRA-0000993", capaciteTurno: 400 },
   { ...mkEsandi(117, "TABLETA DE PISTACHO, SAL Y CARAMELO BsAs", "e_crem", 3.8), aliases: ["TAB SAL CARAMELO 100gr", "TABLETA DE PISTACHO, SAL Y CARAMELO BsAs"], sku: "VT-CTAB-0000486" },
   { ...mkFatima(118, "TAB CHOC LECHE PURO 80G BsAs", "f_tabletas", 3.04, ["TABLETA LECHE PURO X80gr solo BsAs stock max p/4 meses min 2", "TAB CHOC LECHE PURO 80G BsAs"]), sku: "VT-CTAB-0000550" },
   { ...mkFatima(119, "TABLETA CHOC AMARGO 70% BsAs", "f_tabletas", 3.04, ["TABLETA 70 solo BsAs stock max p/4 meses min 2", "TABLETA CHOC AMARGO 70% BsAs"]), sku: "VT-CTAB-0000995" },
@@ -860,7 +860,7 @@ function fusionAvecBase(base: any[], sauvegarde: any[]) {
       fusionne.capacite = 3200;
     }
     if (fusionne.id === "vb_stephan") {
-      fusionne.nom = "Beldos";
+      fusionne.nom = "Stephan / Buldos";
       fusionne.capacite = 400;
     }
     if (fusionne.id === "vb_envasado") {
@@ -3185,11 +3185,11 @@ export default function PlanificateurChocolat() {
     }
     if ((q.includes("dulce") || q.includes("dulces")) && (q.includes("semaine sur deux") || q.includes("semana por medio") || q.includes("une semaine sur deux") || q.includes("1 semaine sur 2"))) {
       setRegleDulceUneSemaineSurDeux(true);
-      actions.push("les Dulces de Beldos seront planifiés une semaine sur deux");
+      actions.push("les Dulces de Stephan / Buldos seront planifiés une semaine sur deux");
     }
     if ((q.includes("framboise") || q.includes("frambuesa")) && (q.includes("fraise") || q.includes("frutilla"))) {
       setRegleFramboisePuisFraise(true);
-      actions.push("après Framboise, je favorise Frutilla/Fraise sur Beldos");
+      actions.push("après Framboise, je favorise Frutilla/Fraise sur Stephan / Buldos");
     }
     const capacite = capaciteDepuisTexteAldo(question);
     const ligneCap = ligneDepuisTexteAldo(q);
@@ -3390,7 +3390,7 @@ export default function PlanificateurChocolat() {
       }
       reponse = "Entendido. " + (consignes.actions.length ? consignes.actions.join("; ") + ". " : "") +
         (consignes.veutRemplir ? "Completo el calendario con estas consignas y mantengo las restricciones de stock/capacidad." : "Guardo esta consigna para las próximas optimizaciones.") +
-        " Después puedes pedirme una corrección, por ejemplo: baja Beldos en julio, o fuerza Frutilla después de Framboise.";
+        " Después puedes pedirme una corrección, por ejemplo: baja Stephan / Buldos en julio, o fuerza Frutilla después de Framboise.";
     } else if (produitCible && (q.includes("projection") || q.includes("proyeccion") || q.includes("stock") || q.includes("produit") || q.includes("producto") || q.includes("montre") || q.includes("muestra") || q.includes("show") || q.includes("analyse") || q.includes("analiza"))) {
       setOnglet("stocks");
       reponse = ficheProduitIAldo(produitCible, langueQuestion);
@@ -4406,7 +4406,7 @@ export default function PlanificateurChocolat() {
                 </table>
               </div>
             )}
-            <p className="text-xs text-gray-500 mt-2">Cada turno produce segun los horarios de la fabrica: Fatima trabaja de lunes a viernes un turno completo dividido en medio turno manana y medio turno tarde, y no trabaja sabado ni domingo; Esandi trabaja manana y tarde, con solo manana el sabado; Mitre/VB trabajan 3 turnos base, con solo manana el sabado. Excepcion: Beldos trabaja solo lunes a viernes, manana y tarde. La cantidad es <strong>divisible</strong>. La gomita de color muestra el estado del stock justo despues de ese bloque, simulando la demanda dia por dia.</p>
+            <p className="text-xs text-gray-500 mt-2">Cada turno produce segun los horarios de la fabrica: Fatima trabaja de lunes a viernes un turno completo dividido en medio turno manana y medio turno tarde, y no trabaja sabado ni domingo; Esandi trabaja manana y tarde, con solo manana el sabado; Mitre/VB trabajan 3 turnos base, con solo manana el sabado. Excepcion: Stephan / Buldos trabaja solo lunes a viernes, manana y tarde. La cantidad es <strong>divisible</strong>. La gomita de color muestra el estado del stock justo despues de ese bloque, simulando la demanda dia por dia.</p>
             <Legende />
           </div>
         )}

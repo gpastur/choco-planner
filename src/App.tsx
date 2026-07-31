@@ -7,7 +7,7 @@ import {
   ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts";
 
-const APP_VERSION = "2026.07.31-surtidos-multiproducto";
+const APP_VERSION = "2026.07.31-beldos-unificada";
 const PORTAIL_EMAIL_ACTIF = true;
 
 const PALETTE = [
@@ -50,8 +50,7 @@ const LIGNES_INIT = [
   { id: "l3", nom: "GDG", capacite: 500, pal: 2, usine: "mitre" },
   { id: "l4", nom: "Sollich", capacite: 500, pal: 3, usine: "mitre" },
   { id: "l5", nom: "Bulher", capacite: 500, pal: 4, usine: "mitre" },
-  { id: "vb_refinado", nom: "Refinado / Beldos", capacite: 130, pal: 3, usine: "vb" },
-  { id: "vb_stephan", nom: "Dulceria / Beldos", capacite: 130, pal: 0, usine: "vb" },
+  { id: "vb_stephan", nom: "Beldos", capacite: 400, pal: 0, usine: "vb" },
   { id: "vb_tostadora", nom: "Tostadora", capacite: 140, pal: 1, usine: "vb" },
   { id: "vb_envasado", nom: "Envasado", capacite: 450, pal: 2, usine: "vb" },
   { id: "f_tabletas", nom: "Tabletas", capacite: 3200, pal: 1, usine: "fatima" },
@@ -297,7 +296,7 @@ const PRODUITS_BASE = [
   mkEsandi(139, "TABLETA 70 ECUADOR VB", "e_bomb", 3.04),
   mkEsandi(140, "TABLETA 80 TUMACO VB", "e_bomb", 3.04),
   mkEsandi(143, "HUESITO FIG MACIZA", "e_bomb", 7.98),
-  { ...mkVB(147, "DULCE FRUTOS ROJOS", "vb_stephan", 4.62), sku: "VM-CFRA-0000072" },
+  { ...mkVB(147, "DULCE FRUTOS ROJOS", "vb_stephan", 4.62), sku: "VM-CFRA-0000072", capaciteTurno: 130 },
   mkVB(148, "Cafe Crudo", "vb_tostadora", null),
   { ...mkVB(112, "DULCE FRAMBUESA 420gr BsAs", "vb_stephan", 4.62), sku: "VT-DULC-0000900", min: 82, max: 163 },
   { ...mkVB(113, "DULCE FRUTILLA 420gr BsAs", "vb_stephan", 4.62), sku: "VT-DULC-0000902", min: 39, max: 78 },
@@ -309,9 +308,9 @@ const PRODUITS_BASE = [
   { ...mkVB(135, "DULCE FRUTOS DEL BOSQUE Bche", "vb_stephan", 4.62), sku: "VT-DULC-0000905" },
   { ...mkVB(136, "DULCE MOSQUETA 420gr Bche", "vb_stephan", 4.62), sku: "VT-DULC-0000901" },
   { ...mkVB(137, "DULCE SAUCO 420gr Bche", "vb_stephan", 4.62), sku: "VT-DULC-0000904" },
-  { ...mkVB(149, "FRASCO NUICCIOLA 380 GR BsAs", "vb_refinado", 4.18), sku: "VT-CFRA-0000432" },
-  { ...mkVB(150, "FRASCO MARROC 380 GR BsAs", "vb_refinado", 4.18), sku: "VT-CFRA-0000430" },
-  { ...mkVB(151, "FRASCO CREMA PISTACHO BsAs", "vb_refinado", 4.18), sku: "VT-CFRA-0000029" },
+  { ...mkVB(149, "FRASCO NUICCIOLA 380 GR BsAs", "vb_stephan", 4.18), sku: "VT-CFRA-0000432", capaciteTurno: 400 },
+  { ...mkVB(150, "FRASCO MARROC 380 GR BsAs", "vb_stephan", 4.18), sku: "VT-CFRA-0000430", capaciteTurno: 400 },
+  { ...mkVB(151, "FRASCO CREMA PISTACHO BsAs", "vb_stephan", 4.18), sku: "VT-CFRA-0000029", capaciteTurno: 400 },
   { ...mkVB(152, "LICOR DE CHOCOLATE BOTELLA BsAs", "vb_stephan", 5), sku: "VT-CFRA-0004310" },
   { ...mkVB(153, "LICOR DDL BOTELLA BsAs", "vb_stephan", 5), sku: "VT-CFRA-000056" },
   { ...mkVB(154, "JUGO DE FRAM/FRUT BOTELLA BsAs", "vb_stephan", 4.4), sku: "VT-CFRA-0000993" },
@@ -407,8 +406,14 @@ const REFERENCES_ESANDI_PAR_NOM = new Map(
 
 const ligneVbPourProduit = (nom) => {
   const cle = NORMALISER_REFERENCE(nom);
-  if (/^(CREMA|FRASCO) (NUICCIOLA|MARROC|CREMA PISTACHO|PISTACHO)/.test(cle)) return "vb_refinado";
-  return /^(LICOR|JUGO|DULCE)/.test(cle) ? "vb_stephan" : "vb_envasado";
+  return /^(CREMA|FRASCO|LICOR|JUGO|DULCE)/.test(cle) ? "vb_stephan" : "vb_envasado";
+};
+
+const capaciteBeldosVb = (nom) => {
+  const cle = NORMALISER_REFERENCE(nom);
+  if (cle.startsWith("DULCE ")) return 130;
+  if (/^(CREMA|FRASCO|LICOR|JUGO)/.test(cle)) return 400;
+  return null;
 };
 
 const poidsBultoVb = (nom) => NORMALISER_REFERENCE(nom).startsWith("DULCE ") ? 4.62 : null;
@@ -487,6 +492,7 @@ vbReference.forEach((reference, index) => {
       ligne: ligneVbPourProduit(reference.nom),
       ...(reference.sku === "VN-CPOL-0000004" ? { capaciteTurno: 600 } : {}),
       ...(capaciteSurtidoVb(reference.nom) ? { capaciteTurno: capaciteSurtidoVb(reference.nom) } : {}),
+      ...(capaciteBeldosVb(reference.nom) ? { capaciteTurno: capaciteBeldosVb(reference.nom) } : {}),
       ...(ALIASES_STOCK_MC_VB[reference.sku] ? { aliases: ALIASES_STOCK_MC_VB[reference.sku] } : {}),
       ...(conditionnement ? { unidadesBulto: conditionnement.unidadesBulto, pesoUnidad: conditionnement.pesoUnidad, pesoBulto: conditionnement.pesoBulto } : {}),
     };
@@ -599,7 +605,7 @@ function turnosUsine(usineId) { return TURNOS_PAR_USINE[usineId] || TURNOS_PAR_U
 function turnosLigne(ligne) {
   if (ligne && ligne.id === "f_franui") return TURNOS_FRANUI;
   const turnos = turnosUsine(ligne && ligne.usine);
-  if (ligne && ["vb_stephan", "vb_refinado"].includes(ligne.id)) return turnos.filter((t) => t.id !== "n");
+  if (ligne && ligne.id === "vb_stephan") return turnos.filter((t) => t.id !== "n");
   if (ligne && ["vb_tostadora", "vb_envasado"].includes(ligne.id)) return turnos.filter((t) => t.id === "m");
   return turnos;
 }
@@ -620,7 +626,7 @@ function turnosLignePourDate(ligne, date) {
     return TURNOS_FRANUI;
   }
   const turnos = turnosUsinePourDate(ligne && ligne.usine, date);
-  if (ligne && ["vb_stephan", "vb_refinado"].includes(ligne.id)) {
+  if (ligne && ligne.id === "vb_stephan") {
     if (date instanceof Date && (date.getDay() === 0 || date.getDay() === 6)) return [];
     return turnos.filter((t) => t.id !== "n");
   }
@@ -842,6 +848,7 @@ function fusionAvecBase(base: any[], sauvegarde: any[]) {
   const parId = new Map(base.map((item) => [item.id, item]));
   const idsObsoletes = new Set([111, 138, 141, 142, 144, 145, 146, 3050, 3051, 3052, 3053, 3054, 3055, 3056, 3057, 3058, 3059, 3060, 5101, 5201, 5202, 5203]);
   (Array.isArray(sauvegarde) ? sauvegarde : []).forEach((item) => {
+    if (item.id === "vb_refinado") return;
     if (["f_tabletas_bariloche", "f_franui", "vb_franui_1", "vb_franui_2"].includes(item.id)) return;
     if (idsObsoletes.has(item.id)) return;
     if (item.usine === "vb" && NORMALISER_REFERENCE(item.nom) === "TRUFA X1 BCHE") return;
@@ -853,12 +860,8 @@ function fusionAvecBase(base: any[], sauvegarde: any[]) {
       fusionne.capacite = 3200;
     }
     if (fusionne.id === "vb_stephan") {
-      fusionne.nom = "Dulceria / Beldos";
-      fusionne.capacite = 130;
-    }
-    if (fusionne.id === "vb_refinado") {
-      fusionne.nom = "Refinado / Beldos";
-      fusionne.capacite = 130;
+      fusionne.nom = "Beldos";
+      fusionne.capacite = 400;
     }
     if (fusionne.id === "vb_envasado") {
       fusionne.nom = "Envasado";
@@ -2590,8 +2593,13 @@ export default function PlanificateurChocolat() {
       produitsUsine.forEach((p) => { if (estConfigure(p)) stockSim[p.id] -= demandeJour(p); });
       if (!jour.prod) return;
       lignesUsine.forEach((ligne) => {
-        if (regleDulceUneSemaineSurDeux && ligne.id === "vb_stephan" && jour.semaine % 2 === 1) return;
-        const prods = produitsUsine.filter((p) => produitCompatibleLigne(p, ligne.id) && estConfigure(p) && kgParBulto(p) && seuils(p).max > 0);
+        const prods = produitsUsine.filter((p) =>
+          produitCompatibleLigne(p, ligne.id)
+          && estConfigure(p)
+          && kgParBulto(p)
+          && seuils(p).max > 0
+          && !(regleDulceUneSemaineSurDeux && ligne.id === "vb_stephan" && jour.semaine % 2 === 1 && NORMALISER_REFERENCE(p.nom).startsWith("DULCE "))
+        );
         if (prods.length === 0) return;
         turnosLignePourDate(ligne, jour.date).forEach((turno) => {
           const cleTurno = jour.cle + "|" + ligne.id + "|" + turno.id;
@@ -3177,11 +3185,11 @@ export default function PlanificateurChocolat() {
     }
     if ((q.includes("dulce") || q.includes("dulces")) && (q.includes("semaine sur deux") || q.includes("semana por medio") || q.includes("une semaine sur deux") || q.includes("1 semaine sur 2"))) {
       setRegleDulceUneSemaineSurDeux(true);
-      actions.push("les Dulces de Dulceria / Beldos seront planifiés une semaine sur deux");
+      actions.push("les Dulces de Beldos seront planifiés une semaine sur deux");
     }
     if ((q.includes("framboise") || q.includes("frambuesa")) && (q.includes("fraise") || q.includes("frutilla"))) {
       setRegleFramboisePuisFraise(true);
-      actions.push("après Framboise, je favorise Frutilla/Fraise sur Dulceria / Beldos");
+      actions.push("après Framboise, je favorise Frutilla/Fraise sur Beldos");
     }
     const capacite = capaciteDepuisTexteAldo(question);
     const ligneCap = ligneDepuisTexteAldo(q);
@@ -3382,7 +3390,7 @@ export default function PlanificateurChocolat() {
       }
       reponse = "Entendido. " + (consignes.actions.length ? consignes.actions.join("; ") + ". " : "") +
         (consignes.veutRemplir ? "Completo el calendario con estas consignas y mantengo las restricciones de stock/capacidad." : "Guardo esta consigna para las próximas optimizaciones.") +
-        " Después puedes pedirme una corrección, por ejemplo: baja Dulceria / Beldos en julio, o fuerza Frutilla después de Framboise.";
+        " Después puedes pedirme una corrección, por ejemplo: baja Beldos en julio, o fuerza Frutilla después de Framboise.";
     } else if (produitCible && (q.includes("projection") || q.includes("proyeccion") || q.includes("stock") || q.includes("produit") || q.includes("producto") || q.includes("montre") || q.includes("muestra") || q.includes("show") || q.includes("analyse") || q.includes("analiza"))) {
       setOnglet("stocks");
       reponse = ficheProduitIAldo(produitCible, langueQuestion);
@@ -4398,7 +4406,7 @@ export default function PlanificateurChocolat() {
                 </table>
               </div>
             )}
-            <p className="text-xs text-gray-500 mt-2">Cada turno produce segun los horarios de la fabrica: Fatima trabaja de lunes a viernes un turno completo dividido en medio turno manana y medio turno tarde, y no trabaja sabado ni domingo; Esandi trabaja manana y tarde, con solo manana el sabado; Mitre/VB trabajan 3 turnos base, con solo manana el sabado. Excepcion: Dulceria / Beldos y Refinado / Beldos trabajan solo lunes a viernes, manana y tarde. La cantidad es <strong>divisible</strong>. La gomita de color muestra el estado del stock justo despues de ese bloque, simulando la demanda dia por dia.</p>
+            <p className="text-xs text-gray-500 mt-2">Cada turno produce segun los horarios de la fabrica: Fatima trabaja de lunes a viernes un turno completo dividido en medio turno manana y medio turno tarde, y no trabaja sabado ni domingo; Esandi trabaja manana y tarde, con solo manana el sabado; Mitre/VB trabajan 3 turnos base, con solo manana el sabado. Excepcion: Beldos trabaja solo lunes a viernes, manana y tarde. La cantidad es <strong>divisible</strong>. La gomita de color muestra el estado del stock justo despues de ese bloque, simulando la demanda dia por dia.</p>
             <Legende />
           </div>
         )}

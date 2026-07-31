@@ -18,6 +18,10 @@ function ratio(valor) {
   return texto.includes("%") || n > 1 ? n / 100 : n;
 }
 
+function normalizarSku(valor) {
+  return String(valor || "").toUpperCase().replace(/\s+/g, "").trim();
+}
+
 const CAMPOS_TECNICOS = new Set([
   "UNIDADES/BULTO",
   "PESO/BULTO [KG]",
@@ -26,6 +30,10 @@ const CAMPOS_TECNICOS = new Set([
   "PESO / U",
   "U / BULTO",
   "COD",
+  "SKU",
+  "PRODUCTO",
+  "ALIASES",
+  "LINEA",
 ]);
 
 function esCampoTecnico(nombre) {
@@ -112,7 +120,19 @@ export default function handler(req, res) {
   }
 
   const items = Array.isArray(req.body && req.body.items) ? req.body.items : [];
-  const recetasPorNombre = new Map(Object.entries(privadas.recetas).map(([nombre, receta]) => [normalizar(nombre), corregirReceta(nombre, receta)]));
+  const recetasPorNombre = new Map();
+  const recetasPorSku = new Map();
+  Object.entries(privadas.recetas).forEach(([claveFuente, receta]) => {
+    const objeto = receta && typeof receta === "object" ? receta : {};
+    const claveEsSku = /^(VT|VM|VN|CF)-/i.test(String(claveFuente));
+    const sku = normalizarSku(objeto.SKU || (claveEsSku ? claveFuente : ""));
+    const nombrePrincipal = objeto.Producto || (!claveEsSku ? claveFuente : "");
+    const recetaCorregida = corregirReceta(nombrePrincipal || claveFuente, objeto);
+    if (sku) recetasPorSku.set(sku, recetaCorregida);
+    [nombrePrincipal, ...(Array.isArray(objeto.Aliases) ? objeto.Aliases : [])]
+      .filter(Boolean)
+      .forEach((nombre) => recetasPorNombre.set(normalizar(nombre), recetaCorregida));
+  });
   const totales = {};
   const sinReceta = [];
 
@@ -120,9 +140,10 @@ export default function handler(req, res) {
     const kg = Number(item && item.kg) || 0;
     if (kg <= 0) return;
     const clave = normalizar(item.nom || item.producto || item.name);
-    const receta = recetasPorNombre.get(clave);
+    const sku = normalizarSku(item && item.sku);
+    const receta = (sku && recetasPorSku.get(sku)) || recetasPorNombre.get(clave);
     if (!receta) {
-      sinReceta.push({ producto: item.nom || item.producto || item.name || "Producto sin nombre", kg });
+      sinReceta.push({ producto: item.nom || item.producto || item.name || "Producto sin nombre", sku: item.sku || "", kg });
       return;
     }
     Object.entries(receta).forEach(([materia, valor]) => {

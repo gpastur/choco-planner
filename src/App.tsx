@@ -7,7 +7,7 @@ import {
   ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts";
 
-const APP_VERSION = "2026.07.31-capacidad-diaria-dinamica";
+const APP_VERSION = "2026.07.31-recetas-maestro-por-sku";
 const PORTAIL_EMAIL_ACTIF = true;
 
 const PALETTE = [
@@ -1182,7 +1182,7 @@ export default function PlanificateurChocolat() {
       if (!b || b.p == null) return;
       const p = produits.find((x) => memeId(x.id, b.p));
       if (!p) return;
-      parProduit[p.id] = parProduit[p.id] || { id: p.id, nom: p.nom, kg: 0 };
+      parProduit[p.id] = parProduit[p.id] || { id: p.id, nom: p.nom, sku: p.sku || "", kg: 0 };
       parProduit[p.id].kg += kgEffectifBloc(b);
     });
     return Object.values(parProduit).sort((a: any, b: any) => a.nom.localeCompare(b.nom));
@@ -1470,7 +1470,7 @@ export default function PlanificateurChocolat() {
       const resp = await fetch("/api/materias-primas", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ items: calculadoraItems.map((item) => ({ id: item.id, nom: item.nom, kg: Number(item.kg) || 0 })) }),
+        body: JSON.stringify({ items: calculadoraItems.map((item) => ({ id: item.id, nom: item.nom, sku: item.sku || "", kg: Number(item.kg) || 0 })) }),
       });
       const data = await resp.json();
       if (!resp.ok) {

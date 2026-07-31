@@ -7,7 +7,7 @@ import {
   ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts";
 
-const APP_VERSION = "2026.07.31-alignement-vercel";
+const APP_VERSION = "2026.07.31-submarino-piggy-decorado";
 const PORTAIL_EMAIL_ACTIF = true;
 
 const PALETTE = [
@@ -260,7 +260,7 @@ const PRODUITS_BASE = [
   mkEsandi(75, "RAMA LECHE GRANEL", "e_rama", 7),
   mkEsandi(76, "RAMON", "e_rama", 4.8),
   mkEsandi(77, "RAPASAURIO 3D", "e_mh", 2.5),
-  mkEsandi(78, "SUBMARINO PIGGY", "e_bomb", 1.575),
+  mkEsandi(78, "SUBMARINO PIGGY", "e_dec", 1.575),
   mkEsandi(79, "SUBMARINO X 3", "e_bomb", 1.98),
   mkEsandi(80, "TAB 60 DIET", "e_bomb", 3.04),
   mkEsandi(81, "TAB LECHE DIET", "e_bomb", 3.04),
@@ -914,6 +914,7 @@ function fusionAvecBase(base: any[], sauvegarde: any[]) {
       fusionne.sku = baseItem.sku || null;
       fusionne.min = baseItem.min;
       fusionne.max = baseItem.max;
+      if (fusionne.id === 78) fusionne.ligne = baseItem.ligne;
     }
     if (baseItem && fusionne.id === 117) {
       fusionne.usine = "esandi";

@@ -7,7 +7,7 @@ import {
   ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts";
 
-const APP_VERSION = "2026.07.31-sans-dulce-frutos-rojos";
+const APP_VERSION = "2026.07.31-recetas-vb-maestro";
 const PORTAIL_EMAIL_ACTIF = true;
 
 const PALETTE = [

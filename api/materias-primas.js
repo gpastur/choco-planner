@@ -4,7 +4,7 @@ function normalizar(valor) {
     .replace(/[\u0300-\u036f]/g, "")
     .toUpperCase()
     .replace(/\bBS\s+AS\b/g, "")
-    .replace(/\b(BSAS|VB)\b/g, "")
+    .replace(/\b(BSAS|BCHE|VB)\b/g, "")
     .replace(/\s+/g, " ")
     .trim();
 }
@@ -39,6 +39,7 @@ function leerRecetasPrivadas() {
     ["RECETAS_FATIMA_JSON", process.env.RECETAS_FATIMA_JSON],
     ["RECETAS_MITRE_JSON", process.env.RECETAS_MITRE_JSON],
     ["RECETAS_PRODUCTOS_JSON", process.env.RECETAS_PRODUCTOS_JSON],
+    ["RECETAS_VB_JSON", process.env.RECETAS_VB_JSON],
     ["RECETAS_EXTRA_JSON", process.env.RECETAS_EXTRA_JSON],
   ].filter(([, valor]) => valor && String(valor).trim());
 

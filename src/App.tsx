@@ -7,7 +7,7 @@ import {
   ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts";
 
-const APP_VERSION = "2026.07.31-frascos-segun-necesidad-mp-por-linea";
+const APP_VERSION = "2026.07.31-comparativo-stock-version-congelada";
 const PORTAIL_EMAIL_ACTIF = true;
 
 const PALETTE = [
@@ -803,6 +803,7 @@ function clesSousBlocs(cleTurno, ligne) {
 }
 
 const STORAGE_KEY = "choco-planner-state-v10";
+const STOCK_ACTUEL_STORAGE_PREFIX = "choco-planner-stock-actuel-v1-";
 const LINE_SETTINGS_STORAGE_KEY = "choco-planner-line-settings-v4";
 const LINE_SETTINGS_RESET_KEY = "choco-planner-line-settings-reset-2026-07-31";
 const OLD_STORAGE_KEYS = ["choco-planner-state-v4", "choco-planner-state-v5", "choco-planner-state-v6", "choco-planner-state-v7", "choco-planner-state-v8", "choco-planner-state-v9", "choco-planner-line-settings-v1", "choco-planner-line-settings-v2", "choco-planner-line-settings-v3"];
@@ -820,6 +821,29 @@ function sauverActivationLocale(usineId, valeurs) {
     toutes[usineId] = valeurs;
     localStorage.setItem(LINE_SETTINGS_STORAGE_KEY, JSON.stringify(toutes));
   } catch (_) { /* Le mode local reste utilisable même si le stockage est bloqué. */ }
+}
+
+function sauvegarderStockActuel(usineId, produitsListe, dateSource) {
+  if (!usineId) return;
+  try {
+    const produitsStock = (produitsListe || []).filter((produit) => produit.usine === usineId).map((produit) => ({
+      id: produit.id,
+      sku: produit.sku || "",
+      nom: produit.nom,
+      stock: produit.stock,
+      min: produit.min,
+      max: produit.max,
+      demande: produit.demande,
+      pesoBulto: produit.pesoBulto,
+    }));
+    localStorage.setItem(STOCK_ACTUEL_STORAGE_PREFIX + usineId, JSON.stringify({ dateSource: dateSource || "", enregistreLe: new Date().toISOString(), produits: produitsStock }));
+  } catch (_) { /* Le comparatif reste disponible pendant la session si le stockage local est bloqué. */ }
+}
+
+function chargerStockActuel(usineId) {
+  if (!usineId) return null;
+  try { return JSON.parse(localStorage.getItem(STOCK_ACTUEL_STORAGE_PREFIX + usineId) || "null"); }
+  catch (_) { return null; }
 }
 
 function encodePayload(payload) {
@@ -941,6 +965,10 @@ export default function PlanificateurChocolat() {
   const [capNouvelleLigne, setCapNouvelleLigne] = useState(500);
   const [texteImport, setTexteImport] = useState("");
   const [msgImport, setMsgImport] = useState("");
+  const [ultimaFechaStocks, setUltimaFechaStocks] = useState("");
+  const [stockActuelComparaison, setStockActuelComparaison] = useState<any[]>([]);
+  const [dateStockActuelComparaison, setDateStockActuelComparaison] = useState("");
+  const [rechercheComparaisonStock, setRechercheComparaisonStock] = useState("");
   const [msgLigne, setMsgLigne] = useState("");
   const [msgOpti, setMsgOpti] = useState("");
   const [matieresResultat, setMatieresResultat] = useState(null);
@@ -1023,6 +1051,19 @@ export default function PlanificateurChocolat() {
   const [nomVersionEdition, setNomVersionEdition] = useState("");
   const [activationLignes, setActivationLignes] = useState<Record<string, boolean>>({});
   const [msgActivationLignes, setMsgActivationLignes] = useState("");
+
+  useEffect(() => {
+    if (!usine) {
+      setUltimaFechaStocks("");
+      setStockActuelComparaison([]);
+      setDateStockActuelComparaison("");
+      return;
+    }
+    setUltimaFechaStocks(localStorage.getItem("choco_planner_fecha_stock_" + usine) || "");
+    const stockSauve = chargerStockActuel(usine);
+    setStockActuelComparaison(Array.isArray(stockSauve?.produits) ? stockSauve.produits : []);
+    setDateStockActuelComparaison(stockSauve?.dateSource || "");
+  }, [usine]);
 
   useEffect(() => {
     if (!supabase) return;
@@ -2010,10 +2051,24 @@ export default function PlanificateurChocolat() {
   }, []);
 
   const estadoActual = () => ({
-    version: 1,
+    version: 2,
     usine,
     lignes,
     produits,
+    stocksFreeze: {
+      fechaFuente: ultimaFechaStocks || "",
+      congeladoEl: new Date().toISOString(),
+      productos: produits.filter((produit) => produit.usine === usine).map((produit) => ({
+        id: produit.id,
+        sku: produit.sku || "",
+        nom: produit.nom,
+        stock: produit.stock,
+        min: produit.min,
+        max: produit.max,
+        demande: produit.demande,
+        pesoBulto: produit.pesoBulto,
+      })),
+    },
     plan,
     lundi: cleDate(lundiAffiche),
     dateDebutOpti,
@@ -2410,6 +2465,12 @@ export default function PlanificateurChocolat() {
       return;
     }
     const snapshot = data.snapshot;
+    const stockCourantSauve = chargerStockActuel(data.factory_id || usine);
+    const produitsCourants = Array.isArray(stockCourantSauve?.produits)
+      ? stockCourantSauve.produits
+      : produits.filter((produit) => produit.usine === (data.factory_id || usine));
+    setStockActuelComparaison(produitsCourants);
+    setDateStockActuelComparaison(stockCourantSauve?.dateSource || ultimaFechaStocks || "");
     const planCharge = { ...(snapshot.plan || {}) };
     (reels || []).forEach((reel) => {
       const bloc = lireBloc(planCharge[reel.slot_key], null);
@@ -2881,24 +2942,48 @@ export default function PlanificateurChocolat() {
     const ligneNoms = rows[idxNoms] || [];
     const ligneMax = rows[idxMax] || [], ligneMin = rows[idxMin] || [];
     const ligneSku = idxSku >= 0 ? rows[idxSku] : [];
-    let idxStock = -1;
-    for (let i = rows.length - 1; i > Math.max(idxMax, idxMin); i--) { if (rows[i].some((c, ci) => ci > 0 && c !== "" && !isNaN(parseNum(c)))) { idxStock = i; break; } }
+    const convertirFechaStock = (valor) => {
+      const texto = normaliser(valor);
+      let match = texto.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})$/);
+      if (match) {
+        const anio = Number(match[3]) < 100 ? 2000 + Number(match[3]) : Number(match[3]);
+        const fecha = new Date(anio, Number(match[2]) - 1, Number(match[1]));
+        return Number.isNaN(fecha.getTime()) ? null : fecha;
+      }
+      match = texto.match(/^(\d{4})[\/\-.](\d{1,2})[\/\-.](\d{1,2})$/);
+      if (match) {
+        const fecha = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+        return Number.isNaN(fecha.getTime()) ? null : fecha;
+      }
+      return null;
+    };
+    const idxDebutStocks = Math.max(idxMax, idxMin, idxSku) + 1;
+    const lignesDatees = rows
+      .map((ligne, indexLigne) => ({ ligne, indexLigne, date: convertirFechaStock((ligne || [])[0]) }))
+      .filter((item) => item.indexLigne >= idxDebutStocks && item.date)
+      .sort((a, b) => a.date.getTime() - b.date.getTime());
+    let idxStock = lignesDatees.length ? lignesDatees[lignesDatees.length - 1].indexLigne : -1;
+    if (idxStock === -1) {
+      for (let i = rows.length - 1; i >= idxDebutStocks; i--) {
+        if (rows[i].some((c, ci) => ci > 0 && c !== "" && !isNaN(parseNum(c)))) { idxStock = i; break; }
+      }
+    }
     const ligneStock = idxStock !== -1 ? rows[idxStock] : [];
     const dateStock = ligneStock[0] || "";
-    const idxDebutStocks = Math.max(idxMax, idxMin, idxSku) + 1;
     const derniereValeurStock = (colonne) => {
-      for (let i = rows.length - 1; i >= idxDebutStocks; i--) {
-        const cellule = normaliser((rows[i] || [])[colonne]);
+      const historique = lignesDatees.length ? [...lignesDatees].reverse() : rows.slice(idxDebutStocks).map((ligne, offset) => ({ ligne, indexLigne: idxDebutStocks + offset })).reverse();
+      for (const entree of historique) {
+        const cellule = normaliser((entree.ligne || [])[colonne]);
         if (cellule === "") continue;
         const valeur = parseNum(cellule);
-        if (!isNaN(valeur)) return { valeur, indexLigne: i };
+        if (!isNaN(valeur)) return { valeur, indexLigne: entree.indexLigne };
       }
       return { valeur: NaN, indexLigne: -1 };
     };
     const debut = (isNaN(parseNum(ligneMax[0])) && isNaN(parseNum(ligneMin[0]))) ? 1 : 0;
     let maj = 0, ajoutes = 0, avecMinMax = 0, ignores = 0, reconnus = 0, redirigesAutreUsine = 0, reprisHistorique = 0;
     let nouveaux = [...(produitsSource || produits)];
-    const nbCols = Math.max(ligneNoms.length, ligneMax.length, ligneMin.length, ligneStock.length, ligneSku.length);
+    const nbCols = Math.max(ligneNoms.length, ligneMax.length, ligneMin.length, ligneStock.length, ligneSku.length, ...rows.map((ligne) => ligne.length));
     for (let c = debut; c < nbCols; c++) {
       const nom = normaliser(ligneNoms[c]); if (!nom) continue;
       const sku = normaliser(ligneSku[c]);
@@ -2908,13 +2993,15 @@ export default function PlanificateurChocolat() {
       if (isNaN(vStock) && isNaN(vMin) && isNaN(vMax)) { ignores++; continue; }
       if (!isNaN(vMin) || !isNaN(vMax)) avecMinMax++;
       const champs = { ...(sku ? { sku } : {}), ...(isNaN(vStock) ? {} : { stock: vStock }), ...(isNaN(vMin) ? {} : { min: vMin }), ...(isNaN(vMax) ? {} : { max: vMax }) };
-      const cibleFatima = usine !== "fatima" ? trouverProduitFatimaProtege(nouveaux, nom) : null;
       const cibleSkuVb = usine === "vb" && ["VT-CENV-0000413", "VT-CENV-0000414"].includes(sku)
         ? nouveaux.find((p) => p.usine === "vb" && p.sku === sku)
         : null;
-      const exact = cibleFatima || cibleSkuVb ? null : nouveaux.find((p) => p.usine === usine && p.nom.toLowerCase() === nom.toLowerCase());
-      const cibleAutreUsine = !exact && !cibleFatima ? trouverProduitAutreUsinePredefini(nouveaux, usine, nom) : null;
-      const existant = cibleFatima || cibleSkuVb || exact || cibleAutreUsine || trouverProduitExistant(nouveaux, usine, nom);
+      const exact = nouveaux.find((p) => p.usine === usine && normaliser(p.nom).toLowerCase() === nom.toLowerCase());
+      const candidatsSku = sku ? nouveaux.filter((p) => p.usine === usine && normaliser(p.sku).toUpperCase() === sku.toUpperCase()) : [];
+      const cibleSku = candidatsSku.length === 1 ? candidatsSku[0] : null;
+      const cibleFatima = !exact && !cibleSkuVb && !cibleSku && usine !== "fatima" ? trouverProduitFatimaProtege(nouveaux, nom) : null;
+      const cibleAutreUsine = !exact && !cibleSkuVb && !cibleSku && !cibleFatima ? trouverProduitAutreUsinePredefini(nouveaux, usine, nom) : null;
+      const existant = exact || cibleSkuVb || cibleSku || cibleFatima || cibleAutreUsine || trouverProduitExistant(nouveaux, usine, nom);
       if (existant) {
         nouveaux = nouveaux.map((p) => (p.id === existant.id ? { ...p, ...champs } : p));
         maj++;
@@ -2925,9 +3012,16 @@ export default function PlanificateurChocolat() {
       else { const id = nouveaux.reduce((m, p) => Math.max(m, p.id), 0) + 1; nouveaux.push({ id, nom, sku: sku || null, ligne: null, usine, stock: isNaN(vStock) ? 0 : vStock, demande: 0, min: isNaN(vMin) ? null : vMin, max: isNaN(vMax) ? null : vMax, pesoBulto: PESO_BULTO_POR_PRODUCTO[nom] ?? null }); ajoutes++; }
     }
     if (maj === 0 && ajoutes === 0) { if (!conserverMessage) setMsgImport("⚠️ No se detectó ningún producto. Verifica el pegado."); return null; }
-    setProduits(nouveaux);
+    if (!planningFige) setProduits(nouveaux);
     const messageResultat = (modeActualisation ? "Actualizacion" : "Importacion") + " (stock del " + (dateStock || "?") + "): " + maj + " actualizado(s), " + (modeActualisation ? "planning conservado sin recalcular" : ajoutes + " nuevo(s)") + ", " + reconnus + " reconocido(s) por nombre similar, " + redirigesAutreUsine + " redirigido(s) a su planta predefinida, " + avecMinMax + " con min./max., " + reprisHistorique + " stock(s) retomado(s) de la ultima fecha con valor. " + ignores + (usine === "fatima" ? " producto(s) ignorado(s) por estar fuera de la lista autorizada o por no tener ningun valor historico." : modeActualisation ? " producto(s) ignorado(s) porque no existian en la base o no tenian ningun valor historico." : " producto(s) ignorado(s) por no tener ningun valor historico.") + (avecMinMax === 0 ? " No se leyo ningun min./max." : "") + (modeActualisation ? " Para recalcular el calendario, elige Desde/Hasta y pulsa Optimizar la planificacion." : "");
     if (!conserverMessage) setMsgImport(messageResultat);
+    if (!conserverMessage && dateStock) {
+      setUltimaFechaStocks(dateStock);
+      localStorage.setItem("choco_planner_fecha_stock_" + usine, dateStock);
+      sauvegarderStockActuel(usine, nouveaux, dateStock);
+      setStockActuelComparaison(nouveaux.filter((produit) => produit.usine === usine));
+      setDateStockActuelComparaison(dateStock);
+    }
     setTexteImport("");
     return { produits: nouveaux, message: messageResultat, maj, avecMinMax, dateStock };
   };
@@ -2992,6 +3086,7 @@ export default function PlanificateurChocolat() {
     setMsgImport("Leyendo Google Sheets " + sources.map((source) => source.nom).join(" + ") + "...");
     let produitsFusionnes = produits;
     const messages = [];
+    const fechasFuentes = [];
     const erreurs = [];
     for (const source of sources) {
       try {
@@ -3001,14 +3096,23 @@ export default function PlanificateurChocolat() {
         if (!resultat) throw new Error("ningun producto reconocido");
         produitsFusionnes = resultat.produits;
         messages.push(source.nom + ": " + resultat.maj + " producto(s), " + resultat.avecMinMax + " con min./max.");
+        if (resultat.dateStock) fechasFuentes.push(source.nom + ": " + resultat.dateStock);
       } catch (error) {
         erreurs.push(source.nom + " (" + String(error && error.message ? error.message : error) + ")");
       }
     }
-    setProduits(produitsFusionnes);
+    if (!planningFige) setProduits(produitsFusionnes);
     if (!messages.length) {
       setMsgImport("No se pudo leer Google Sheets. Verifica que el archivo este compartido como 'cualquier persona con el enlace puede ver'. " + erreurs.join(" "));
       return;
+    }
+    const fechaMostrada = fechasFuentes.join(" · ");
+    if (fechaMostrada) {
+      setUltimaFechaStocks(fechaMostrada);
+      localStorage.setItem("choco_planner_fecha_stock_" + usine, fechaMostrada);
+      sauvegarderStockActuel(usine, produitsFusionnes, fechaMostrada);
+      setStockActuelComparaison(produitsFusionnes.filter((produit) => produit.usine === usine));
+      setDateStockActuelComparaison(fechaMostrada);
     }
     setMsgImport("Google Sheets actualizado: " + messages.join(" · ") + (erreurs.length ? " · No cargado: " + erreurs.join(", ") : "") + " Los datos de MC tienen prioridad para sus productos. Planning conservado sin recalcular.");
   };
@@ -4616,6 +4720,55 @@ export default function PlanificateurChocolat() {
                 </div>
 
                 {msgVersions && <p className="mb-3 text-sm text-emerald-800">{msgVersions}</p>}
+                {versionActive && planningFige && (() => {
+                  const snapshotVersion = versionActive.snapshot || {};
+                  const stockFreeze = snapshotVersion.stocksFreeze || {};
+                  const produitsFreeze = Array.isArray(stockFreeze.productos)
+                    ? stockFreeze.productos
+                    : (Array.isArray(snapshotVersion.produits) ? snapshotVersion.produits.filter((produit) => produit.usine === usine) : []);
+                  const terme = normaliser(rechercheComparaisonStock).toLowerCase();
+                  const lignesComparaison = produitsFreeze.map((fige) => {
+                    const exactNom = stockActuelComparaison.find((actuel) => normaliser(actuel.nom).toLowerCase() === normaliser(fige.nom).toLowerCase());
+                    const candidatsSku = fige.sku ? stockActuelComparaison.filter((actuel) => normaliser(actuel.sku).toUpperCase() === normaliser(fige.sku).toUpperCase()) : [];
+                    const actuel = exactNom || (candidatsSku.length === 1 ? candidatsSku[0] : null) || stockActuelComparaison.find((item) => memeId(item.id, fige.id));
+                    const stockFige = fige.stock != null ? Number(fige.stock) : NaN;
+                    const stockActuel = actuel && actuel.stock != null ? Number(actuel.stock) : null;
+                    const minFige = fige.min != null ? Number(fige.min) : NaN;
+                    const maxFige = fige.max != null ? Number(fige.max) : NaN;
+                    const minActuel = actuel && actuel.min != null ? Number(actuel.min) : null;
+                    const maxActuel = actuel && actuel.max != null ? Number(actuel.max) : null;
+                    const zoneFige = Number.isFinite(stockFige) && Number.isFinite(minFige) && Number.isFinite(maxFige) ? statutStock(stockFige, minFige, maxFige) : null;
+                    const zoneActuelle = stockActuel != null && Number.isFinite(minActuel) && Number.isFinite(maxActuel) ? statutStock(stockActuel, minActuel, maxActuel) : null;
+                    return { fige, actuel, stockFige, stockActuel, minFige, maxFige, minActuel, maxActuel, zoneFige, zoneActuelle, ecart: stockActuel == null ? null : stockActuel - stockFige };
+                  }).filter((item) => !terme || normaliser(item.fige.nom + " " + (item.fige.sku || "")).toLowerCase().includes(terme));
+                  const changementsZone = lignesComparaison.filter((item) => item.zoneFige && item.zoneActuelle && item.zoneFige.label !== item.zoneActuelle.label).length;
+                  return <section className="mb-5 rounded-lg border border-sky-200 bg-sky-50/50 p-4">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <h3 className="font-bold text-sky-950">Stock congelado vs. stock actual</h3>
+                        <p className="text-xs text-sky-800">Congelado: {stockFreeze.fechaFuente || (versionActive.approved_at ? new Date(versionActive.approved_at).toLocaleDateString() : "fecha no registrada")} · Actual: {dateStockActuelComparaison || "carga actual no registrada"}</p>
+                      </div>
+                      <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-sky-800 shadow-sm">{changementsZone} cambio(s) de zona</span>
+                    </div>
+                    <div className="mt-3 flex flex-wrap items-center gap-2">
+                      <input className="min-w-64 flex-1 rounded-lg border border-sky-200 bg-white px-3 py-2 text-sm" placeholder="Buscar producto o SKU" value={rechercheComparaisonStock} onChange={(e) => setRechercheComparaisonStock(e.target.value)} />
+                      <span className="text-xs text-slate-500">Las cantidades están en bultos.</span>
+                    </div>
+                    <div className="mt-3 max-h-[430px] overflow-auto rounded-lg border border-sky-100 bg-white">
+                      <table className="w-full min-w-[920px] text-sm">
+                        <thead className="sticky top-0 bg-slate-50 text-slate-600"><tr><th className="p-2 text-left">Producto</th><th className="p-2 text-left">SKU</th><th className="p-2 text-right">Stock congelado</th><th className="p-2 text-center">Min / Max congelados</th><th className="p-2 text-right">Stock actual</th><th className="p-2 text-center">Min / Max actuales</th><th className="p-2 text-right">Diferencia</th><th className="p-2 text-center">Cambio de zona</th></tr></thead>
+                        <tbody>{lignesComparaison.map((item) => <tr key={String(item.fige.id) + "|" + item.fige.nom} className="border-t border-slate-100">
+                          <td className="p-2 font-medium text-slate-800">{item.fige.nom}</td><td className="p-2 text-xs text-slate-500">{item.fige.sku || "—"}</td>
+                          <td className="p-2 text-right font-semibold">{Number.isFinite(item.stockFige) ? fmtNb(item.stockFige) : "—"}</td><td className="p-2 text-center text-xs">{Number.isFinite(item.minFige) ? fmtNb(item.minFige) : "—"} / {Number.isFinite(item.maxFige) ? fmtNb(item.maxFige) : "—"}</td>
+                          <td className="p-2 text-right font-semibold text-sky-900">{item.stockActuel == null ? "—" : fmtNb(item.stockActuel)}</td><td className="p-2 text-center text-xs">{item.minActuel == null ? "—" : fmtNb(item.minActuel)} / {item.maxActuel == null ? "—" : fmtNb(item.maxActuel)}</td>
+                          <td className={"p-2 text-right font-bold " + (item.ecart == null ? "text-slate-400" : item.ecart < 0 ? "text-red-600" : item.ecart > 0 ? "text-emerald-700" : "text-slate-500")}>{item.ecart == null ? "—" : (item.ecart > 0 ? "+" : "") + fmtNb(item.ecart)}</td>
+                          <td className="p-2 text-center">{item.zoneFige && item.zoneActuelle ? <span className="inline-flex items-center gap-1 text-xs"><span className={"h-2 w-2 rounded-full " + item.zoneFige.badge}></span>{item.zoneFige.label}<span>→</span><span className={"h-2 w-2 rounded-full " + item.zoneActuelle.badge}></span>{item.zoneActuelle.label}</span> : <span className="text-xs text-slate-400">Sin comparación</span>}</td>
+                        </tr>)}</tbody>
+                      </table>
+                    </div>
+                    {!stockActuelComparaison.length && <p className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">Carga el stock actual desde Importar / Exportar para completar la comparación. La versión congelada no se modificará.</p>}
+                  </section>;
+                })()}
                 <div className="overflow-x-auto border border-slate-200 rounded-lg">
                   <table className="w-full text-sm">
                     <thead className="bg-slate-50 text-slate-600">
@@ -5103,6 +5256,9 @@ export default function PlanificateurChocolat() {
           <div className="grid gap-4 md:grid-cols-2">
             <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-4">
               <h2 className="font-semibold text-violet-900 mb-2">📥 Importar la pestaña « {usineActive ? usineActive.nom : ""} »</h2>
+              <div className={"mb-3 rounded-lg border px-3 py-2 text-sm " + (ultimaFechaStocks ? "border-emerald-200 bg-emerald-50 text-emerald-900" : "border-slate-200 bg-slate-50 text-slate-500")}>
+                <strong>Últimos datos de stock cargados:</strong> {ultimaFechaStocks || "todavía no se cargaron datos para esta fábrica en este navegador"}
+              </div>
               <ol className="text-sm text-gray-600 mb-2 list-decimal list-inside space-y-1">
                 <li>Abre la pestaña <strong>{usine === "vb" ? "VB y MC" : (usineActive ? usineActive.nom : "")}</strong> de tu Google Sheets</li>
                 <li>Sélectionnez tout (Ctrl+A) puis copiez (Ctrl+C)</li>

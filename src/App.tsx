@@ -7,7 +7,7 @@ import {
   ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts";
 
-const APP_VERSION = "2026.07.31-capacidades-por-familia";
+const APP_VERSION = "2026.07.31-capacidad-diaria-dinamica";
 const PORTAIL_EMAIL_ACTIF = true;
 
 const PALETTE = [
@@ -3018,6 +3018,23 @@ export default function PlanificateurChocolat() {
     const cleTurno = jour.cle + "|" + ligne.id + "|" + turno.id;
     return total + clesSousBlocs(cleTurno, ligne).reduce((somme, cle) => { const b = lireBloc(plan[cle], ligne); return somme + (b ? kgEffectifBloc(b) : 0); }, 0);
   }, 0);
+  const capacitePlanifieeJourLigne = (ligne, jour) => {
+    let capaciteSelonProduits = 0;
+    let contientUnProduit = false;
+    turnosLignePourDate(ligne, jour.date).forEach((turno) => {
+      const cleTurno = jour.cle + "|" + ligne.id + "|" + turno.id;
+      const blocs = clesSousBlocs(cleTurno, ligne)
+        .map((cle) => lireBloc(plan[cle], ligne))
+        .filter((bloc) => bloc && bloc.p != null);
+      if (blocs.length === 0) return;
+      contientUnProduit = true;
+      capaciteSelonProduits += blocs.reduce((total, bloc) => {
+        const produit = produits.find((p) => memeId(p.id, bloc.p));
+        return total + kgProduitPourPartTurno(produit, ligne, turno, jour.date, blocs.length);
+      }, 0);
+    });
+    return contientUnProduit ? capaciteSelonProduits : capaciteJourPlanning(ligne, jour.date);
+  };
   const capacitesProduitsSemaine = (ligne) => {
     const produitsPlanifies = new Map();
     joursSemaine.forEach((jour) => {
@@ -4383,7 +4400,7 @@ export default function PlanificateurChocolat() {
                           {joursSemaine.map((j) => {
                             const turnosJour = turnosLignePourDate(ligne, j.date);
                             const utiliseJour = totalJourLigne(ligne, j);
-                            const capJour = capaciteJourPlanning(ligne, j.date);
+                            const capJour = capacitePlanifieeJourLigne(ligne, j);
                             return (
                             <td key={j.cle} className="p-1 align-top">
                               <div className="text-[10px] text-gray-400 text-center mb-1">{fmtNb(utiliseJour)} / {fmtNb(capJour)} {uniteCapacite(ligne)}</div>

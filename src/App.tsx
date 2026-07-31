@@ -7,7 +7,7 @@ import {
   ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts";
 
-const APP_VERSION = "2026.07.31-capacidades-surtidos";
+const APP_VERSION = "2026.07.31-surtidos-multiproducto";
 const PORTAIL_EMAIL_ACTIF = true;
 
 const PALETTE = [
@@ -787,6 +787,7 @@ function kgEffectifBloc(b) {
 }
 function produitsParTurno(ligne) {
   if (!ligne) return 1;
+  if (ligne.id === "vb_envasado") return 4;
   if (["e_pf", "e_pc"].includes(ligne.id)) return 2;
   if (ligne.id === "e_dec") return 3;
   return 1;
@@ -1584,6 +1585,8 @@ export default function PlanificateurChocolat() {
     const capaciteProduit = Number(produit && produit.capaciteTurno);
     return (capaciteProduit > 0 ? capaciteProduit : capaciteLigneDate(ligne, date)) * ((turno && turno.facteur) || 1);
   };
+  const kgProduitPourPartTurno = (produit, ligne, turno = null, date = null, nombreProduits = 1) =>
+    kgBlocProduitPlanning(produit, ligne, turno, date) / Math.max(1, nombreProduits);
   const capaciteJourPlanning = (ligne, date) => turnosLignePourDate(ligne, date).reduce((s, t) => s + kgBlocPlanning(ligne, t, date), 0);
   const optionProduitPlanning = (p) => {
     if (!estConfigure(p)) return "○ " + p.nom + " · sin min/max";
@@ -2448,15 +2451,13 @@ export default function PlanificateurChocolat() {
       else {
         const actuel = lireBloc(np[cle], ligne);
         const produit = produits.find((item) => memeId(item.id, pid));
-        const capacitePartagee = kgBlocPlanning(ligne, turno, date) / produitsParTurno(ligne);
-        np[cle] = { p: Number(pid), kg: Math.min(kgBlocProduitPlanning(produit, ligne, turno, date), capacitePartagee), note: actuel?.note || "" };
+        np[cle] = { p: Number(pid), kg: kgProduitPourPartTurno(produit, ligne, turno, date, produitsParTurno(ligne)), note: actuel?.note || "" };
       }
       const cleTurno = cle.split("|").slice(0, 3).join("|");
       const blocs = clesSousBlocs(cleTurno, ligne).map((slot) => ({ slot, bloc: lireBloc(np[slot], ligne) })).filter((item) => item.bloc && item.bloc.p != null);
-      const part = blocs.length > 0 ? kgBlocPlanning(ligne, turno, date) / blocs.length : 0;
       blocs.forEach(({ slot, bloc }) => {
         const produit = produits.find((item) => memeId(item.id, bloc.p));
-        np[slot] = { ...(np[slot] as any), kg: Math.min(part, kgBlocProduitPlanning(produit, ligne, turno, date)) };
+        np[slot] = { ...(np[slot] as any), kg: kgProduitPourPartTurno(produit, ligne, turno, date, blocs.length) };
       });
       return np;
     });
@@ -2648,8 +2649,7 @@ export default function PlanificateurChocolat() {
           }
           const s = seuils(meilleur);
           const kgpb = kgParBulto(meilleur);
-          const capacitePartagee = kgBlocPlanning(ligne, turno, jour.date) / produitsParTurno(ligne);
-          const kgb_ligne = Math.min(kgBlocProduitPlanning(meilleur, ligne, turno, jour.date), capacitePartagee);
+          const kgb_ligne = kgProduitPourPartTurno(meilleur, ligne, turno, jour.date, produitsParTurno(ligne));
           const stockProjeteFinAvant = stockSim[meilleur.id] - demandeJour(meilleur) * joursRestantsHorizon;
           const stockProjeteFinPlein = stockProjeteFinAvant + kgb_ligne / kgpb;
           const limitePleinRaisonnable = s.max * 1.1;
@@ -2674,10 +2674,9 @@ export default function PlanificateurChocolat() {
           const contientReel = clesTurno.some((slot) => { const bloc = lireBloc(nouveauPlan[slot], ligne); return bloc && bloc.realKg != null && bloc.realKg !== ""; });
           if (!contientReel) {
             const blocsTurno = clesTurno.map((slot) => ({ slot, bloc: lireBloc(nouveauPlan[slot], ligne) })).filter((item) => item.bloc && item.bloc.p != null);
-            const part = blocsTurno.length > 0 ? kgBlocPlanning(ligne, turno, jour.date) / blocsTurno.length : 0;
             blocsTurno.forEach(({ slot, bloc }) => {
               const produit = produits.find((p) => memeId(p.id, bloc.p));
-              const nouveauKg = Math.min(part, kgBlocProduitPlanning(produit, ligne, turno, jour.date));
+              const nouveauKg = kgProduitPourPartTurno(produit, ligne, turno, jour.date, blocsTurno.length);
               const kgpb = kgParBulto(produit);
               if (kgpb) stockSim[bloc.p] = (stockSim[bloc.p] || 0) + (nouveauKg - Number(bloc.kg || 0)) / kgpb;
               nouveauPlan[slot] = { ...(nouveauPlan[slot] as any), kg: nouveauKg };

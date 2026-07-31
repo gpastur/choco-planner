@@ -7,7 +7,7 @@ import {
   ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts";
 
-const APP_VERSION = "2026.07.31-recetas-vb-maestro";
+const APP_VERSION = "2026.07.31-capacidades-por-familia";
 const PORTAIL_EMAIL_ACTIF = true;
 
 const PALETTE = [
@@ -3018,6 +3018,34 @@ export default function PlanificateurChocolat() {
     const cleTurno = jour.cle + "|" + ligne.id + "|" + turno.id;
     return total + clesSousBlocs(cleTurno, ligne).reduce((somme, cle) => { const b = lireBloc(plan[cle], ligne); return somme + (b ? kgEffectifBloc(b) : 0); }, 0);
   }, 0);
+  const capacitesProduitsSemaine = (ligne) => {
+    const produitsPlanifies = new Map();
+    joursSemaine.forEach((jour) => {
+      turnosLignePourDate(ligne, jour.date).forEach((turno) => {
+        const cleTurno = jour.cle + "|" + ligne.id + "|" + turno.id;
+        clesSousBlocs(cleTurno, ligne).forEach((cle) => {
+          const bloc = lireBloc(plan[cle], ligne);
+          if (!bloc || bloc.p == null) return;
+          const produit = produits.find((p) => memeId(p.id, bloc.p));
+          if (!produit) return;
+          const capaciteSpecifique = Number(produit.capaciteTurno);
+          const capacite = capaciteSpecifique > 0 ? capaciteSpecifique : Number(ligne.capacite) || 0;
+          const nomNormalise = NORMALISER_REFERENCE(produit.nom);
+          let nomAffiche = produit.nom;
+          if (ligne.id === "vb_stephan") {
+            if (nomNormalise.startsWith("DULCE ")) nomAffiche = "Dulce";
+            else if (nomNormalise.startsWith("LICOR ")) nomAffiche = "Licor";
+            else if (nomNormalise.startsWith("JUGO ")) nomAffiche = "Jugo";
+            else if (/^(CREMA|FRASCO)/.test(nomNormalise)) nomAffiche = "Frasco";
+          }
+          produitsPlanifies.set(nomAffiche + "|" + capacite, { nom: nomAffiche, capacite });
+        });
+      });
+    });
+    const liste = Array.from(produitsPlanifies.values());
+    const capacitesDistinctes = new Set(liste.map((item) => item.capacite));
+    return capacitesDistinctes.size > 1 ? liste.sort((a, b) => a.nom.localeCompare(b.nom)) : [];
+  };
 
   const produitsCritiquesAldo = () => produitsUsine
     .filter((p) => estConfigure(p) && kgParBulto(p))
@@ -4334,9 +4362,24 @@ export default function PlanificateurChocolat() {
                   <tbody>
                     {lignesUsine.map((ligne) => {
                       const pal = getPal(ligne);
+                      const capacitesSemaine = capacitesProduitsSemaine(ligne);
                       return (
                         <tr key={ligne.id}>
-                          <td className={"p-2 font-semibold align-top " + pal.texte}>{ligne.nom}<div className="text-xs font-normal text-gray-500">{fmtNb(ligne.capacite)} {uniteCapacite(ligne)}/turno<br />{turnosBaseAffiches(ligne)} turno(s)/dia base{produitsParTurno(ligne) > 1 && <><br /><span className="text-violet-600">Hasta {produitsParTurno(ligne)} productos/turno</span></>}</div></td>
+                          <td className={"w-56 min-w-56 p-2 font-semibold align-top " + pal.texte}>
+                            {ligne.nom}
+                            <div className="text-xs font-normal text-gray-500">{fmtNb(ligne.capacite)} {uniteCapacite(ligne)}/turno<br />{turnosBaseAffiches(ligne)} turno(s)/dia base{produitsParTurno(ligne) > 1 && <><br /><span className="text-violet-600">Hasta {produitsParTurno(ligne)} productos/turno</span></>}</div>
+                            {capacitesSemaine.length > 0 && (
+                              <div className="mt-3 border-t border-amber-200 pt-2 text-[10px] font-normal leading-tight text-slate-600">
+                                <div className="mb-1 font-semibold uppercase text-amber-700">Cap. por familia · turno completo</div>
+                                {capacitesSemaine.map((item) => (
+                                  <div key={item.nom} className="flex items-start justify-between gap-2 border-b border-slate-100 py-1 last:border-0">
+                                    <span className="min-w-0 break-words">{item.nom}</span>
+                                    <span className="shrink-0 font-semibold text-slate-800">{fmtNb(item.capacite)} {uniteCapacite(ligne)}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </td>
                           {joursSemaine.map((j) => {
                             const turnosJour = turnosLignePourDate(ligne, j.date);
                             const utiliseJour = totalJourLigne(ligne, j);

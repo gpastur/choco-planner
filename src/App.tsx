@@ -7,7 +7,7 @@ import {
   ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts";
 
-const APP_VERSION = "2026.07.31-comparativo-stock-version-congelada";
+const APP_VERSION = "2026.07.31-import-stock-exacto-v5";
 const PORTAIL_EMAIL_ACTIF = true;
 
 const PALETTE = [
@@ -667,6 +667,28 @@ function parseTSV(text) {
   return rows;
 }
 const normaliser = (s) => String(s || "").replace(/\s+/g, " ").trim();
+function convertirFechaStock(valor) {
+  const texto = normaliser(valor);
+  let match = texto.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})$/);
+  if (match) {
+    const anio = Number(match[3]) < 100 ? 2000 + Number(match[3]) : Number(match[3]);
+    const fecha = new Date(anio, Number(match[2]) - 1, Number(match[1]));
+    return Number.isNaN(fecha.getTime()) ? null : fecha;
+  }
+  match = texto.match(/^(\d{4})[\/\-.](\d{1,2})[\/\-.](\d{1,2})$/);
+  if (match) {
+    const fecha = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+    return Number.isNaN(fecha.getTime()) ? null : fecha;
+  }
+  return null;
+}
+function extraireDerniereDateStock(texte) {
+  const dates = parseTSV(texte)
+    .map((ligne) => ({ libelle: normaliser((ligne || [])[0]), date: convertirFechaStock((ligne || [])[0]) }))
+    .filter((item) => item.date)
+    .sort((a, b) => a.date.getTime() - b.date.getTime());
+  return dates.length ? dates[dates.length - 1].libelle : "";
+}
 const NOMS_FATIMA_PROTEGES = [
   "TAB SAL CARAMELO 100gr", "TABLETA DE PISTACHO, SAL Y CARAMELO BsAs", "TABLETA DE PISTACHO, SAL Y CARAMELO VB", "TABLETA PISTACHO",
   "TAB CHOC LECHE PURO 80G BsAs", "TAB CHOC LECHE PURO 80G VB", "TABLETA LECHE PURO X80gr", "TABLETA LECHE PURO X80gr solo BsAs stock max p/4 meses min 2",
@@ -1103,11 +1125,21 @@ export default function PlanificateurChocolat() {
 
   const lignesUsineToutes = useMemo(() => lignes.filter((l) => l.usine === usine), [lignes, usine]);
   const lignesUsine = useMemo(() => lignesUsineToutes.filter((l) => activationLignes[l.id] !== false), [lignesUsineToutes, activationLignes]);
+  const planningFige = versionActive?.status === "approved" || versionActive?.status === "replaced" || versionActive?.status === "archived";
   const produitsUsineTous = useMemo(() => produits.filter((p) => p.usine === usine && !(usine === "esandi" && estNomFatimaProtege(p.nom))), [produits, usine]);
   const produitsUsine = useMemo(() => produitsUsineTous.filter((p) => {
     const lignesProduit = Array.isArray(p.lignesCompatibles) && p.lignesCompatibles.length ? p.lignesCompatibles : [p.ligne];
     return !p.ligne || lignesProduit.some((ligneId) => activationLignes[ligneId] !== false);
   }), [produitsUsineTous, activationLignes]);
+  const produitsEtatStocks = useMemo(() => {
+    if (!stockActuelComparaison.length) return produitsUsine;
+    return produitsUsine.map((fige) => {
+      const exact = stockActuelComparaison.find((actuel) => normaliser(actuel.nom).toLowerCase() === normaliser(fige.nom).toLowerCase());
+      const candidatsSku = fige.sku ? stockActuelComparaison.filter((actuel) => normaliser(actuel.sku).toUpperCase() === normaliser(fige.sku).toUpperCase()) : [];
+      const actuel = exact || (candidatsSku.length === 1 ? candidatsSku[0] : null) || stockActuelComparaison.find((item) => memeId(item.id, fige.id));
+      return actuel ? { ...fige, ...actuel, id: fige.id, ligne: fige.ligne, usine: fige.usine } : fige;
+    });
+  }, [produitsUsine, stockActuelComparaison]);
   const filtrerProduitsParSku = (recherche) => {
     const terme = normaliser(recherche).toLocaleLowerCase();
     return produitsUsine
@@ -1116,6 +1148,7 @@ export default function PlanificateurChocolat() {
       .sort((a, b) => String(a.sku || a.nom).localeCompare(String(b.sku || b.nom)));
   };
   const produitsNonAssignes = useMemo(() => produitsUsine.filter((p) => !p.ligne || !lignes.some((l) => l.id === p.ligne)), [produitsUsine, lignes]);
+  const produitsEtatStocksNonAssignes = useMemo(() => produitsEtatStocks.filter((p) => !p.ligne || !lignes.some((l) => l.id === p.ligne)), [produitsEtatStocks, lignes]);
 
   useEffect(() => {
     let actif = true;
@@ -2081,7 +2114,6 @@ export default function PlanificateurChocolat() {
   const peutSaisirReel = accesPublic || !supabaseConfigured || ["admin", "planner", "production"].includes(profil?.role);
   const peutGererPriorites = accesPublic || !supabaseConfigured || ["admin", "planner", "production"].includes(profil?.role);
   const peutConfigurerLignes = accesPublic || !supabaseConfigured || ["admin", "planner"].includes(profil?.role);
-  const planningFige = versionActive?.status === "approved" || versionActive?.status === "replaced" || versionActive?.status === "archived";
 
   const basculerActivationLigne = async (ligne) => {
     if (!peutConfigurerLignes) {
@@ -2897,7 +2929,10 @@ export default function PlanificateurChocolat() {
     setProduits(produits.filter((p) => p.id !== id));
     setPlan((p) => { const np = {}; Object.entries(p).forEach(([k, v]) => { const b = lireBloc(v, null); if (b && memeId(b.p, id)) return; np[k] = v; }); return np; });
   };
-  const majProduit = (id, champ, valeur) => setProduits(produits.map((p) => (p.id === id ? { ...p, [champ]: valeur } : p)));
+  const majProduit = (id, champ, valeur) => {
+    setProduits((actuels) => actuels.map((p) => (p.id === id ? { ...p, [champ]: valeur } : p)));
+    setStockActuelComparaison((actuels) => actuels.map((p) => (memeId(p.id, id) ? { ...p, [champ]: valeur } : p)));
+  };
 
   const ajouterLigne = () => {
     if (!nomNouvelleLigne.trim() || !usine) return;
@@ -2942,21 +2977,6 @@ export default function PlanificateurChocolat() {
     const ligneNoms = rows[idxNoms] || [];
     const ligneMax = rows[idxMax] || [], ligneMin = rows[idxMin] || [];
     const ligneSku = idxSku >= 0 ? rows[idxSku] : [];
-    const convertirFechaStock = (valor) => {
-      const texto = normaliser(valor);
-      let match = texto.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})$/);
-      if (match) {
-        const anio = Number(match[3]) < 100 ? 2000 + Number(match[3]) : Number(match[3]);
-        const fecha = new Date(anio, Number(match[2]) - 1, Number(match[1]));
-        return Number.isNaN(fecha.getTime()) ? null : fecha;
-      }
-      match = texto.match(/^(\d{4})[\/\-.](\d{1,2})[\/\-.](\d{1,2})$/);
-      if (match) {
-        const fecha = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
-        return Number.isNaN(fecha.getTime()) ? null : fecha;
-      }
-      return null;
-    };
     const idxDebutStocks = Math.max(idxMax, idxMin, idxSku) + 1;
     const lignesDatees = rows
       .map((ligne, indexLigne) => ({ ligne, indexLigne, date: convertirFechaStock((ligne || [])[0]) }))
@@ -2997,13 +3017,20 @@ export default function PlanificateurChocolat() {
         ? nouveaux.find((p) => p.usine === "vb" && p.sku === sku)
         : null;
       const exact = nouveaux.find((p) => p.usine === usine && normaliser(p.nom).toLowerCase() === nom.toLowerCase());
-      const candidatsSku = sku ? nouveaux.filter((p) => p.usine === usine && normaliser(p.sku).toUpperCase() === sku.toUpperCase()) : [];
+      const cibleAliasExacte = !exact ? nouveaux.find((p) => p.usine === usine && Array.isArray(p.aliases) && p.aliases.some((alias) => normaliser(alias).toLowerCase() === nom.toLowerCase())) : null;
+      const candidatsSku = sku && usine !== "esandi" ? nouveaux.filter((p) => p.usine === usine && normaliser(p.sku).toUpperCase() === sku.toUpperCase()) : [];
       const cibleSku = candidatsSku.length === 1 ? candidatsSku[0] : null;
-      const cibleFatima = !exact && !cibleSkuVb && !cibleSku && usine !== "fatima" ? trouverProduitFatimaProtege(nouveaux, nom) : null;
-      const cibleAutreUsine = !exact && !cibleSkuVb && !cibleSku && !cibleFatima ? trouverProduitAutreUsinePredefini(nouveaux, usine, nom) : null;
-      const existant = exact || cibleSkuVb || cibleSku || cibleFatima || cibleAutreUsine || trouverProduitExistant(nouveaux, usine, nom);
+      const cibleFatima = !exact && !cibleAliasExacte && !cibleSkuVb && !cibleSku && usine !== "fatima" ? trouverProduitFatimaProtege(nouveaux, nom) : null;
+      const cibleAutreUsine = !exact && !cibleAliasExacte && !cibleSkuVb && !cibleSku && !cibleFatima ? trouverProduitAutreUsinePredefini(nouveaux, usine, nom) : null;
+      const cibleApproximative = usine === "esandi" ? null : trouverProduitExistant(nouveaux, usine, nom);
+      const existant = exact || cibleAliasExacte || cibleSkuVb || cibleSku || cibleFatima || cibleAutreUsine || cibleApproximative;
       if (existant) {
-        nouveaux = nouveaux.map((p) => (p.id === existant.id ? { ...p, ...champs } : p));
+        const nomImporte = normaliser(nom).toLowerCase();
+        nouveaux = nouveaux.map((p) => {
+          const memeProduitParNom = p.usine === existant.usine && normaliser(p.nom).toLowerCase() === nomImporte;
+          const doublonDuProduitTrouve = p.usine === existant.usine && normaliser(p.nom).toLowerCase() === normaliser(existant.nom).toLowerCase();
+          return memeId(p.id, existant.id) || memeProduitParNom || doublonDuProduitTrouve ? { ...p, ...champs } : p;
+        });
         maj++;
         if (cibleFatima || cibleAutreUsine) redirigesAutreUsine++;
         if (!exact) reconnus++;
@@ -3013,7 +3040,14 @@ export default function PlanificateurChocolat() {
     }
     if (maj === 0 && ajoutes === 0) { if (!conserverMessage) setMsgImport("⚠️ No se detectó ningún producto. Verifica el pegado."); return null; }
     if (!planningFige) setProduits(nouveaux);
-    const messageResultat = (modeActualisation ? "Actualizacion" : "Importacion") + " (stock del " + (dateStock || "?") + "): " + maj + " actualizado(s), " + (modeActualisation ? "planning conservado sin recalcular" : ajoutes + " nuevo(s)") + ", " + reconnus + " reconocido(s) por nombre similar, " + redirigesAutreUsine + " redirigido(s) a su planta predefinida, " + avecMinMax + " con min./max., " + reprisHistorique + " stock(s) retomado(s) de la ultima fecha con valor. " + ignores + (usine === "fatima" ? " producto(s) ignorado(s) por estar fuera de la lista autorizada o por no tener ningun valor historico." : modeActualisation ? " producto(s) ignorado(s) porque no existian en la base o no tenian ningun valor historico." : " producto(s) ignorado(s) por no tener ningun valor historico.") + (avecMinMax === 0 ? " No se leyo ningun min./max." : "") + (modeActualisation ? " Para recalcular el calendario, elige Desde/Hasta y pulsa Optimizar la planificacion." : "");
+    const controlBarras = usine === "esandi" ? ["BARRA BLANCO PURO", "BARRA BLANCO ALMENDRA", "BARRA LECHE PURO", "BARRA LECHE CEREAL", "BARRA LECHE ALMENDRA", "BARRA AMARGO PURO", "BARRA AMARGO ALMENDRA"]
+      .map((nomControle) => {
+        const produitControle = nouveaux.find((p) => p.usine === "esandi" && normaliser(p.nom).toUpperCase() === nomControle);
+        return produitControle ? nomControle.replace("BARRA ", "") + " " + fmtNb(produitControle.stock) : null;
+      })
+      .filter(Boolean)
+      .join(" · ") : "";
+    const messageResultat = (modeActualisation ? "Actualizacion" : "Importacion") + " (stock del " + (dateStock || "?") + "): " + maj + " actualizado(s), " + (modeActualisation ? "planning conservado sin recalcular" : ajoutes + " nuevo(s)") + ", " + reconnus + " reconocido(s) por nombre similar, " + redirigesAutreUsine + " redirigido(s) a su planta predefinida, " + avecMinMax + " con min./max., " + reprisHistorique + " stock(s) retomado(s) de la ultima fecha con valor. " + ignores + (usine === "fatima" ? " producto(s) ignorado(s) por estar fuera de la lista autorizada o por no tener ningun valor historico." : modeActualisation ? " producto(s) ignorado(s) porque no existian en la base o no tenian ningun valor historico." : " producto(s) ignorado(s) por no tener ningun valor historico.") + (avecMinMax === 0 ? " No se leyo ningun min./max." : "") + (controlBarras ? " Control Barras: " + controlBarras + "." : "") + (modeActualisation ? " Para recalcular el calendario, elige Desde/Hasta y pulsa Optimizar la planificacion." : "");
     if (!conserverMessage) setMsgImport(messageResultat);
     if (!conserverMessage && dateStock) {
       setUltimaFechaStocks(dateStock);
@@ -3092,11 +3126,12 @@ export default function PlanificateurChocolat() {
       try {
         const texte = await lireSource(source.gid);
         if (!texte) throw new Error("respuesta vacia");
+        const fechaFuente = extraireDerniereDateStock(texte);
         const resultat = appliquerCollageStocks({ modeActualisation: true, texteSource: texte, produitsSource: produitsFusionnes, conserverMessage: true });
         if (!resultat) throw new Error("ningun producto reconocido");
         produitsFusionnes = resultat.produits;
         messages.push(source.nom + ": " + resultat.maj + " producto(s), " + resultat.avecMinMax + " con min./max.");
-        if (resultat.dateStock) fechasFuentes.push(source.nom + ": " + resultat.dateStock);
+        if (fechaFuente || resultat.dateStock) fechasFuentes.push(source.nom + ": " + (fechaFuente || resultat.dateStock));
       } catch (error) {
         erreurs.push(source.nom + " (" + String(error && error.message ? error.message : error) + ")");
       }
@@ -3114,7 +3149,14 @@ export default function PlanificateurChocolat() {
       setStockActuelComparaison(produitsFusionnes.filter((produit) => produit.usine === usine));
       setDateStockActuelComparaison(fechaMostrada);
     }
-    setMsgImport("Google Sheets actualizado: " + messages.join(" · ") + (erreurs.length ? " · No cargado: " + erreurs.join(", ") : "") + " Los datos de MC tienen prioridad para sus productos. Planning conservado sin recalcular.");
+    const controlBarrasGoogle = usine === "esandi" ? ["BARRA BLANCO PURO", "BARRA BLANCO ALMENDRA", "BARRA LECHE PURO", "BARRA LECHE CEREAL", "BARRA LECHE ALMENDRA", "BARRA AMARGO PURO", "BARRA AMARGO ALMENDRA"]
+      .map((nomControle) => {
+        const producto = produitsFusionnes.find((p) => p.usine === "esandi" && normaliser(p.nom).toUpperCase() === nomControle);
+        return producto ? nomControle.replace("BARRA ", "") + " " + fmtNb(producto.stock) : null;
+      })
+      .filter(Boolean)
+      .join(" · ") : "";
+    setMsgImport("Google Sheets actualizado: " + messages.join(" · ") + (erreurs.length ? " · No cargado: " + erreurs.join(", ") : "") + (controlBarrasGoogle ? " · Control Barras: " + controlBarrasGoogle + "." : "") + " Los datos de MC tienen prioridad para sus productos. Planning conservado sin recalcular.");
   };
 
   const exporterExcel = () => {
@@ -4835,13 +4877,14 @@ export default function PlanificateurChocolat() {
             <div className="flex flex-wrap items-center justify-between gap-3 mb-2">
               <h2 className="font-semibold text-violet-900">Estado de stocks (en bultos) — {usineActive ? usineActive.nom : ""}</h2>
               <div className="flex items-center gap-3 text-xs text-gray-500">
-                <span className="font-medium">{produitsUsine.filter(estConfigure).length} configurado(s)</span>
-                <span>· {produitsUsine.filter((p) => !estConfigure(p)).length} sin mín./máx.</span>
+                <span className="font-medium">{produitsEtatStocks.filter(estConfigure).length} configurado(s)</span>
+                <span>· {produitsEtatStocks.filter((p) => !estConfigure(p)).length} sin mín./máx.</span>
                 <label className="flex items-center gap-1 cursor-pointer select-none text-violet-800"><input type="checkbox" checked={masquerNonConfig} onChange={(e) => setMasquerNonConfig(e.target.checked)} />Ocultar sin mín./máx.</label>
               </div>
             </div>
+            {stockActuelComparaison.length > 0 && <div className="mb-3 rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-sm text-sky-900"><strong>Stock actual mostrado:</strong> datos cargados el {dateStockActuelComparaison || ultimaFechaStocks || "día de la última importación"}.{planningFige ? " La versión aprobada continúa congelada y se compara por separado." : " Estos son los valores utilizados por el módulo."}</div>}
             <Legende />
-            {[...lignesUsine.map((l) => ({ ligne: l, prods: produitsUsine.filter((p) => p.ligne === l.id) })), { ligne: null, prods: produitsNonAssignes }]
+            {[...lignesUsine.map((l) => ({ ligne: l, prods: produitsEtatStocks.filter((p) => p.ligne === l.id) })), { ligne: null, prods: produitsEtatStocksNonAssignes }]
               .map((g) => ({ ...g, prods: masquerNonConfig ? g.prods.filter(estConfigure) : g.prods }))
               .filter((g) => g.prods.length > 0)
               .map((g, gi) => {

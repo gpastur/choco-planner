@@ -7,7 +7,7 @@ import {
   ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts";
 
-const APP_VERSION = "2026.07.31-import-stock-exacto-v5";
+const APP_VERSION = "2026.08.03-campanas-semanales-esandi";
 const PORTAIL_EMAIL_ACTIF = true;
 
 const PALETTE = [
@@ -822,6 +822,28 @@ function produitsParTurno(ligne) {
 function cleSousBloc(cleTurno, index) { return index === 0 ? cleTurno : cleTurno + "|" + (index + 1); }
 function clesSousBlocs(cleTurno, ligne) {
   return Array.from({ length: produitsParTurno(ligne) }, (_, index) => cleSousBloc(cleTurno, index));
+}
+function cleCampagneEsandi(cleSlot, ligne) {
+  if (!ligne || ligne.usine !== "esandi") return null;
+  const parties = String(cleSlot || "").split("|");
+  const dateCle = parties[0];
+  const turnoId = parties[2] || "turno";
+  const sousBloc = parties[3] || "1";
+  const semaineCle = cleDate(lundiDeLaSemaine(dateDepuisCle(dateCle)));
+  if (ligne.id === "e_turr") return semaineCle + "|" + ligne.id + "|" + turnoId;
+  if (["e_pf", "e_pc"].includes(ligne.id)) return semaineCle + "|" + ligne.id + "|" + turnoId + "|" + sousBloc;
+  if (["e_rama", "e_mh"].includes(ligne.id)) return semaineCle + "|" + ligne.id;
+  if (["e_crem", "e_bomb"].includes(ligne.id)) return dateCle + "|" + ligne.id;
+  return null;
+}
+function etiquetaCampagneEsandi(ligne) {
+  if (!ligne || ligne.usine !== "esandi") return "";
+  if (ligne.id === "e_turr") return "1 producto fijo por turno durante la semana";
+  if (["e_pf", "e_pc"].includes(ligne.id)) return "Hasta 2 productos fijos por turno durante la semana";
+  if (ligne.id === "e_rama") return "1 sabor fijo durante la semana";
+  if (ligne.id === "e_mh") return "1 relleno fijo durante la semana";
+  if (["e_crem", "e_bomb"].includes(ligne.id)) return "Mismo producto en TM y TT de la jornada";
+  return "";
 }
 
 const STORAGE_KEY = "choco-planner-state-v10";
@@ -2608,6 +2630,19 @@ export default function PlanificateurChocolat() {
     const ligne = lignes.find((l) => l.id === cle.split("|")[1]);
     const turno = turnoDepuisCle(cle, ligne);
     const date = dateDepuisCle(cle.split("|")[0]);
+    if (pid !== "") {
+      const cleCampagne = cleCampagneEsandi(cle, ligne);
+      const conflit = cleCampagne ? Object.entries(plan).find(([autreCle, valeur]) => {
+        if (autreCle === cle || autreCle.split("|")[1] !== ligne.id || cleCampagneEsandi(autreCle, ligne) !== cleCampagne) return false;
+        const bloc = lireBloc(valeur, ligne);
+        return bloc && bloc.p != null && !memeId(bloc.p, pid);
+      }) : null;
+      if (conflit) {
+        const produitFige = produits.find((item) => memeId(item.id, lireBloc(conflit[1], ligne)?.p));
+        setMsgOpti("Regla de campaña: " + (etiquetaCampagneEsandi(ligne) || "producto fijo") + ". Ya está fijado " + (produitFige?.nom || "otro producto") + " para este período.");
+        return;
+      }
+    }
     setPlan((p) => {
       const np = { ...p };
       if (pid === "") delete np[cle];
@@ -2685,6 +2720,20 @@ export default function PlanificateurChocolat() {
     }
   };
 
+  const detectarConflictoCampana = (planFuente) => {
+    const porCampana = new Map();
+    for (const [clave, valor] of Object.entries(planFuente || {})) {
+      const linea = lignes.find((item) => item.id === clave.split("|")[1]);
+      const claveCampana = cleCampagneEsandi(clave, linea);
+      const bloque = lireBloc(valor, linea);
+      if (!claveCampana || !bloque || bloque.p == null) continue;
+      const anterior = porCampana.get(claveCampana);
+      if (anterior != null && !memeId(anterior, bloque.p)) return { linea, claveCampana, anterior, actual: bloque.p };
+      porCampana.set(claveCampana, bloque.p);
+    }
+    return null;
+  };
+
   const onDrop = (cleDest) => {
     if (planningFige || !peutPlanifier) {
       setMsgVersions("La planificación está congelada o tu perfil es de solo lectura.");
@@ -2693,7 +2742,17 @@ export default function PlanificateurChocolat() {
     }
     if (!dragKey || dragKey === cleDest) { setDragKey(null); return; }
     if (dragKey.split("|")[1] !== cleDest.split("|")[1]) { setDragKey(null); return; }
-    setPlan((p) => { const np = { ...p }; const vS = np[dragKey], vD = np[cleDest]; if (vD != null) np[dragKey] = vD; else delete np[dragKey]; np[cleDest] = vS; return np; });
+    const np = { ...plan };
+    const vS = np[dragKey], vD = np[cleDest];
+    if (vD != null) np[dragKey] = vD; else delete np[dragKey];
+    np[cleDest] = vS;
+    const conflicto = detectarConflictoCampana(np);
+    if (conflicto) {
+      setMsgOpti("Movimiento rechazado. Regla de campaña: " + etiquetaCampagneEsandi(conflicto.linea) + ".");
+      setDragKey(null);
+      return;
+    }
+    setPlan(np);
     setDragKey(null);
   };
 
@@ -2771,6 +2830,13 @@ export default function PlanificateurChocolat() {
     let frascoCampanaActivo = null;
     const derniereFamilleParLigne = {};
     const prioritesActives = prioritesProduction.filter((regle) => regle.active && regle.factory_id === usine);
+    const produitsCampagneParCle = new Map();
+    Object.entries(nouveauPlan).forEach(([cleExistante, valeur]) => {
+      const ligneExistante = lignes.find((item) => item.id === cleExistante.split("|")[1]);
+      const cleCampagne = cleCampagneEsandi(cleExistante, ligneExistante);
+      const bloc = lireBloc(valeur, ligneExistante);
+      if (cleCampagne && bloc && bloc.p != null && !produitsCampagneParCle.has(cleCampagne)) produitsCampagneParCle.set(cleCampagne, bloc.p);
+    });
     datesHorizon.forEach((jour, jourIndex) => {
       produitsUsine.forEach((p) => { if (estConfigure(p)) stockSim[p.id] -= demandeJour(p); });
       if (!jour.prod) return;
@@ -2800,7 +2866,10 @@ export default function PlanificateurChocolat() {
           let meilleur = frascoCampana ? frascoCampana.producto : null, meilleurScore = -Infinity;
           let meilleureRegle = null;
           const joursRestantsHorizon = Math.max(0, datesHorizon.length - jourIndex - 1);
-          if (!frascoCampana) prods.forEach((p) => {
+          const cleCampagne = cleCampagneEsandi(cleExistante, ligne);
+          const produitCampagneId = cleCampagne ? produitsCampagneParCle.get(cleCampagne) : null;
+          const produitsEligibles = produitCampagneId != null ? prods.filter((p) => memeId(p.id, produitCampagneId)) : prods;
+          if (!frascoCampana) produitsEligibles.forEach((p) => {
             if (clesTurno.some((slot) => { const existant = lireBloc(nouveauPlan[slot], ligne); return existant && memeId(existant.p, p.id); })) return;
             const s = seuils(p);
             const reglesProduit = prioritesActives.filter((regle) => String(regle.product_id) === String(p.id));
@@ -2841,6 +2910,7 @@ export default function PlanificateurChocolat() {
             blocsSansBesoin++;
             return;
           }
+          if (cleCampagne && !produitsCampagneParCle.has(cleCampagne)) produitsCampagneParCle.set(cleCampagne, meilleur.id);
           if (!frascoCampana) {
             const campanaSeleccionada = campanaFrascos.find((item) => memeId(item.producto.id, meilleur.id) && item.restanteKg > 0.01);
             if (campanaSeleccionada) {
@@ -2864,6 +2934,8 @@ export default function PlanificateurChocolat() {
           const famille = familleProduit(meilleur);
           const raisonPriorite = frascoCampana
             ? "Lote mínimo mensual de esta variedad de Frasco, activado por necesidad de stock"
+            : cleCampagne
+            ? "Campaña fijada: " + etiquetaCampagneEsandi(ligne)
             : (derniereFamilleParLigne[ligne.id] === famille)
             ? "Agrupado por familia similar (" + famille + ")"
             : (meilleureRegle
@@ -2901,7 +2973,7 @@ export default function PlanificateurChocolat() {
     const sansConv = configures.filter((p) => !kgParBulto(p)).length;
     const enVert = configures.filter((p) => { const s = seuils(p); if (s.max <= 0) return true; return stockSim[p.id] >= s.min * 1.5 && stockSim[p.id] <= s.max; }).length;
     const sousMin = configures.filter((p) => stockSim[p.id] < seuils(p).min).length;
-    setMsgOpti("✓ " + blocsUtilises + " turno(s) utilizado(s) del " + fmtDate(lundiDepart) + (dateFin ? " al " + fmtDate(dateFin) : " en " + horizonOpti + " sem.") + " · capacidad completa por defecto · " + blocsAjustes + " turno(s) ajustado(s) porque producir completo superaba ampliamente el máximo · " + blocsSansBesoin + " turno(s) libres sin necesidad de producción · prioridad absoluta a productos bajo mínimo y riesgo al final del período · " + enVert + "/" + configures.length + " en zona verde al final del horizonte" + (sousMin > 0 ? " · ⚠️ " + sousMin + " todavía bajo el mínimo por falta real de capacidad, turnos o conversión" : "") + (sansConv > 0 ? " · " + sansConv + " sin conversión no planificados" : "") + ".");
+    setMsgOpti("✓ " + blocsUtilises + " turno(s) utilizado(s) del " + fmtDate(lundiDepart) + (dateFin ? " al " + fmtDate(dateFin) : " en " + horizonOpti + " sem.") + " · " + produitsCampagneParCle.size + " campaña(s) semanal(es)/diaria(s) fijada(s) · capacidad completa por defecto · " + blocsAjustes + " turno(s) ajustado(s) porque producir completo superaba ampliamente el máximo · " + blocsSansBesoin + " turno(s) libres sin necesidad de producción · prioridad absoluta a productos bajo mínimo y riesgo al final del período · " + enVert + "/" + configures.length + " en zona verde al final del horizonte" + (sousMin > 0 ? " · ⚠️ " + sousMin + " todavía bajo el mínimo por falta real de capacidad, turnos o conversión" : "") + (sansConv > 0 ? " · " + sansConv + " sin conversión no planificados" : "") + ".");
   };
 
   const viderHorizon = () => {
@@ -3592,6 +3664,15 @@ export default function PlanificateurChocolat() {
         stocks_en_bultos: true,
         capacidad_en_kg_por_turno: true,
         zona_verde_desde: "minimo x 1.5",
+        campanas_esandi: {
+          Turrones: "Un producto fijo en TM y otro producto fijo en TT durante toda la semana; el turno puede quedar vacio si el objetivo ya esta cubierto.",
+          "Paila Fria": "Hasta dos productos fijos en TM y dos productos fijos en TT durante toda la semana; los espacios sin necesidad quedan vacios.",
+          "Paila Caliente": "Hasta dos garrapinadas fijas en TM y dos fijas en TT durante toda la semana; los espacios sin necesidad quedan vacios.",
+          Rama: "Un unico sabor durante toda la semana, tanto en TM como en TT; se permiten sus formatos compatibles a granel o para surtido.",
+          "Mini Huevos": "Un unico relleno durante toda la semana, tanto en TM como en TT.",
+          Cremino: "El mismo producto durante toda la jornada, en TM y TT; puede cambiar al dia siguiente.",
+          Bombonera: "El mismo producto durante toda la jornada, en TM y TT; puede cambiar al dia siguiente.",
+        },
         produccion_real_nula_significa: "turno todavía no informado",
       },
       resumen: {
@@ -4621,6 +4702,7 @@ export default function PlanificateurChocolat() {
                           <td className={"w-56 min-w-56 p-2 font-semibold align-top " + pal.texte}>
                             {ligne.nom}
                             <div className="text-xs font-normal text-gray-500">{fmtNb(ligne.capacite)} {uniteCapacite(ligne)}/turno<br />{turnosBaseAffiches(ligne)} turno(s)/dia base{produitsParTurno(ligne) > 1 && <><br /><span className="text-violet-600">Hasta {produitsParTurno(ligne)} productos/turno</span></>}</div>
+                            {etiquetaCampagneEsandi(ligne) && <div className="mt-2 rounded border border-emerald-200 bg-emerald-50 px-2 py-1 text-[10px] font-medium leading-tight text-emerald-800">↻ {etiquetaCampagneEsandi(ligne)}</div>}
                             {capacitesSemaine.length > 0 && (
                               <div className="mt-3 border-t border-amber-200 pt-2 text-[10px] font-normal leading-tight text-slate-600">
                                 <div className="mb-1 font-semibold uppercase text-amber-700">Cap. por familia · turno completo</div>

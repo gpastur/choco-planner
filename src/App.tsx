@@ -7,7 +7,7 @@ import {
   ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts";
 
-const APP_VERSION = "2026.08.04-ajustes-congelados-y-stock-real";
+const APP_VERSION = "2026.08.04-versiones-con-cambios-y-gomettes";
 const PORTAIL_EMAIL_ACTIF = true;
 
 const PALETTE = [
@@ -2575,6 +2575,8 @@ export default function PlanificateurChocolat() {
       return;
     }
     const snapshot = data.snapshot;
+    const produitsSnapshot = Array.isArray(snapshot.produits) ? snapshot.produits : [];
+    const produitsFiges = Array.isArray(snapshot.stocksFreeze?.productos) ? snapshot.stocksFreeze.productos : [];
     const stockCourantSauve = chargerStockActuel(data.factory_id || usine);
     const produitsCourants = Array.isArray(stockCourantSauve?.produits)
       ? stockCourantSauve.produits
@@ -2601,7 +2603,48 @@ export default function PlanificateurChocolat() {
       if (bloc) planCharge[reel.slot_key] = { ...bloc, realKg: reel.actual_kg, note: reel.note || "" };
     });
     if (Array.isArray(snapshot.lignes)) setLignes(fusionAvecBase(LIGNES_INIT, snapshot.lignes));
-    if (Array.isArray(snapshot.produits)) setProduits(fusionAvecBase(PRODUITS_INIT, snapshot.produits));
+    const catalogueHistorique = fusionAvecBase(PRODUITS_INIT, produitsSnapshot);
+    const catalogueComplet = new Map(catalogueHistorique.map((produit) => [String(produit.id), produit]));
+    produits.forEach((produitActuel) => {
+      const cleProduit = String(produitActuel.id);
+      const historique = catalogueComplet.get(cleProduit);
+      catalogueComplet.set(cleProduit, historique ? {
+        ...historique,
+        nom: produitActuel.nom || historique.nom,
+        usine: produitActuel.usine || historique.usine,
+        ligne: produitActuel.ligne || historique.ligne,
+        lignesCompatibles: produitActuel.lignesCompatibles || historique.lignesCompatibles,
+        sku: produitActuel.sku || historique.sku,
+        aliases: produitActuel.aliases || historique.aliases,
+        pesoBulto: produitActuel.pesoBulto ?? historique.pesoBulto,
+        pesoUnidad: produitActuel.pesoUnidad ?? historique.pesoUnidad,
+        unidadesBulto: produitActuel.unidadesBulto ?? historique.unidadesBulto,
+        capaciteTurno: produitActuel.capaciteTurno ?? historique.capaciteTurno,
+      } : produitActuel);
+    });
+    const trouverReference = (liste, produit) => liste.find((candidat) =>
+      memeId(candidat.id, produit.id)
+      || (produit.sku && candidat.sku && normaliser(candidat.sku).toUpperCase() === normaliser(produit.sku).toUpperCase())
+      || normaliser(candidat.nom).toLowerCase() === normaliser(produit.nom).toLowerCase()
+    );
+    const nombreOuNull = (valeur) => valeur != null && valeur !== "" && Number.isFinite(Number(valeur)) ? Number(valeur) : null;
+    const produitsVersion = Array.from(catalogueComplet.values()).map((produit) => {
+      const historiqueBrut = trouverReference(produitsSnapshot, produit);
+      const fige = trouverReference(produitsFiges, produit);
+      const actuel = trouverReference(produits, produit);
+      const min = nombreOuNull(fige?.min) ?? nombreOuNull(historiqueBrut?.min) ?? nombreOuNull(actuel?.min) ?? nombreOuNull(produit.min);
+      const max = nombreOuNull(fige?.max) ?? nombreOuNull(historiqueBrut?.max) ?? nombreOuNull(actuel?.max) ?? nombreOuNull(produit.max);
+      const stock = nombreOuNull(fige?.stock) ?? nombreOuNull(historiqueBrut?.stock) ?? nombreOuNull(actuel?.stock) ?? nombreOuNull(produit.stock) ?? 0;
+      return {
+        ...produit,
+        min,
+        max,
+        stock,
+        demande: nombreOuNull(fige?.demande) ?? nombreOuNull(historiqueBrut?.demande) ?? nombreOuNull(actuel?.demande) ?? produit.demande,
+        pesoBulto: nombreOuNull(fige?.pesoBulto) ?? nombreOuNull(actuel?.pesoBulto) ?? nombreOuNull(produit.pesoBulto),
+      };
+    });
+    setProduits(produitsVersion);
     setPlan(planCharge);
     setDateDebutOpti(snapshot.dateDebutOpti || data.period_start);
     setDateFinOpti(snapshot.dateFinOpti || data.period_end);
@@ -4949,7 +4992,7 @@ export default function PlanificateurChocolat() {
                                         {planningFige && peutPlanifier && <div className="mb-1 rounded bg-red-50 px-2 py-1 text-[10px] font-bold text-red-700">Cambio sobre planificación congelada</div>}
                                         <select autoFocus disabled={!peutPlanifier} className="w-full disabled:bg-slate-100 text-xs border rounded p-1" value={b ? b.p : ""} onChange={(e) => assigner(cle, e.target.value)}>
                                           <option value="">— vacío —</option>
-                                          {produits.filter((p) => produitCompatibleLigne(p, ligne.id) && estConfigure(p)).map((p) => <option key={p.id} value={p.id}>{optionProduitPlanning(p)}</option>)}
+                                          {produits.filter((p) => produitCompatibleLigne(p, ligne.id) && (planningFige || estConfigure(p))).map((p) => <option key={p.id} value={p.id}>{optionProduitPlanning(p)}</option>)}
                                         </select>
                                         {b && prod && (
                                           <div className="mt-1 space-y-1">

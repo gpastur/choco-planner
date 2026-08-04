@@ -7,7 +7,7 @@ import {
   ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts";
 
-const APP_VERSION = "2026.08.04-mp-semanal-garrapinadas";
+const APP_VERSION = "2026.08.04-crocante-leche-esandi";
 const PORTAIL_EMAIL_ACTIF = true;
 
 const PALETTE = [
@@ -40,12 +40,12 @@ const GOOGLE_MP_STOCK_SHEETS = {
 const LIGNES_INIT = [
   { id: "e_bomb", nom: "Bombonera", capacite: 550, pal: 0, usine: "esandi" },
   { id: "e_crem", nom: "Cremino", capacite: 850, pal: 1, usine: "esandi" },
-  { id: "e_pf_g1", nom: "Paila Grande 1", capacite: 120, pal: 2, usine: "esandi" },
-  { id: "e_pf_g2", nom: "Paila Grande 2", capacite: 120, pal: 2, usine: "esandi" },
-  { id: "e_pf_c1", nom: "Paila Chica 1", capacite: 90, pal: 2, usine: "esandi" },
-  { id: "e_pf_c2", nom: "Paila Chica 2", capacite: 90, pal: 2, usine: "esandi" },
-  { id: "e_pc_auto", nom: "Paila Automatica", capacite: 87.5, pal: 3, usine: "esandi" },
-  { id: "e_pc_manual", nom: "Paila Manual", capacite: 87.5, pal: 3, usine: "esandi" },
+  { id: "e_pf_g1", nom: "Paila Fría (Grande 1)", capacite: 120, pal: 2, usine: "esandi" },
+  { id: "e_pf_g2", nom: "Paila Fría (Grande 2)", capacite: 120, pal: 2, usine: "esandi" },
+  { id: "e_pf_c1", nom: "Paila Fría (Chica 1)", capacite: 90, pal: 2, usine: "esandi" },
+  { id: "e_pf_c2", nom: "Paila Fría (Chica 2)", capacite: 90, pal: 2, usine: "esandi" },
+  { id: "e_pc_auto", nom: "Paila Caliente (Automática)", capacite: 87.5, pal: 3, usine: "esandi" },
+  { id: "e_pc_manual", nom: "Paila Caliente (Manual)", capacite: 87.5, pal: 3, usine: "esandi" },
   { id: "e_tur", nom: "Turrones", capacite: 60, pal: 4, usine: "esandi" },
   { id: "e_rama", nom: "Rama", capacite: 230, pal: 5, usine: "esandi" },
   { id: "e_dec", nom: "Decorado", capacite: 145, pal: 0, usine: "esandi" },
@@ -265,7 +265,7 @@ const PRODUITS_BASE = [
   mkEsandi(79, "SUBMARINO X 3", "e_bomb", 1.98),
   mkEsandi(80, "TAB 60 DIET", "e_bomb", 3.04),
   mkEsandi(81, "TAB LECHE DIET", "e_bomb", 3.04),
-  mkEsandi(82, "TAB SAL CARAMELO 100gr", "e_crem", 3.8),
+  { ...mkEsandi(82, "TAB SAL CARAMELO 100gr", "e_crem", 3.8), aliases: ["TABLETA SAL Y CARAMELO VB"], sku: "VT-CTAB-0000486" },
   mkEsandi(83, "TABLETA 60 VB", "e_bomb", 3.04),
   mkEsandi(84, "TABLETA 70 VB", "e_bomb", 3.04),
   mkEsandi(85, "TABLETA 80 VB", "e_bomb", 3.04),
@@ -288,7 +288,7 @@ const PRODUITS_BASE = [
   mkEsandi(102, "TABLETA XXL LECHE PURA", "e_crem", 5.6),
   mkEsandi(103, "TORTUGAS", "e_dec", 1.275),
   mkEsandi(104, "TURRON ALMENDRA", "e_tur", 3.63),
-  mkEsandi(105, "TURRON ALMENDRA BANADO", "e_tur", 3.96),
+  { ...mkEsandi(105, "TURRON ALMENDRA BANADO", "e_tur", 3.96), aliases: ["TURRON ALMENDRA BAÑADO"] },
   mkEsandi(106, "TURRON GIANDUIA", "e_tur", 3.63),
   mkEsandi(107, "TURRON MANI", "e_tur", 3.63),
   mkEsandi(109, "TURRON NUEZ Y DAMASCO", "e_tur", 3.63),
@@ -296,17 +296,14 @@ const PRODUITS_BASE = [
   mkEsandi(139, "TABLETA 70 ECUADOR VB", "e_bomb", 3.04),
   mkEsandi(140, "TABLETA 80 TUMACO VB", "e_bomb", 3.04),
   mkEsandi(143, "HUESITO FIG MACIZA", "e_bomb", 7.98),
-  { ...mkEsandi(155, "RAMA BAÑADA", "e_crem", null), sku: "VT-TRUF-00066" },
+  { ...mkEsandi(155, "RAMA BAÑADA", "e_crem", null), aliases: ["RAMA BANADA"], sku: "VT-TRUF-00066" },
   { ...mkEsandi(156, "GRANIZADO", "e_crem", null), sku: "PR-MATP-0000434" },
   { ...mkEsandi(157, "GRANIZADO MENTA", "e_crem", null), sku: "PR-MATP-0000435" },
-  { ...mkEsandi(158, "TRUFA CROCANTE LECHE", "e_dec", null), sku: "VM-TRUF-00038" },
-  { ...mkEsandi(159, "PIGGY", "e_dec", null), sku: "VT-CFIG-0000992" },
+  { ...mkEsandi(158, "CROCANTE ALMENDRA LECHE", "e_dec", null), aliases: ["TRUFA CROCANTE LECHE"], sku: "VM-TRUF-00038" },
   { ...mkEsandi(160, "PISTACHO CARAM PICADO X 300", "e_pc_auto", null), sku: "PR-MATP-0000440", lignesCompatibles: ["e_pc_manual"] },
   { ...mkEsandi(161, "NUECES PECAN CARAMELIZADAS", "e_pc_auto", null), sku: "PR-MATP-0000412", lignesCompatibles: ["e_pc_manual"] },
   { ...mkEsandi(162, "RAMA BLANCO GRANEL 45/50G CAJON", "e_rama", null), sku: "VM-CRAM-0000008" },
   { ...mkEsandi(163, "RAMA LECHE GRANEL 45/50G CAJON", "e_rama", null), sku: "PR-MATP-0000569" },
-  { ...mkEsandi(164, "CHOC EN RAMA LECHE A GRANEL", "e_rama", null), sku: "VM-CRAM-0000011" },
-  { ...mkEsandi(165, "CHOC EN RAMA AMARGO A GRANEL", "e_rama", null), sku: "VM-CRAM-0000013" },
   { ...mkEsandi(166, "RAMA BLANCO FLOWPEADA", "e_rama", null), sku: "VT-CRAM-0000006" },
   { ...mkEsandi(167, "RAMA LECHE FLOWPEADA", "e_rama", null), sku: "VT-CRAM-0000007" },
   mkVB(148, "Cafe Crudo", "vb_tostadora", null),
@@ -326,7 +323,6 @@ const PRODUITS_BASE = [
   { ...mkVB(152, "LICOR DE CHOCOLATE BOTELLA BsAs", "vb_stephan", 5), sku: "VT-CFRA-0004310", capaciteTurno: 400 },
   { ...mkVB(153, "LICOR DDL BOTELLA BsAs", "vb_stephan", 5), sku: "VT-CFRA-000056", capaciteTurno: 400 },
   { ...mkVB(154, "JUGO DE FRAM/FRUT BOTELLA BsAs", "vb_stephan", 4.4), sku: "VT-CFRA-0000993", capaciteTurno: 400 },
-  { ...mkEsandi(117, "TABLETA DE PISTACHO, SAL Y CARAMELO BsAs", "e_crem", 3.8), aliases: ["TAB SAL CARAMELO 100gr", "TABLETA DE PISTACHO, SAL Y CARAMELO BsAs"], sku: "VT-CTAB-0000486" },
   { ...mkFatima(118, "TAB CHOC LECHE PURO 80G BsAs", "f_tabletas", 3.04, ["TABLETA LECHE PURO X80gr solo BsAs stock max p/4 meses min 2", "TAB CHOC LECHE PURO 80G BsAs"]), sku: "VT-CTAB-0000550" },
   { ...mkFatima(119, "TABLETA CHOC AMARGO 70% BsAs", "f_tabletas", 3.04, ["TABLETA 70 solo BsAs stock max p/4 meses min 2", "TABLETA CHOC AMARGO 70% BsAs"]), sku: "VT-CTAB-0000995" },
   { ...mkFatima(120, "TAB 100GS CHOCO LECHE Y ALM BsAs", "f_tabletas", 3.8, ["TABLETA LECHE ALMENDRA solo BsAs stock max p/4 meses min 2", "TAB 100GS CHOCO LECHE Y ALM BsAs"]), sku: "VT-CTAB-0000998" },
@@ -526,7 +522,15 @@ const PRODUITS_INIT = PRODUITS_AVEC_VB_MAESTRO.map((produit) => {
     min: typeof reference.min === "number" ? reference.min : null,
     max: typeof reference.max === "number" ? reference.max : null,
   };
-}).map((produit) => ({ ...produit, stock: 0, min: null, max: null, demande: 0 }));
+}).map((produit) => {
+  const seuilsEsandi = produit.usine === "esandi" ? {
+    82: { min: 130, max: 260 },
+    105: { min: 58, max: 116 },
+    155: { min: 39, max: 78 },
+    158: { min: 66, max: 264 },
+  }[produit.id] : null;
+  return { ...produit, stock: 0, min: seuilsEsandi?.min ?? null, max: seuilsEsandi?.max ?? null, demande: 0 };
+});
 
 const JOURS = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
 const HORIZON = 4;
@@ -946,7 +950,7 @@ function htmlEscape(value) {
 }
 function fusionAvecBase(base: any[], sauvegarde: any[]) {
   const parId = new Map(base.map((item) => [item.id, item]));
-  const idsObsoletes = new Set([11, 108, 111, 138, 141, 142, 144, 145, 146, 147, 3050, 3051, 3052, 3053, 3054, 3055, 3056, 3057, 3058, 3059, 3060, 5101, 5201, 5202, 5203]);
+  const idsObsoletes = new Set([11, 108, 111, 117, 138, 141, 142, 144, 145, 146, 147, 159, 164, 165, 3050, 3051, 3052, 3053, 3054, 3055, 3056, 3057, 3058, 3059, 3060, 5101, 5201, 5202, 5203]);
   (Array.isArray(sauvegarde) ? sauvegarde : []).forEach((item) => {
     if (["e_pf", "e_pc"].includes(item.id)) return;
     if (item.id === "vb_refinado") return;
@@ -971,6 +975,13 @@ function fusionAvecBase(base: any[], sauvegarde: any[]) {
     if (baseItem && ["e_pf_g1", "e_pf_g2", "e_pf_c1", "e_pf_c2"].includes(fusionne.id)) {
       fusionne.nom = baseItem.nom;
       fusionne.capacite = baseItem.capacite;
+    }
+    if (baseItem && fusionne.usine === "esandi" && [82, 105, 155, 158].includes(Number(fusionne.id))) {
+      fusionne.nom = baseItem.nom;
+      fusionne.sku = baseItem.sku;
+      fusionne.aliases = baseItem.aliases;
+      fusionne.min = baseItem.min;
+      fusionne.max = baseItem.max;
     }
     if (baseItem && fusionne.usine === "fatima" && fusionne.id >= 117 && fusionne.id <= 132) {
       fusionne.nom = baseItem.nom;
@@ -3220,7 +3231,14 @@ export default function PlanificateurChocolat() {
     const nbCols = Math.max(ligneNoms.length, ligneMax.length, ligneMin.length, ligneStock.length, ligneSku.length, ...rows.map((ligne) => ligne.length));
     for (let c = debut; c < nbCols; c++) {
       const nom = normaliser(ligneNoms[c]); if (!nom) continue;
-      if (usine === "esandi" && ["CAFE TOSTADO CONFI X 1 KG", "TURRON NUEZ"].includes(NORMALISER_REFERENCE(nom))) { ignores++; continue; }
+      if (usine === "esandi" && [
+        "CAFE TOSTADO CONFI X 1 KG",
+        "TURRON NUEZ",
+        "TABLETA DE PISTACHO SAL Y CARAMELO BSAS",
+        "CHOC EN RAMA LECHE A GRANEL",
+        "CHOC EN RAMA AMARGO A GRANEL",
+        "PIGGY",
+      ].includes(NORMALISER_REFERENCE(nom).replace(/,/g, ""))) { ignores++; continue; }
       const sku = normaliser(ligneSku[c]);
       const lectureStock = derniereValeurStock(c);
       const vMax = parseNum(ligneMax[c]), vMin = parseNum(ligneMin[c]), vStock = lectureStock.valeur;

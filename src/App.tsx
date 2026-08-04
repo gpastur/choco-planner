@@ -7,7 +7,7 @@ import {
   ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts";
 
-const APP_VERSION = "2026.08.04-nueva-planificacion";
+const APP_VERSION = "2026.08.04-ajustes-congelados-y-stock-real";
 const PORTAIL_EMAIL_ACTIF = true;
 
 const PALETTE = [
@@ -1834,12 +1834,13 @@ export default function PlanificateurChocolat() {
             if (!b || b.p == null) return;
             const prod = produits.find((p) => memeId(p.id, b.p));
             const kgpb = kgParBulto(prod);
+            const usaReal = b.realKg != null && b.realKg !== "" && Number(b.realKg) >= 0;
             if (kgpb) stockSim[b.p] = (stockSim[b.p] || 0) + kgEffectifBloc(b) / kgpb;
             if (prod && estConfigure(prod)) {
               const s = seuils(prod);
               const statut = statutStock(stockSim[b.p] || 0, s.min, s.max);
               const ecartVertKg = kgpb ? ((stockSim[b.p] || 0) - s.min * 1.5) * kgpb : 0;
-              if (clesVisibles.has(j.cle)) resultat[cle] = { badge: statut.badge, label: statut.label, stock: stockSim[b.p] || 0, ecartVertKg };
+              if (clesVisibles.has(j.cle)) resultat[cle] = { badge: statut.badge, label: statut.label, stock: stockSim[b.p] || 0, ecartVertKg, usaReal };
             }
           });
         });
@@ -4944,7 +4945,8 @@ export default function PlanificateurChocolat() {
                                 return (
                                   <div key={cle} className="mb-1" onDragOver={(e) => e.preventDefault()} onDrop={() => onDrop(cle)}>
                                     {enEdition ? (
-                                      <div className="rounded-lg border border-violet-300 bg-white p-1.5 shadow-sm">
+                                      <div className={"rounded-lg border bg-white p-1.5 shadow-sm " + (planningFige ? "border-red-500 ring-2 ring-red-200" : "border-violet-300")}>
+                                        {planningFige && peutPlanifier && <div className="mb-1 rounded bg-red-50 px-2 py-1 text-[10px] font-bold text-red-700">Cambio sobre planificación congelada</div>}
                                         <select autoFocus disabled={!peutPlanifier} className="w-full disabled:bg-slate-100 text-xs border rounded p-1" value={b ? b.p : ""} onChange={(e) => assigner(cle, e.target.value)}>
                                           <option value="">— vacío —</option>
                                           {produits.filter((p) => produitCompatibleLigne(p, ligne.id) && estConfigure(p)).map((p) => <option key={p.id} value={p.id}>{optionProduitPlanning(p)}</option>)}
@@ -4974,17 +4976,19 @@ export default function PlanificateurChocolat() {
                                       </div>
                                     ) : (
                                       <div draggable={!!prod && !planningFige && peutPlanifier} onDragStart={() => setDragKey(cle)} onClick={() => setSelection(cle)} title={b ? "Plan: " + fmtNb(b.kg) + " kg" + (b.realKg != null && b.realKg !== "" ? " · Real: " + fmtNb(kgEff) + " kg" : "") + (kgpb ? " · ≈ " + fmtNb(bultos) + " bultos" : " · conversión faltante") + (etatBloc ? " · " + (etatBloc.actuel ? "stock actual: " : "stock despues del bloque: ") + fmtNb(etatBloc.stock) + " (" + etatBloc.label + ")" : "") + ((b as any).raison ? " · " + (b as any).raison : "") + (b.note ? " · Nota: " + b.note : "") : ""}
-                                        className={"w-full text-xs rounded p-1.5 border-2 text-left min-h-10 transition cursor-pointer " + ((b as any)?.modifiedAfterFreeze ? "bg-orange-100 border-orange-500 text-orange-950 font-medium ring-2 ring-orange-200" : prod ? pal.clair + " " + pal.bordure + " " + pal.texte + " font-medium" : "bg-gray-50 border-dashed border-gray-300 text-gray-400 hover:bg-gray-100") + (dragKey === cle ? " opacity-40" : "")}>
+                                        className={"w-full text-xs rounded p-1.5 border-2 text-left min-h-10 transition cursor-pointer " + ((b as any)?.modifiedAfterFreeze ? "bg-red-100 border-red-600 text-red-950 font-semibold ring-4 ring-red-200" : prod ? pal.clair + " " + pal.bordure + " " + pal.texte + " font-medium" : "bg-gray-50 border-dashed border-gray-300 text-gray-400 hover:bg-gray-100") + (dragKey === cle ? " opacity-40" : "")}>
                                         <span className="flex items-center justify-between">
                                           <span className="text-[10px] opacity-60">{turno.nom}{produitsParTurno(ligne) > 1 ? " · " + (sousIndex + 1) + "/" + produitsParTurno(ligne) : ""}</span>
                                           <span className="flex items-center gap-1">
+                                            {planningFige && peutPlanifier && <button type="button" onClick={(e) => { e.stopPropagation(); setSelection(cle); }} className="rounded bg-white/90 px-1.5 py-0.5 text-[9px] font-bold text-red-700 shadow-sm hover:bg-red-50" title="Cambiar producto en la versión congelada">✎ Cambiar</button>}
                                             {etatBloc && Math.round(etatBloc.ecartVertKg || 0) !== 0 && <span className="text-[10px] opacity-70">{etatBloc.ecartVertKg > 0 ? "+" : ""}{fmtNb(etatBloc.ecartVertKg)} kg</span>}
+                                            {(etatBloc as any)?.usaReal && <span className="rounded bg-emerald-100 px-1 py-0.5 text-[9px] font-bold text-emerald-800" title="Estado calculado con los kilos reales informados">Real</span>}
                                             {pastille && <span className={"w-2.5 h-2.5 rounded-full " + pastille}></span>}
                                           </span>
                                         </span>
                                         {prod ? <><span>{prod.nom}</span>{zone && <span className="ml-1 px-1 rounded bg-white/70 text-[10px]">{zone}</span>}</> : "+ asignar"}
                                         {prod && <span className="block text-[10px] opacity-60">Plan {fmtNb(b.kg)} kg{b.realKg != null && b.realKg !== "" ? " · Real " + fmtNb(kgEff) + " kg" + (ecartKg ? " (" + (ecartKg > 0 ? "+" : "") + fmtNb(ecartKg) + ")" : "") : ""}{kgpb ? " · " + fmtNb(bultos) + " blt" : ""}</span>}
-                                        {(b as any)?.modifiedAfterFreeze && <span className="mt-1 block border-t border-orange-300 pt-1 text-[10px] font-bold text-orange-800">Modificado después de congelar{produitAvantModification ? " · Antes: " + produitAvantModification.nom : ""}</span>}
+                                        {(b as any)?.modifiedAfterFreeze && <span className="mt-1 block border-t border-red-400 pt-1 text-[10px] font-extrabold text-red-800">CAMBIO POSTERIOR AL CONGELADO{produitAvantModification ? " · Antes: " + produitAvantModification.nom : ""}</span>}
                                         {prod && b.note && <span className="mt-1 block border-t border-current/15 pt-1 text-[10px] font-normal opacity-75 line-clamp-2">Nota: {b.note}</span>}
                                       </div>
                                     )}
@@ -5002,7 +5006,7 @@ export default function PlanificateurChocolat() {
                 </table>
               </div>
             )}
-            <p className="text-xs text-gray-500 mt-2">Cada turno produce segun los horarios de la fabrica: Fatima trabaja de lunes a viernes un turno completo dividido en medio turno manana y medio turno tarde, y no trabaja sabado ni domingo; Esandi trabaja manana y tarde, con solo manana el sabado; Mitre/VB trabajan 3 turnos base, con solo manana el sabado. Excepcion: Stephan / Buldos trabaja solo lunes a viernes, manana y tarde. La cantidad es <strong>divisible</strong>. La gomita de color muestra el estado del stock justo despues de ese bloque, simulando la demanda dia por dia.</p>
+            <p className="text-xs text-gray-500 mt-2">Cada turno produce segun los horarios de la fabrica: Fatima trabaja de lunes a viernes un turno completo dividido en medio turno manana y medio turno tarde, y no trabaja sabado ni domingo; Esandi trabaja manana y tarde, con solo manana el sabado; Mitre/VB trabajan 3 turnos base, con solo manana el sabado. Excepcion: Stephan / Buldos trabaja solo lunes a viernes, manana y tarde. La cantidad es <strong>divisible</strong>. La gomita muestra el stock justo despues de cada bloque: usa los <strong>kg reales</strong> cuando estan informados y, para los bloques futuros, mantiene los kg planificados.</p>
             <Legende />
           </div>
         )}

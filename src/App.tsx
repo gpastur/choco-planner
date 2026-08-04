@@ -7,7 +7,7 @@ import {
   ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts";
 
-const APP_VERSION = "2026.08.04-crocante-leche-esandi";
+const APP_VERSION = "2026.08.04-nueva-planificacion";
 const PORTAIL_EMAIL_ACTIF = true;
 
 const PALETTE = [
@@ -2652,6 +2652,38 @@ export default function PlanificateurChocolat() {
     setMsgVersions("Revisión V" + numero + " creada como borrador.");
   };
 
+  const crearNuevaPlanificacion = () => {
+    if (!peutPlanifier) {
+      setMsgVersions("Tu perfil no puede crear planificaciones.");
+      return;
+    }
+    const tieneContenido = Object.entries(plan).some(([clave, valor]) => {
+      const [, lineaId] = clave.split("|");
+      const linea = lignes.find((item) => item.id === lineaId);
+      return linea?.usine === usine && !!lireBloc(valor, linea);
+    });
+    if (tieneContenido && !window.confirm("¿Crear una nueva planificación? Las versiones guardadas se conservarán, pero los cambios no guardados del calendario actual se perderán.")) return;
+
+    const inicio = prochainLundiApres(new Date());
+    const fin = new Date(inicio);
+    fin.setDate(fin.getDate() + HORIZON * 7 - 1);
+    const lineasFabrica = new Set(lignes.filter((linea) => linea.usine === usine).map((linea) => linea.id));
+    setPlan((actual) => Object.fromEntries(Object.entries(actual).filter(([clave]) => !lineasFabrica.has(clave.split("|")[1]))));
+    setVersionActive(null);
+    setNomVersion("");
+    setSelection(null);
+    setDateDebutOpti(cleDate(inicio));
+    setDateFinOpti(cleDate(fin));
+    setLundi(lundiDeLaSemaine(inicio));
+    setMsgOpti("");
+    setMsgPartage("");
+    setMsgVersions("Nueva planificación lista. Elige las fechas y pulsa Optimizar la planificación.");
+    setOnglet("calendrier");
+    const url = new URL(window.location.href);
+    url.searchParams.delete("version");
+    window.history.replaceState({}, document.title, url.pathname + url.search);
+  };
+
   const guardarPlanificacion = () => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(estadoActual()));
     setMsgPartage("Planificación guardada en este navegador.");
@@ -4839,6 +4871,7 @@ export default function PlanificateurChocolat() {
               {cloudUtilisateurActif && !planningFige && peutPlanifier && <button onClick={() => sauvegarderVersion()} className="px-3 py-2 bg-violet-800 text-white rounded-lg text-sm hover:bg-violet-900">Guardar borrador</button>}
               {cloudUtilisateurActif && !planningFige && peutPlanifier && <button onClick={() => sauvegarderVersion({ approuver: true })} className="px-3 py-2 bg-emerald-700 text-white rounded-lg text-sm hover:bg-emerald-800">Aprobar y congelar</button>}
               {cloudUtilisateurActif && planningFige && peutPlanifier && <button onClick={creerRevision} className="px-3 py-2 bg-amber-600 text-white rounded-lg text-sm hover:bg-amber-700">Crear revisión</button>}
+              {cloudUtilisateurActif && versionActive && peutPlanifier && <button onClick={crearNuevaPlanificacion} className="px-3 py-2 border border-violet-300 bg-white text-violet-800 rounded-lg text-sm font-medium hover:bg-violet-50">＋ Nueva planificación</button>}
               <button onClick={compartirPlanificacion} className="px-3 py-2 bg-sky-700 text-white rounded-lg text-sm hover:bg-sky-800">Compartir</button>
               {versionActive && <span className={"px-2 py-1 rounded-full text-xs font-semibold " + (planningFige ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-800")}>V{versionActive.version_no} · {versionActive.status}</span>}
               {msgOpti && <span className="text-sm text-green-800">{msgOpti}</span>}
@@ -4981,7 +5014,10 @@ export default function PlanificateurChocolat() {
                 <h2 className="text-lg font-semibold text-violet-950">Versiones de planificación</h2>
                 <p className="text-sm text-slate-500">Los planes aprobados conservan su snapshot original. Admin y planner pueden registrar ajustes operativos posteriores, visibles en naranja y auditados por separado.</p>
               </div>
-              {cloudUtilisateurActif && <button onClick={() => chargerVersions()} className="px-3 py-2 border border-slate-300 rounded-lg text-sm hover:bg-slate-50">Actualizar lista</button>}
+              {cloudUtilisateurActif && <div className="flex flex-wrap items-center gap-2">
+                {peutPlanifier && <button onClick={crearNuevaPlanificacion} className="px-3 py-2 border border-violet-300 bg-violet-50 text-violet-800 rounded-lg text-sm font-medium hover:bg-violet-100">＋ Nueva planificación</button>}
+                <button onClick={() => chargerVersions()} className="px-3 py-2 border border-slate-300 rounded-lg text-sm hover:bg-slate-50">Actualizar lista</button>
+              </div>}
             </div>
 
             {!cloudUtilisateurActif ? (

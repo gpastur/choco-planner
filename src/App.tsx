@@ -7,7 +7,7 @@ import {
   ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts";
 
-const APP_VERSION = "2026.08.03-campanas-semanales-esandi";
+const APP_VERSION = "2026.08.04-mp-semanal-garrapinadas";
 const PORTAIL_EMAIL_ACTIF = true;
 
 const PALETTE = [
@@ -40,8 +40,12 @@ const GOOGLE_MP_STOCK_SHEETS = {
 const LIGNES_INIT = [
   { id: "e_bomb", nom: "Bombonera", capacite: 550, pal: 0, usine: "esandi" },
   { id: "e_crem", nom: "Cremino", capacite: 850, pal: 1, usine: "esandi" },
-  { id: "e_pf", nom: "Paila Fria", capacite: 250, pal: 2, usine: "esandi" },
-  { id: "e_pc", nom: "Paila Caliente", capacite: 175, pal: 3, usine: "esandi" },
+  { id: "e_pf_g1", nom: "Paila Grande 1", capacite: 120, pal: 2, usine: "esandi" },
+  { id: "e_pf_g2", nom: "Paila Grande 2", capacite: 120, pal: 2, usine: "esandi" },
+  { id: "e_pf_c1", nom: "Paila Chica 1", capacite: 90, pal: 2, usine: "esandi" },
+  { id: "e_pf_c2", nom: "Paila Chica 2", capacite: 90, pal: 2, usine: "esandi" },
+  { id: "e_pc_auto", nom: "Paila Automatica", capacite: 87.5, pal: 3, usine: "esandi" },
+  { id: "e_pc_manual", nom: "Paila Manual", capacite: 87.5, pal: 3, usine: "esandi" },
   { id: "e_tur", nom: "Turrones", capacite: 60, pal: 4, usine: "esandi" },
   { id: "e_rama", nom: "Rama", capacite: 230, pal: 5, usine: "esandi" },
   { id: "e_dec", nom: "Decorado", capacite: 145, pal: 0, usine: "esandi" },
@@ -72,7 +76,6 @@ const PESO_BULTO_POR_PRODUCTO = {
   "BOMBON x4": 2.4,
   "CAFE EN GRANO ENV. X250": 5,
   "CAFE MOLIDO ENV.X250": 5,
-  "CAFE TOSTADO CONFI x 1 kg": 6,
   "CHOCO TAZA BOLSA 200gr": 6,
   "CORAZON DDL GRANEL": 4.92,
   "CORAZON x5": 4.32,
@@ -177,7 +180,6 @@ const PESO_BULTO_POR_PRODUCTO = {
   "TURRON ALMENDRA BANADO": 3.96,
   "TURRON GIANDUIA": 3.63,
   "TURRON MANI": 3.63,
-  "TURRON NUEZ": 3.63,
   "TURRON NUEZ Y DAMASCO": 3.63,
   "TURRON PISTACHO Y NARANJA": 3.63,
 };
@@ -193,18 +195,17 @@ const PRODUITS_BASE = [
   mkEsandi(8, "BOMBON x4", "e_bomb", 2.4),
   mkEsandi(9, "CAFE EN GRANO ENV. X250", "e_env", 5),
   mkEsandi(10, "CAFE MOLIDO ENV.X250", "e_env", 5),
-  mkEsandi(11, "CAFE TOSTADO CONFI x 1 kg", "e_env", 6),
   mkEsandi(12, "CHOCO TAZA BOLSA 200gr", "e_env", 6),
   mkEsandi(13, "CORAZON DDL GRANEL", "e_bomb", 4.92),
   mkEsandi(14, "CORAZON x5", "e_bomb", 3.6),
   mkEsandi(15, "FIGURAS MACIZAS MIx", "e_bomb", 7.98),
   mkEsandi(16, "FONDUE MICRO", "e_bomb", 5.4),
   mkEsandi(17, "FONDUE TRADICIONAL X 200gr", "e_env", 6),
-  mkEsandi(18, "GARRAP ALMENDRA 100gr", "e_pc", 3.2),
-  mkEsandi(19, "GARRAP AVELLANA 100gr", "e_pc", 3.2),
-  mkEsandi(20, "GARRAP CAJU 100gr", "e_pc", 3.2),
-  mkEsandi(21, "GARRAP PECAN 100gr", "e_pc", 3.2),
-  mkEsandi(22, "GARRAP PISTACHO 100gr", "e_pc", 3.2),
+  { ...mkEsandi(18, "GARRAP ALMENDRA 100gr", "e_pc_auto", 3.2), lignesCompatibles: ["e_pc_manual"] },
+  { ...mkEsandi(19, "GARRAP AVELLANA 100gr", "e_pc_auto", 3.2), lignesCompatibles: ["e_pc_manual"] },
+  { ...mkEsandi(20, "GARRAP CAJU 100gr", "e_pc_auto", 3.2), lignesCompatibles: ["e_pc_manual"] },
+  { ...mkEsandi(21, "GARRAP PECAN 100gr", "e_pc_auto", 3.2), lignesCompatibles: ["e_pc_manual"] },
+  { ...mkEsandi(22, "GARRAP PISTACHO 100gr", "e_pc_auto", 3.2), lignesCompatibles: ["e_pc_manual"] },
   mkEsandi(23, "GATITAS", "e_dec", 1.8),
   mkEsandi(24, "GOLOSA 1 MH LECHE xBULTO", "e_crem", 3.15),
   mkEsandi(25, "GOLOSA 2 MH BLANCO xBULTO", "e_crem", 3.15),
@@ -236,17 +237,17 @@ const PRODUITS_BASE = [
   mkEsandi(51, "OSOS DDL x4", "e_bomb", 2.592),
   mkEsandi(52, "OSOS DDL x6", "e_bomb", 3.24),
   mkEsandi(53, "OSOS DDL x6 BLANCO", "e_bomb", 3.24),
-  mkEsandi(54, "PAILA ALM CROCANTE 100gr", "e_pf", 5),
-  mkEsandi(55, "PAILA ALMEN AMARGA 100gr", "e_pf", 5),
-  mkEsandi(56, "PAILA ALMEN LECHE 100gr", "e_pf", 5),
-  mkEsandi(57, "PAILA AVELL LECHE 100gr", "e_pf", 5),
-  mkEsandi(58, "PAILA CRANBERRIES x100gr", "e_pf", 5),
-  mkEsandi(59, "PAILA MANI LECHE 100gr", "e_pf", 5),
-  mkEsandi(60, "PAILA MICROGALLETITAS", "e_pf", 5),
-  mkEsandi(61, "PAILA NIBS X100gr", "e_pf", 5),
-  mkEsandi(62, "PAILA NUICCIOLATO", "e_pf", 5),
-  mkEsandi(63, "PAILA PASAS LECHE 100gr", "e_pf", 5),
-  mkEsandi(64, "PAILA PISTACHO C/ CHOCOLATE BLANCO", "e_pf", 5),
+  { ...mkEsandi(54, "PAILA ALM CROCANTE 100gr", "e_pf_g1", 5), lignesCompatibles: ["e_pf_g2", "e_pf_c1", "e_pf_c2"] },
+  { ...mkEsandi(55, "PAILA ALMEN AMARGA 100gr", "e_pf_g1", 5), lignesCompatibles: ["e_pf_g2", "e_pf_c1", "e_pf_c2"] },
+  { ...mkEsandi(56, "PAILA ALMEN LECHE 100gr", "e_pf_g1", 5), lignesCompatibles: ["e_pf_g2", "e_pf_c1", "e_pf_c2"] },
+  { ...mkEsandi(57, "PAILA AVELL LECHE 100gr", "e_pf_g1", 5), lignesCompatibles: ["e_pf_g2", "e_pf_c1", "e_pf_c2"] },
+  { ...mkEsandi(58, "PAILA CRANBERRIES x100gr", "e_pf_g1", 5), lignesCompatibles: ["e_pf_g2", "e_pf_c1", "e_pf_c2"] },
+  { ...mkEsandi(59, "PAILA MANI LECHE 100gr", "e_pf_g1", 5), lignesCompatibles: ["e_pf_g2", "e_pf_c1", "e_pf_c2"] },
+  { ...mkEsandi(60, "PAILA MICROGALLETITAS", "e_pf_g1", 5), lignesCompatibles: ["e_pf_g2", "e_pf_c1", "e_pf_c2"] },
+  { ...mkEsandi(61, "PAILA NIBS X100gr", "e_pf_g1", 5), lignesCompatibles: ["e_pf_g2", "e_pf_c1", "e_pf_c2"] },
+  { ...mkEsandi(62, "PAILA NUICCIOLATO", "e_pf_g1", 5), lignesCompatibles: ["e_pf_g2", "e_pf_c1", "e_pf_c2"] },
+  { ...mkEsandi(63, "PAILA PASAS LECHE 100gr", "e_pf_g1", 5), lignesCompatibles: ["e_pf_g2", "e_pf_c1", "e_pf_c2"] },
+  { ...mkEsandi(64, "PAILA PISTACHO C/ CHOCOLATE BLANCO", "e_pf_g1", 5), lignesCompatibles: ["e_pf_g2", "e_pf_c1", "e_pf_c2"] },
   mkEsandi(65, "PELOTA CHICA", "e_dec", 1),
   mkEsandi(66, "PERRITA", "e_dec", 1.755),
   mkEsandi(67, "PRALINE DE AVELLANA Y PISTACHO", "e_crem", 3.969),
@@ -290,12 +291,24 @@ const PRODUITS_BASE = [
   mkEsandi(105, "TURRON ALMENDRA BANADO", "e_tur", 3.96),
   mkEsandi(106, "TURRON GIANDUIA", "e_tur", 3.63),
   mkEsandi(107, "TURRON MANI", "e_tur", 3.63),
-  mkEsandi(108, "TURRON NUEZ", "e_tur", 3.63),
   mkEsandi(109, "TURRON NUEZ Y DAMASCO", "e_tur", 3.63),
   mkEsandi(110, "TURRON PISTACHO Y NARANJA", "e_tur", 3.63),
   mkEsandi(139, "TABLETA 70 ECUADOR VB", "e_bomb", 3.04),
   mkEsandi(140, "TABLETA 80 TUMACO VB", "e_bomb", 3.04),
   mkEsandi(143, "HUESITO FIG MACIZA", "e_bomb", 7.98),
+  { ...mkEsandi(155, "RAMA BAÑADA", "e_crem", null), sku: "VT-TRUF-00066" },
+  { ...mkEsandi(156, "GRANIZADO", "e_crem", null), sku: "PR-MATP-0000434" },
+  { ...mkEsandi(157, "GRANIZADO MENTA", "e_crem", null), sku: "PR-MATP-0000435" },
+  { ...mkEsandi(158, "TRUFA CROCANTE LECHE", "e_dec", null), sku: "VM-TRUF-00038" },
+  { ...mkEsandi(159, "PIGGY", "e_dec", null), sku: "VT-CFIG-0000992" },
+  { ...mkEsandi(160, "PISTACHO CARAM PICADO X 300", "e_pc_auto", null), sku: "PR-MATP-0000440", lignesCompatibles: ["e_pc_manual"] },
+  { ...mkEsandi(161, "NUECES PECAN CARAMELIZADAS", "e_pc_auto", null), sku: "PR-MATP-0000412", lignesCompatibles: ["e_pc_manual"] },
+  { ...mkEsandi(162, "RAMA BLANCO GRANEL 45/50G CAJON", "e_rama", null), sku: "VM-CRAM-0000008" },
+  { ...mkEsandi(163, "RAMA LECHE GRANEL 45/50G CAJON", "e_rama", null), sku: "PR-MATP-0000569" },
+  { ...mkEsandi(164, "CHOC EN RAMA LECHE A GRANEL", "e_rama", null), sku: "VM-CRAM-0000011" },
+  { ...mkEsandi(165, "CHOC EN RAMA AMARGO A GRANEL", "e_rama", null), sku: "VM-CRAM-0000013" },
+  { ...mkEsandi(166, "RAMA BLANCO FLOWPEADA", "e_rama", null), sku: "VT-CRAM-0000006" },
+  { ...mkEsandi(167, "RAMA LECHE FLOWPEADA", "e_rama", null), sku: "VT-CRAM-0000007" },
   mkVB(148, "Cafe Crudo", "vb_tostadora", null),
   { ...mkVB(112, "DULCE FRAMBUESA 420gr BsAs", "vb_stephan", 4.62), sku: "VT-DULC-0000900", min: 82, max: 163, capaciteTurno: 130 },
   { ...mkVB(113, "DULCE FRUTILLA 420gr BsAs", "vb_stephan", 4.62), sku: "VT-DULC-0000902", min: 39, max: 78, capaciteTurno: 130 },
@@ -815,7 +828,6 @@ function kgEffectifBloc(b) {
 function produitsParTurno(ligne) {
   if (!ligne) return 1;
   if (ligne.id === "vb_envasado") return 4;
-  if (["e_pf", "e_pc"].includes(ligne.id)) return 2;
   if (ligne.id === "e_dec") return 3;
   return 1;
 }
@@ -830,20 +842,40 @@ function cleCampagneEsandi(cleSlot, ligne) {
   const turnoId = parties[2] || "turno";
   const sousBloc = parties[3] || "1";
   const semaineCle = cleDate(lundiDeLaSemaine(dateDepuisCle(dateCle)));
-  if (ligne.id === "e_turr") return semaineCle + "|" + ligne.id + "|" + turnoId;
-  if (["e_pf", "e_pc"].includes(ligne.id)) return semaineCle + "|" + ligne.id + "|" + turnoId + "|" + sousBloc;
-  if (["e_rama", "e_mh"].includes(ligne.id)) return semaineCle + "|" + ligne.id;
+  if (["e_pf_g1", "e_pf_g2", "e_pf_c1", "e_pf_c2", "e_pc_auto", "e_pc_manual"].includes(ligne.id)) return semaineCle + "|" + ligne.id + "|" + turnoId + "|" + sousBloc;
+  if (["e_rama", "e_mh"].includes(ligne.id)) return dateCle + "|" + ligne.id;
   if (["e_crem", "e_bomb"].includes(ligne.id)) return dateCle + "|" + ligne.id;
   return null;
 }
+function cleGroupePailaEsandi(cleSlot, ligne) {
+  if (!ligne || ligne.usine !== "esandi") return null;
+  const famille = ligne.id.startsWith("e_pf_") ? "paila-fria" : ligne.id.startsWith("e_pc_") ? "paila-caliente" : null;
+  if (!famille) return null;
+  const parties = String(cleSlot || "").split("|");
+  return cleDate(lundiDeLaSemaine(dateDepuisCle(parties[0]))) + "|" + famille + "|" + (parties[2] || "turno");
+}
 function etiquetaCampagneEsandi(ligne) {
   if (!ligne || ligne.usine !== "esandi") return "";
-  if (ligne.id === "e_turr") return "1 producto fijo por turno durante la semana";
-  if (["e_pf", "e_pc"].includes(ligne.id)) return "Hasta 2 productos fijos por turno durante la semana";
-  if (ligne.id === "e_rama") return "1 sabor fijo durante la semana";
-  if (ligne.id === "e_mh") return "1 relleno fijo durante la semana";
+  if (ligne.id === "e_tur") return "Campaña continua de 2 o 3 días, TM y TT";
+  if (["e_pf_g1", "e_pf_g2", "e_pf_c1", "e_pf_c2", "e_pc_auto", "e_pc_manual"].includes(ligne.id)) return "Producto fijo por turno durante la semana";
+  if (ligne.id === "e_rama") return "Mismo sabor durante la jornada; puede cambiar al día siguiente al llegar a verde";
+  if (ligne.id === "e_mh") return "Mismo relleno durante la jornada; puede cambiar al día siguiente al llegar a verde";
   if (["e_crem", "e_bomb"].includes(ligne.id)) return "Mismo producto en TM y TT de la jornada";
   return "";
+}
+function dureeCampagneTurron(produit) {
+  const nom = NORMALISER_REFERENCE(produit && produit.nom);
+  return ["TURRON GIANDUIA", "TURRON ALMENDRA BANADO", "TURRON PISTACHO Y NARANJA", "TURRON NUEZ Y DAMASCO"].some((item) => nom.includes(item)) ? 3 : 2;
+}
+function datesCampagneTurron(dateDebut, duree) {
+  const resultat = [];
+  const date = debutJour(dateDebut);
+  while (resultat.length < duree) {
+    const jour = date.getDay();
+    if (jour >= 1 && jour <= 5) resultat.push(cleDate(date));
+    date.setDate(date.getDate() + 1);
+  }
+  return resultat;
 }
 
 const STORAGE_KEY = "choco-planner-state-v10";
@@ -914,8 +946,9 @@ function htmlEscape(value) {
 }
 function fusionAvecBase(base: any[], sauvegarde: any[]) {
   const parId = new Map(base.map((item) => [item.id, item]));
-  const idsObsoletes = new Set([111, 138, 141, 142, 144, 145, 146, 147, 3050, 3051, 3052, 3053, 3054, 3055, 3056, 3057, 3058, 3059, 3060, 5101, 5201, 5202, 5203]);
+  const idsObsoletes = new Set([11, 108, 111, 138, 141, 142, 144, 145, 146, 147, 3050, 3051, 3052, 3053, 3054, 3055, 3056, 3057, 3058, 3059, 3060, 5101, 5201, 5202, 5203]);
   (Array.isArray(sauvegarde) ? sauvegarde : []).forEach((item) => {
+    if (["e_pf", "e_pc"].includes(item.id)) return;
     if (item.id === "vb_refinado") return;
     if (["f_tabletas_bariloche", "f_franui", "vb_franui_1", "vb_franui_2"].includes(item.id)) return;
     if (idsObsoletes.has(item.id)) return;
@@ -934,6 +967,10 @@ function fusionAvecBase(base: any[], sauvegarde: any[]) {
     if (fusionne.id === "vb_envasado") {
       fusionne.nom = "Envasado";
       fusionne.capacite = 450;
+    }
+    if (baseItem && ["e_pf_g1", "e_pf_g2", "e_pf_c1", "e_pf_c2"].includes(fusionne.id)) {
+      fusionne.nom = baseItem.nom;
+      fusionne.capacite = baseItem.capacite;
     }
     if (baseItem && fusionne.usine === "fatima" && fusionne.id >= 117 && fusionne.id <= 132) {
       fusionne.nom = baseItem.nom;
@@ -981,7 +1018,8 @@ function fusionAvecBase(base: any[], sauvegarde: any[]) {
       fusionne.sku = baseItem.sku || null;
       fusionne.min = baseItem.min;
       fusionne.max = baseItem.max;
-      if (fusionne.id === 78) fusionne.ligne = baseItem.ligne;
+      fusionne.ligne = baseItem.ligne;
+      fusionne.lignesCompatibles = baseItem.lignesCompatibles;
     }
     if (baseItem && fusionne.id === 117) {
       fusionne.usine = "esandi";
@@ -1533,11 +1571,12 @@ export default function PlanificateurChocolat() {
     }
   };
 
-  const calcularMateriasPrimasDia = async (jour) => {
+  const calcularMateriasPrimasPeriodoCorto = async (jours, tipo = "dia") => {
+    const clavesDias = new Set(jours.map((jour) => jour.cle));
     const parProduit = {};
     Object.entries(plan).forEach(([cle, cell]) => {
       const [dt, ligneId] = cle.split("|");
-      if (dt !== jour.cle) return;
+      if (!clavesDias.has(dt)) return;
       const ligne = lignes.find((item) => item.id === ligneId);
       if (!ligne || ligne.usine !== usine) return;
       const bloc = lireBloc(cell, ligne);
@@ -1549,9 +1588,10 @@ export default function PlanificateurChocolat() {
       parProduit[claveProductoLinea].kg += Number(bloc.kg) || 0;
     });
     const items = Object.values(parProduit).sort((a: any, b: any) => a.nom.localeCompare(b.nom));
-    setMateriasDia({ jour, items, cargando: true, resultado: null, resultadosLinea: [], error: "" });
+    const periodo = { tipo, jours, jour: jours[0] };
+    setMateriasDia({ ...periodo, items, cargando: true, resultado: null, resultadosLinea: [], error: "" });
     if (items.length === 0) {
-      setMateriasDia({ jour, items, cargando: false, resultado: null, resultadosLinea: [], error: "No hay producción planificada para este día." });
+      setMateriasDia({ ...periodo, items, cargando: false, resultado: null, resultadosLinea: [], error: tipo === "semana" ? "No hay producción planificada para esta semana." : "No hay producción planificada para este día." });
       return;
     }
     try {
@@ -1574,11 +1614,14 @@ export default function PlanificateurChocolat() {
         solicitarCalculo(items),
         Promise.all(gruposLinea.map(async (grupo: any) => ({ ...grupo, resultado: await solicitarCalculo(grupo.items) }))),
       ]);
-      setMateriasDia({ jour, items, cargando: false, resultado: data, resultadosLinea, error: "" });
+      setMateriasDia({ ...periodo, items, cargando: false, resultado: data, resultadosLinea, error: "" });
     } catch (error) {
-      setMateriasDia({ jour, items, cargando: false, resultado: null, resultadosLinea: [], error: String(error && error.message ? error.message : error) });
+      setMateriasDia({ ...periodo, items, cargando: false, resultado: null, resultadosLinea: [], error: String(error && error.message ? error.message : error) });
     }
   };
+
+  const calcularMateriasPrimasDia = (jour) => calcularMateriasPrimasPeriodoCorto([jour], "dia");
+  const calcularMateriasPrimasSemana = () => calcularMateriasPrimasPeriodoCorto(joursSemaine, "semana");
 
   const agregarProductoCalculadora = () => {
     const producto = produitsUsineTous.find((p) => String(p.id) === String(calculadoraProducto));
@@ -2510,9 +2553,10 @@ export default function PlanificateurChocolat() {
   const ouvrirVersion = async (version) => {
     if (!supabase) return;
     setMsgVersions("Abriendo versión...");
-    const [{ data, error }, { data: reels }] = await Promise.all([
+    const [{ data, error }, { data: reels }, { data: ajustes }] = await Promise.all([
       supabase.from("planning_versions").select("*").eq("id", version.id).single(),
       supabase.from("planning_actuals").select("slot_key, actual_kg, note").eq("planning_version_id", version.id),
+      supabase.from("planning_adjustments").select("slot_key, original_product_id, product_id, planned_kg, reason, updated_by, updated_at").eq("planning_version_id", version.id),
     ]);
     if (error || !data?.snapshot) {
       setMsgVersions(error?.message || "No se pudo abrir la versión.");
@@ -2526,6 +2570,20 @@ export default function PlanificateurChocolat() {
     setStockActuelComparaison(produitsCourants);
     setDateStockActuelComparaison(stockCourantSauve?.dateSource || ultimaFechaStocks || "");
     const planCharge = { ...(snapshot.plan || {}) };
+    (ajustes || []).forEach((ajuste) => {
+      const original = lireBloc(planCharge[ajuste.slot_key], null);
+      if (!ajuste.product_id) delete planCharge[ajuste.slot_key];
+      else planCharge[ajuste.slot_key] = {
+        ...(original || {}),
+        p: ajuste.product_id,
+        kg: Number(ajuste.planned_kg) || 0,
+        raison: ajuste.reason || "Cambio operativo posterior a la congelación",
+        modifiedAfterFreeze: true,
+        originalProductId: ajuste.original_product_id || original?.p || null,
+        modifiedAt: ajuste.updated_at,
+        modifiedBy: ajuste.updated_by,
+      };
+    });
     (reels || []).forEach((reel) => {
       const bloc = lireBloc(planCharge[reel.slot_key], null);
       if (bloc) planCharge[reel.slot_key] = { ...bloc, realKg: reel.actual_kg, note: reel.note || "" };
@@ -2622,15 +2680,15 @@ export default function PlanificateurChocolat() {
     }
   };
 
-  const assigner = (cle, pid) => {
-    if (planningFige || !peutPlanifier) {
-      setMsgVersions("La planificación está congelada o tu perfil es de solo lectura.");
+  const assigner = async (cle, pid) => {
+    if (!peutPlanifier) {
+      setMsgVersions("Tu perfil es de solo lectura.");
       return;
     }
     const ligne = lignes.find((l) => l.id === cle.split("|")[1]);
     const turno = turnoDepuisCle(cle, ligne);
     const date = dateDepuisCle(cle.split("|")[0]);
-    if (pid !== "") {
+    if (pid !== "" && !planningFige) {
       const cleCampagne = cleCampagneEsandi(cle, ligne);
       const conflit = cleCampagne ? Object.entries(plan).find(([autreCle, valeur]) => {
         if (autreCle === cle || autreCle.split("|")[1] !== ligne.id || cleCampagneEsandi(autreCle, ligne) !== cleCampagne) return false;
@@ -2642,23 +2700,86 @@ export default function PlanificateurChocolat() {
         setMsgOpti("Regla de campaña: " + (etiquetaCampagneEsandi(ligne) || "producto fijo") + ". Ya está fijado " + (produitFige?.nom || "otro producto") + " para este período.");
         return;
       }
-    }
-    setPlan((p) => {
-      const np = { ...p };
-      if (pid === "") delete np[cle];
-      else {
-        const actuel = lireBloc(np[cle], ligne);
-        const produit = produits.find((item) => memeId(item.id, pid));
-        np[cle] = { p: Number(pid), kg: kgProduitPourPartTurno(produit, ligne, turno, date, produitsParTurno(ligne)), note: actuel?.note || "" };
+      const cleGroupePaila = cleGroupePailaEsandi(cle, ligne);
+      if (cleGroupePaila) {
+        const produitsFixes = new Set(Object.entries(plan).flatMap(([autreCle, valeur]) => {
+          const autreLigne = lignes.find((item) => item.id === autreCle.split("|")[1]);
+          const bloc = lireBloc(valeur, autreLigne);
+          return cleGroupePailaEsandi(autreCle, autreLigne) === cleGroupePaila && bloc?.p != null ? [String(bloc.p)] : [];
+        }));
+        if (!produitsFixes.has(String(pid)) && produitsFixes.size >= 2) {
+          setMsgOpti("Regla Pailas: ya hay 2 productos fijados para este turno durante la semana.");
+          return;
+        }
       }
+    }
+    const ancienBloc = lireBloc(plan[cle], ligne);
+    const produit = produits.find((item) => memeId(item.id, pid));
+    const produitId = produit ? produit.id : pid;
+    const np = { ...plan };
+    if (pid === "") delete np[cle];
+    else {
+      np[cle] = {
+        p: produitId,
+        kg: kgProduitPourPartTurno(produit, ligne, turno, date, produitsParTurno(ligne)),
+        note: ancienBloc?.note || "",
+        ...(planningFige ? {
+          modifiedAfterFreeze: true,
+          originalProductId: (ancienBloc as any)?.originalProductId || ancienBloc?.p || null,
+          modifiedAt: new Date().toISOString(),
+          modifiedBy: session?.user?.id || null,
+          raison: "Cambio operativo posterior a la congelación",
+        } : {}),
+      };
+    }
+
+    if (!planningFige && ligne?.id === "e_tur" && produit) {
+      datesCampagneTurron(date, dureeCampagneTurron(produit)).forEach((dateCle) => {
+        ["m", "t"].forEach((turnoId) => {
+          const slot = dateCle + "|" + ligne.id + "|" + turnoId;
+          const turnoCampagne = turnosLigne(ligne).find((item) => item.id === turnoId);
+          const actuel = lireBloc(np[slot], ligne);
+          np[slot] = {
+            p: produit.id,
+            kg: kgProduitPourPartTurno(produit, ligne, turnoCampagne, dateDepuisCle(dateCle), 1),
+            note: actuel?.note || "",
+            raison: "Campaña Turrones: " + dureeCampagneTurron(produit) + " días consecutivos en TM y TT",
+          };
+        });
+      });
+    } else {
       const cleTurno = cle.split("|").slice(0, 3).join("|");
       const blocs = clesSousBlocs(cleTurno, ligne).map((slot) => ({ slot, bloc: lireBloc(np[slot], ligne) })).filter((item) => item.bloc && item.bloc.p != null);
       blocs.forEach(({ slot, bloc }) => {
-        const produit = produits.find((item) => memeId(item.id, bloc.p));
-        np[slot] = { ...(np[slot] as any), kg: kgProduitPourPartTurno(produit, ligne, turno, date, blocs.length) };
+        const produitBloc = produits.find((item) => memeId(item.id, bloc.p));
+        np[slot] = { ...(np[slot] as any), kg: kgProduitPourPartTurno(produitBloc, ligne, turno, date, blocs.length) };
       });
-      return np;
-    });
+    }
+    setPlan(np);
+
+    if (planningFige && supabase && versionActive?.id && session?.user) {
+      const blocModifie = lireBloc(np[cle], ligne);
+      const { error } = await supabase.from("planning_adjustments").upsert({
+        planning_version_id: versionActive.id,
+        slot_key: cle,
+        original_product_id: String((ancienBloc as any)?.originalProductId || ancienBloc?.p || "") || null,
+        product_id: blocModifie?.p != null ? String(blocModifie.p) : null,
+        planned_kg: Number(blocModifie?.kg) || 0,
+        reason: "Cambio operativo posterior a la congelación",
+        updated_by: session.user.id,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: "planning_version_id,slot_key" });
+      if (error) {
+        setMsgVersions(error.message.includes("planning_adjustments") ? "Falta ejecutar supabase/planning-adjustments.sql para guardar cambios sobre versiones congeladas." : error.message);
+        return;
+      }
+      await enregistrerAudit("planning_adjusted_after_freeze", versionActive.id, {
+        slot_key: cle,
+        original_product_id: ancienBloc?.p || null,
+        product_id: blocModifie?.p || null,
+      });
+      setMsgVersions("Cambio operativo guardado sobre la versión congelada.");
+    }
   };
 
   const majRealKg = (cle, valeur) => {
@@ -2831,11 +2952,18 @@ export default function PlanificateurChocolat() {
     const derniereFamilleParLigne = {};
     const prioritesActives = prioritesProduction.filter((regle) => regle.active && regle.factory_id === usine);
     const produitsCampagneParCle = new Map();
+    const produitsPailaParGroupe = new Map();
+    const campagnesTurronParDate = new Map();
     Object.entries(nouveauPlan).forEach(([cleExistante, valeur]) => {
       const ligneExistante = lignes.find((item) => item.id === cleExistante.split("|")[1]);
       const cleCampagne = cleCampagneEsandi(cleExistante, ligneExistante);
       const bloc = lireBloc(valeur, ligneExistante);
       if (cleCampagne && bloc && bloc.p != null && !produitsCampagneParCle.has(cleCampagne)) produitsCampagneParCle.set(cleCampagne, bloc.p);
+      const cleGroupePaila = cleGroupePailaEsandi(cleExistante, ligneExistante);
+      if (cleGroupePaila && bloc && bloc.p != null) {
+        if (!produitsPailaParGroupe.has(cleGroupePaila)) produitsPailaParGroupe.set(cleGroupePaila, new Set());
+        produitsPailaParGroupe.get(cleGroupePaila).add(String(bloc.p));
+      }
     });
     datesHorizon.forEach((jour, jourIndex) => {
       produitsUsine.forEach((p) => { if (estConfigure(p)) stockSim[p.id] -= demandeJour(p); });
@@ -2867,8 +2995,12 @@ export default function PlanificateurChocolat() {
           let meilleureRegle = null;
           const joursRestantsHorizon = Math.max(0, datesHorizon.length - jourIndex - 1);
           const cleCampagne = cleCampagneEsandi(cleExistante, ligne);
-          const produitCampagneId = cleCampagne ? produitsCampagneParCle.get(cleCampagne) : null;
-          const produitsEligibles = produitCampagneId != null ? prods.filter((p) => memeId(p.id, produitCampagneId)) : prods;
+          const produitTurronForceId = ligne.id === "e_tur" ? campagnesTurronParDate.get(jour.cle) : null;
+          const produitCampagneId = produitTurronForceId != null ? produitTurronForceId : (cleCampagne ? produitsCampagneParCle.get(cleCampagne) : null);
+          const cleGroupePaila = cleGroupePailaEsandi(cleExistante, ligne);
+          const produitsPailaFixes = cleGroupePaila ? produitsPailaParGroupe.get(cleGroupePaila) : null;
+          const produitsSelonPaila = produitsPailaFixes && produitsPailaFixes.size >= 2 ? prods.filter((p) => produitsPailaFixes.has(String(p.id))) : prods;
+          const produitsEligibles = produitCampagneId != null ? produitsSelonPaila.filter((p) => memeId(p.id, produitCampagneId)) : produitsSelonPaila;
           if (!frascoCampana) produitsEligibles.forEach((p) => {
             if (clesTurno.some((slot) => { const existant = lireBloc(nouveauPlan[slot], ligne); return existant && memeId(existant.p, p.id); })) return;
             const s = seuils(p);
@@ -2879,7 +3011,7 @@ export default function PlanificateurChocolat() {
             const urgence = plancher - stockProjeteFin; // anticipe le risque jusqu'à la fin de période
             const campanaCandidata = campanaFrascos.find((item) => memeId(item.producto.id, p.id));
             if (campanaCandidata && stockSim[p.id] >= s.min && stockProjeteFin >= s.min) return;
-            if (urgence <= 0) return;
+            if (urgence <= 0 && produitCampagneId == null) return;
             const deficitMax = Math.max(0, s.max - stockSim[p.id]);
             const bonusRouge = stockSim[p.id] < s.min ? 1000000000 + (s.min - stockSim[p.id]) * 100000 : 0;
             const bonusRougeFin = stockProjeteFin < s.min ? 100000000 + (s.min - stockProjeteFin) * 10000 : 0;
@@ -2910,7 +3042,15 @@ export default function PlanificateurChocolat() {
             blocsSansBesoin++;
             return;
           }
+          if (ligne.id === "e_tur" && produitTurronForceId == null) {
+            const duree = dureeCampagneTurron(meilleur);
+            datesCampagneTurron(jour.date, duree).forEach((dateCle) => campagnesTurronParDate.set(dateCle, meilleur.id));
+          }
           if (cleCampagne && !produitsCampagneParCle.has(cleCampagne)) produitsCampagneParCle.set(cleCampagne, meilleur.id);
+          if (cleGroupePaila) {
+            if (!produitsPailaParGroupe.has(cleGroupePaila)) produitsPailaParGroupe.set(cleGroupePaila, new Set());
+            produitsPailaParGroupe.get(cleGroupePaila).add(String(meilleur.id));
+          }
           if (!frascoCampana) {
             const campanaSeleccionada = campanaFrascos.find((item) => memeId(item.producto.id, meilleur.id) && item.restanteKg > 0.01);
             if (campanaSeleccionada) {
@@ -2925,7 +3065,7 @@ export default function PlanificateurChocolat() {
           const stockProjeteFinPlein = stockProjeteFinAvant + kgb_ligne / kgpb;
           const limitePleinRaisonnable = s.max * 1.1;
           const kgPourFinirAuMaximum = Math.max(0, (s.max - stockProjeteFinAvant) * kgpb);
-          const doitAjuster = !frascoCampana && stockProjeteFinPlein > limitePleinRaisonnable && kgPourFinirAuMaximum > 0;
+          const doitAjuster = !frascoCampana && ligne.id !== "e_tur" && stockProjeteFinPlein > limitePleinRaisonnable && kgPourFinirAuMaximum > 0;
           const kgProduit = frascoCampana
             ? Math.min(kgb_ligne, frascoCampana.restanteKg)
             : (doitAjuster ? Math.min(kgb_ligne, kgPourFinirAuMaximum) : kgb_ligne);
@@ -2934,6 +3074,8 @@ export default function PlanificateurChocolat() {
           const famille = familleProduit(meilleur);
           const raisonPriorite = frascoCampana
             ? "Lote mínimo mensual de esta variedad de Frasco, activado por necesidad de stock"
+            : ligne.id === "e_tur"
+            ? "Campaña Turrones: " + dureeCampagneTurron(meilleur) + " días consecutivos en TM y TT"
             : cleCampagne
             ? "Campaña fijada: " + etiquetaCampagneEsandi(ligne)
             : (derniereFamilleParLigne[ligne.id] === famille)
@@ -3078,6 +3220,7 @@ export default function PlanificateurChocolat() {
     const nbCols = Math.max(ligneNoms.length, ligneMax.length, ligneMin.length, ligneStock.length, ligneSku.length, ...rows.map((ligne) => ligne.length));
     for (let c = debut; c < nbCols; c++) {
       const nom = normaliser(ligneNoms[c]); if (!nom) continue;
+      if (usine === "esandi" && ["CAFE TOSTADO CONFI X 1 KG", "TURRON NUEZ"].includes(NORMALISER_REFERENCE(nom))) { ignores++; continue; }
       const sku = normaliser(ligneSku[c]);
       const lectureStock = derniereValeurStock(c);
       const vMax = parseNum(ligneMax[c]), vMin = parseNum(ligneMin[c]), vStock = lectureStock.valeur;
@@ -3665,11 +3808,11 @@ export default function PlanificateurChocolat() {
         capacidad_en_kg_por_turno: true,
         zona_verde_desde: "minimo x 1.5",
         campanas_esandi: {
-          Turrones: "Un producto fijo en TM y otro producto fijo en TT durante toda la semana; el turno puede quedar vacio si el objetivo ya esta cubierto.",
-          "Paila Fria": "Hasta dos productos fijos en TM y dos productos fijos en TT durante toda la semana; los espacios sin necesidad quedan vacios.",
-          "Paila Caliente": "Hasta dos garrapinadas fijas en TM y dos fijas en TT durante toda la semana; los espacios sin necesidad quedan vacios.",
-          Rama: "Un unico sabor durante toda la semana, tanto en TM como en TT; se permiten sus formatos compatibles a granel o para surtido.",
-          "Mini Huevos": "Un unico relleno durante toda la semana, tanto en TM como en TT.",
+          Turrones: "Gianduia, Almendra Banado, Pistacho y Naranja y Nuez y Damasco se producen 3 dias laborables consecutivos en TM y TT. Los otros Turrones se producen 2 dias consecutivos en TM y TT.",
+          "Paila Fria": "Cuatro maquinas independientes: Paila Grande 1 y 2 a 120 kg/turno; Paila Chica 1 y 2 a 90 kg/turno. Cada maquina puede activarse o desactivarse.",
+          "Paila Caliente": "Dos maquinas independientes: Paila Automatica y Paila Manual a 87,5 kg/turno cada una. Cada maquina puede activarse o desactivarse.",
+          Rama: "El mismo sabor se mantiene durante la jornada; al quedar verde puede comenzar otro producto al dia siguiente.",
+          "Mini Huevos": "El mismo relleno se mantiene durante la jornada; al quedar verde puede comenzar otro producto al dia siguiente.",
           Cremino: "El mismo producto durante toda la jornada, en TM y TT; puede cambiar al dia siguiente.",
           Bombonera: "El mismo producto durante toda la jornada, en TM y TT; puede cambiar al dia siguiente.",
         },
@@ -4657,7 +4800,10 @@ export default function PlanificateurChocolat() {
           <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-4">
             <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
               <button onClick={() => changerSemaine(-1)} className="px-3 py-1 bg-violet-100 rounded-lg hover:bg-violet-200 text-violet-900">← Semana ant.</button>
-              <div className="font-semibold text-violet-900">Semana del {fmtDate(joursSemaine[0].date)} al {fmtDate(joursSemaine[5].date)}</div>
+              <div className="flex items-center gap-2 font-semibold text-violet-900">
+                <span>Semana del {fmtDate(joursSemaine[0].date)} al {fmtDate(joursSemaine[5].date)}</span>
+                <button type="button" onClick={calcularMateriasPrimasSemana} className="inline-flex h-8 items-center gap-1 rounded border border-emerald-200 bg-emerald-50 px-2 text-xs font-semibold text-emerald-800 hover:bg-emerald-100" title="Ver materias primas necesarias para toda la semana">🧾 MP semana</button>
+              </div>
               <button onClick={() => changerSemaine(1)} className="px-3 py-1 bg-violet-100 rounded-lg hover:bg-violet-200 text-violet-900">Semana sig. →</button>
             </div>
             <div className="flex items-center gap-2 mb-3 flex-wrap">
@@ -4743,11 +4889,12 @@ export default function PlanificateurChocolat() {
                                 const bultos = (b && kgpb) ? kgEff / kgpb : 0;
                                 const ecartKg = b && b.realKg != null && b.realKg !== "" ? kgEff - b.kg : null;
                                 const zone = prod ? etiquetaZonaProducto(prod) : "";
+                                const produitAvantModification = (b as any)?.modifiedAfterFreeze ? produits.find((p) => memeId(p.id, (b as any).originalProductId)) : null;
                                 return (
                                   <div key={cle} className="mb-1" onDragOver={(e) => e.preventDefault()} onDrop={() => onDrop(cle)}>
                                     {enEdition ? (
                                       <div className="rounded-lg border border-violet-300 bg-white p-1.5 shadow-sm">
-                                        <select autoFocus disabled={planningFige || !peutPlanifier} className="w-full disabled:bg-slate-100 text-xs border rounded p-1" value={b ? b.p : ""} onChange={(e) => assigner(cle, e.target.value)}>
+                                        <select autoFocus disabled={!peutPlanifier} className="w-full disabled:bg-slate-100 text-xs border rounded p-1" value={b ? b.p : ""} onChange={(e) => assigner(cle, e.target.value)}>
                                           <option value="">— vacío —</option>
                                           {produits.filter((p) => produitCompatibleLigne(p, ligne.id) && estConfigure(p)).map((p) => <option key={p.id} value={p.id}>{optionProduitPlanning(p)}</option>)}
                                         </select>
@@ -4776,7 +4923,7 @@ export default function PlanificateurChocolat() {
                                       </div>
                                     ) : (
                                       <div draggable={!!prod && !planningFige && peutPlanifier} onDragStart={() => setDragKey(cle)} onClick={() => setSelection(cle)} title={b ? "Plan: " + fmtNb(b.kg) + " kg" + (b.realKg != null && b.realKg !== "" ? " · Real: " + fmtNb(kgEff) + " kg" : "") + (kgpb ? " · ≈ " + fmtNb(bultos) + " bultos" : " · conversión faltante") + (etatBloc ? " · " + (etatBloc.actuel ? "stock actual: " : "stock despues del bloque: ") + fmtNb(etatBloc.stock) + " (" + etatBloc.label + ")" : "") + ((b as any).raison ? " · " + (b as any).raison : "") + (b.note ? " · Nota: " + b.note : "") : ""}
-                                        className={"w-full text-xs rounded p-1.5 border-2 text-left min-h-10 transition cursor-pointer " + (prod ? pal.clair + " " + pal.bordure + " " + pal.texte + " font-medium" : "bg-gray-50 border-dashed border-gray-300 text-gray-400 hover:bg-gray-100") + (dragKey === cle ? " opacity-40" : "")}>
+                                        className={"w-full text-xs rounded p-1.5 border-2 text-left min-h-10 transition cursor-pointer " + ((b as any)?.modifiedAfterFreeze ? "bg-orange-100 border-orange-500 text-orange-950 font-medium ring-2 ring-orange-200" : prod ? pal.clair + " " + pal.bordure + " " + pal.texte + " font-medium" : "bg-gray-50 border-dashed border-gray-300 text-gray-400 hover:bg-gray-100") + (dragKey === cle ? " opacity-40" : "")}>
                                         <span className="flex items-center justify-between">
                                           <span className="text-[10px] opacity-60">{turno.nom}{produitsParTurno(ligne) > 1 ? " · " + (sousIndex + 1) + "/" + produitsParTurno(ligne) : ""}</span>
                                           <span className="flex items-center gap-1">
@@ -4786,6 +4933,7 @@ export default function PlanificateurChocolat() {
                                         </span>
                                         {prod ? <><span>{prod.nom}</span>{zone && <span className="ml-1 px-1 rounded bg-white/70 text-[10px]">{zone}</span>}</> : "+ asignar"}
                                         {prod && <span className="block text-[10px] opacity-60">Plan {fmtNb(b.kg)} kg{b.realKg != null && b.realKg !== "" ? " · Real " + fmtNb(kgEff) + " kg" + (ecartKg ? " (" + (ecartKg > 0 ? "+" : "") + fmtNb(ecartKg) + ")" : "") : ""}{kgpb ? " · " + fmtNb(bultos) + " blt" : ""}</span>}
+                                        {(b as any)?.modifiedAfterFreeze && <span className="mt-1 block border-t border-orange-300 pt-1 text-[10px] font-bold text-orange-800">Modificado después de congelar{produitAvantModification ? " · Antes: " + produitAvantModification.nom : ""}</span>}
                                         {prod && b.note && <span className="mt-1 block border-t border-current/15 pt-1 text-[10px] font-normal opacity-75 line-clamp-2">Nota: {b.note}</span>}
                                       </div>
                                     )}
@@ -4813,7 +4961,7 @@ export default function PlanificateurChocolat() {
             <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
               <div>
                 <h2 className="text-lg font-semibold text-violet-950">Versiones de planificación</h2>
-                <p className="text-sm text-slate-500">Los planes aprobados quedan congelados. La producción real y las notas se registran por separado.</p>
+                <p className="text-sm text-slate-500">Los planes aprobados conservan su snapshot original. Admin y planner pueden registrar ajustes operativos posteriores, visibles en naranja y auditados por separado.</p>
               </div>
               {cloudUtilisateurActif && <button onClick={() => chargerVersions()} className="px-3 py-2 border border-slate-300 rounded-lg text-sm hover:bg-slate-50">Actualizar lista</button>}
             </div>
@@ -5570,14 +5718,14 @@ export default function PlanificateurChocolat() {
           <div className="flex max-h-[88vh] w-full max-w-4xl flex-col overflow-hidden rounded-lg bg-white shadow-2xl">
             <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
               <div>
-                <h2 className="text-lg font-bold text-violet-950">Materias primas del día</h2>
-                <p className="text-sm text-slate-500">{usineActive ? usineActive.nom : usine} · {materiasDia.jour.nom} {fmtDate(materiasDia.jour.date)}</p>
+                <h2 className="text-lg font-bold text-violet-950">{materiasDia.tipo === "semana" ? "Materias primas de la semana" : "Materias primas del día"}</h2>
+                <p className="text-sm text-slate-500">{usineActive ? usineActive.nom : usine} · {materiasDia.tipo === "semana" ? `Semana del ${fmtDate(materiasDia.jours[0].date)} al ${fmtDate(materiasDia.jours[materiasDia.jours.length - 1].date)}` : `${materiasDia.jour.nom} ${fmtDate(materiasDia.jour.date)}`}</p>
               </div>
               <button type="button" onClick={() => setMateriasDia(null)} className="h-9 w-9 rounded-full text-xl text-slate-500 hover:bg-slate-100" title="Cerrar">×</button>
             </div>
             <div className="overflow-y-auto p-5">
               {materiasDia.cargando ? (
-                <p className="py-12 text-center text-emerald-700">Calculando necesidades del día...</p>
+                <p className="py-12 text-center text-emerald-700">{materiasDia.tipo === "semana" ? "Calculando necesidades de la semana..." : "Calculando necesidades del día..."}</p>
               ) : materiasDia.error ? (
                 <div className="rounded border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">{materiasDia.error}</div>
               ) : (

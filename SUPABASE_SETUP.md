@@ -5,6 +5,7 @@
 1. Creer un projet sur Supabase.
 2. Ouvrir `SQL Editor`.
 3. Coller et executer tout le fichier `supabase/schema.sql`.
+4. Executer aussi `supabase/planning-adjustments.sql` pour autoriser les changements operationnels traces sur les versions congelees.
 
 ## 2. Creer le premier utilisateur
 
@@ -50,4 +51,3 @@ par les politiques RLS du fichier SQL.
 7. Saisir `Real kg` et une `Nota del turno`.
 8. Recharger la page puis rouvrir la version : le reel et la note doivent rester.
 9. Cliquer sur `Compartir` et tester le lien avec un utilisateur `viewer`.
-

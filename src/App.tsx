@@ -7,7 +7,7 @@ import {
   ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts";
 
-const APP_VERSION = "2026.08.04-versiones-con-cambios-y-gomettes";
+const APP_VERSION = "2026.08.05-refresh-stock-directo";
 const PORTAIL_EMAIL_ACTIF = true;
 
 const PALETTE = [
@@ -1058,6 +1058,7 @@ export default function PlanificateurChocolat() {
   const [capNouvelleLigne, setCapNouvelleLigne] = useState(500);
   const [texteImport, setTexteImport] = useState("");
   const [msgImport, setMsgImport] = useState("");
+  const [actualisationGoogleEnCours, setActualisationGoogleEnCours] = useState(false);
   const [ultimaFechaStocks, setUltimaFechaStocks] = useState("");
   const [stockActuelComparaison, setStockActuelComparaison] = useState<any[]>([]);
   const [dateStockActuelComparaison, setDateStockActuelComparaison] = useState("");
@@ -2775,31 +2776,6 @@ export default function PlanificateurChocolat() {
     const ligne = lignes.find((l) => l.id === cle.split("|")[1]);
     const turno = turnoDepuisCle(cle, ligne);
     const date = dateDepuisCle(cle.split("|")[0]);
-    if (pid !== "" && !planningFige) {
-      const cleCampagne = cleCampagneEsandi(cle, ligne);
-      const conflit = cleCampagne ? Object.entries(plan).find(([autreCle, valeur]) => {
-        if (autreCle === cle || autreCle.split("|")[1] !== ligne.id || cleCampagneEsandi(autreCle, ligne) !== cleCampagne) return false;
-        const bloc = lireBloc(valeur, ligne);
-        return bloc && bloc.p != null && !memeId(bloc.p, pid);
-      }) : null;
-      if (conflit) {
-        const produitFige = produits.find((item) => memeId(item.id, lireBloc(conflit[1], ligne)?.p));
-        setMsgOpti("Regla de campaña: " + (etiquetaCampagneEsandi(ligne) || "producto fijo") + ". Ya está fijado " + (produitFige?.nom || "otro producto") + " para este período.");
-        return;
-      }
-      const cleGroupePaila = cleGroupePailaEsandi(cle, ligne);
-      if (cleGroupePaila) {
-        const produitsFixes = new Set(Object.entries(plan).flatMap(([autreCle, valeur]) => {
-          const autreLigne = lignes.find((item) => item.id === autreCle.split("|")[1]);
-          const bloc = lireBloc(valeur, autreLigne);
-          return cleGroupePailaEsandi(autreCle, autreLigne) === cleGroupePaila && bloc?.p != null ? [String(bloc.p)] : [];
-        }));
-        if (!produitsFixes.has(String(pid)) && produitsFixes.size >= 2) {
-          setMsgOpti("Regla Pailas: ya hay 2 productos fijados para este turno durante la semana.");
-          return;
-        }
-      }
-    }
     const ancienBloc = lireBloc(plan[cle], ligne);
     const produit = produits.find((item) => memeId(item.id, pid));
     const produitId = produit ? produit.id : pid;
@@ -2820,28 +2796,12 @@ export default function PlanificateurChocolat() {
       };
     }
 
-    if (!planningFige && ligne?.id === "e_tur" && produit) {
-      datesCampagneTurron(date, dureeCampagneTurron(produit)).forEach((dateCle) => {
-        ["m", "t"].forEach((turnoId) => {
-          const slot = dateCle + "|" + ligne.id + "|" + turnoId;
-          const turnoCampagne = turnosLigne(ligne).find((item) => item.id === turnoId);
-          const actuel = lireBloc(np[slot], ligne);
-          np[slot] = {
-            p: produit.id,
-            kg: kgProduitPourPartTurno(produit, ligne, turnoCampagne, dateDepuisCle(dateCle), 1),
-            note: actuel?.note || "",
-            raison: "Campaña Turrones: " + dureeCampagneTurron(produit) + " días consecutivos en TM y TT",
-          };
-        });
-      });
-    } else {
-      const cleTurno = cle.split("|").slice(0, 3).join("|");
-      const blocs = clesSousBlocs(cleTurno, ligne).map((slot) => ({ slot, bloc: lireBloc(np[slot], ligne) })).filter((item) => item.bloc && item.bloc.p != null);
-      blocs.forEach(({ slot, bloc }) => {
-        const produitBloc = produits.find((item) => memeId(item.id, bloc.p));
-        np[slot] = { ...(np[slot] as any), kg: kgProduitPourPartTurno(produitBloc, ligne, turno, date, blocs.length) };
-      });
-    }
+    const cleTurno = cle.split("|").slice(0, 3).join("|");
+    const blocs = clesSousBlocs(cleTurno, ligne).map((slot) => ({ slot, bloc: lireBloc(np[slot], ligne) })).filter((item) => item.bloc && item.bloc.p != null);
+    blocs.forEach(({ slot, bloc }) => {
+      const produitBloc = produits.find((item) => memeId(item.id, bloc.p));
+      np[slot] = { ...(np[slot] as any), kg: kgProduitPourPartTurno(produitBloc, ligne, turno, date, blocs.length) };
+    });
     setPlan(np);
 
     if (planningFige && supabase && versionActive?.id && session?.user) {
@@ -3466,6 +3426,15 @@ export default function PlanificateurChocolat() {
       .filter(Boolean)
       .join(" · ") : "";
     setMsgImport("Google Sheets actualizado: " + messages.join(" · ") + (erreurs.length ? " · No cargado: " + erreurs.join(", ") : "") + (controlBarrasGoogle ? " · Control Barras: " + controlBarrasGoogle + "." : "") + " Los datos de MC tienen prioridad para sus productos. Planning conservado sin recalcular.");
+  };
+  const lancerActualisationGoogle = async () => {
+    if (actualisationGoogleEnCours) return;
+    setActualisationGoogleEnCours(true);
+    try {
+      await actualiserStocksGoogle();
+    } finally {
+      setActualisationGoogleEnCours(false);
+    }
   };
 
   const exporterExcel = () => {
@@ -4988,8 +4957,8 @@ export default function PlanificateurChocolat() {
                                 return (
                                   <div key={cle} className="mb-1" onDragOver={(e) => e.preventDefault()} onDrop={() => onDrop(cle)}>
                                     {enEdition ? (
-                                      <div className={"rounded-lg border bg-white p-1.5 shadow-sm " + (planningFige ? "border-red-500 ring-2 ring-red-200" : "border-violet-300")}>
-                                        {planningFige && peutPlanifier && <div className="mb-1 rounded bg-red-50 px-2 py-1 text-[10px] font-bold text-red-700">Cambio sobre planificación congelada</div>}
+                                      <div className={"rounded-lg border bg-white p-1.5 shadow-sm " + (planningFige ? "border-fuchsia-600 ring-2 ring-fuchsia-200" : "border-violet-300")}>
+                                        {planningFige && peutPlanifier && <div className="mb-1 rounded bg-fuchsia-50 px-2 py-1 text-[10px] font-bold text-fuchsia-800">Cambio sobre planificación congelada</div>}
                                         <select autoFocus disabled={!peutPlanifier} className="w-full disabled:bg-slate-100 text-xs border rounded p-1" value={b ? b.p : ""} onChange={(e) => assigner(cle, e.target.value)}>
                                           <option value="">— vacío —</option>
                                           {produits.filter((p) => produitCompatibleLigne(p, ligne.id) && (planningFige || estConfigure(p))).map((p) => <option key={p.id} value={p.id}>{optionProduitPlanning(p)}</option>)}
@@ -5019,7 +4988,7 @@ export default function PlanificateurChocolat() {
                                       </div>
                                     ) : (
                                       <div draggable={!!prod && !planningFige && peutPlanifier} onDragStart={() => setDragKey(cle)} onClick={() => setSelection(cle)} title={b ? "Plan: " + fmtNb(b.kg) + " kg" + (b.realKg != null && b.realKg !== "" ? " · Real: " + fmtNb(kgEff) + " kg" : "") + (kgpb ? " · ≈ " + fmtNb(bultos) + " bultos" : " · conversión faltante") + (etatBloc ? " · " + (etatBloc.actuel ? "stock actual: " : "stock despues del bloque: ") + fmtNb(etatBloc.stock) + " (" + etatBloc.label + ")" : "") + ((b as any).raison ? " · " + (b as any).raison : "") + (b.note ? " · Nota: " + b.note : "") : ""}
-                                        className={"relative w-full text-xs rounded p-1.5 border-2 text-left min-h-10 transition cursor-pointer " + ((b as any)?.modifiedAfterFreeze ? "bg-red-100 border-red-600 text-red-950 font-semibold ring-4 ring-red-200" : prod ? pal.clair + " " + pal.bordure + " " + pal.texte + " font-medium" : "bg-gray-50 border-dashed border-gray-300 text-gray-400 hover:bg-gray-100") + (dragKey === cle ? " opacity-40" : "")}>
+                                        className={"relative w-full text-xs rounded p-1.5 border-2 text-left min-h-10 transition cursor-pointer " + ((b as any)?.modifiedAfterFreeze ? "bg-fuchsia-100 border-fuchsia-700 text-fuchsia-950 font-semibold ring-4 ring-fuchsia-300" : prod ? pal.clair + " " + pal.bordure + " " + pal.texte + " font-medium" : "bg-gray-50 border-dashed border-gray-300 text-gray-400 hover:bg-gray-100") + (dragKey === cle ? " opacity-40" : "")}>
                                         {planningFige && peutPlanifier && <button type="button" onClick={(e) => { e.stopPropagation(); setSelection(cle); }} className="absolute left-1 top-1 flex h-5 w-5 items-center justify-center rounded text-[12px] font-normal text-slate-400 transition hover:bg-white/80 hover:text-violet-700 focus:outline-none focus:ring-2 focus:ring-violet-300" title="Cambiar producto" aria-label="Cambiar producto">✎</button>}
                                         <span className={"flex items-center justify-between " + (planningFige && peutPlanifier ? "pl-5" : "")}>
                                           <span className="text-[10px] opacity-60">{turno.nom}{produitsParTurno(ligne) > 1 ? " · " + (sousIndex + 1) + "/" + produitsParTurno(ligne) : ""}</span>
@@ -5031,7 +5000,7 @@ export default function PlanificateurChocolat() {
                                         </span>
                                         {prod ? <><span>{prod.nom}</span>{zone && <span className="ml-1 px-1 rounded bg-white/70 text-[10px]">{zone}</span>}</> : "+ asignar"}
                                         {prod && <span className="block text-[10px] opacity-60">Plan {fmtNb(b.kg)} kg{b.realKg != null && b.realKg !== "" ? " · Real " + fmtNb(kgEff) + " kg" + (ecartKg ? " (" + (ecartKg > 0 ? "+" : "") + fmtNb(ecartKg) + ")" : "") : ""}{kgpb ? " · " + fmtNb(bultos) + " blt" : ""}</span>}
-                                        {(b as any)?.modifiedAfterFreeze && <span className="mt-1 block border-t border-red-400 pt-1 text-[10px] font-extrabold text-red-800">CAMBIO POSTERIOR AL CONGELADO{produitAvantModification ? " · Antes: " + produitAvantModification.nom : ""}</span>}
+                                        {(b as any)?.modifiedAfterFreeze && <span className="mt-1 block border-t border-fuchsia-500 pt-1 text-[10px] font-extrabold text-fuchsia-900">CAMBIO POSTERIOR AL CONGELADO{produitAvantModification ? " · Antes: " + produitAvantModification.nom : ""}</span>}
                                         {prod && b.note && <span className="mt-1 block border-t border-current/15 pt-1 text-[10px] font-normal opacity-75 line-clamp-2">Nota: {b.note}</span>}
                                       </div>
                                     )}
@@ -5207,13 +5176,18 @@ export default function PlanificateurChocolat() {
           <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-4">
             <div className="flex flex-wrap items-center justify-between gap-3 mb-2">
               <h2 className="font-semibold text-violet-900">Estado de stocks (en bultos) — {usineActive ? usineActive.nom : ""}</h2>
-              <div className="flex items-center gap-3 text-xs text-gray-500">
+              <div className="flex flex-wrap items-center justify-end gap-3 text-xs text-gray-500">
+                <button type="button" onClick={lancerActualisationGoogle} disabled={actualisationGoogleEnCours || !GOOGLE_STOCK_GIDS[usine]} className="inline-flex items-center gap-1.5 rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 font-semibold text-sky-800 transition hover:border-sky-300 hover:bg-sky-100 disabled:cursor-not-allowed disabled:opacity-50" title="Actualizar el stock desde Google Sheets sin modificar el planning">
+                  <span className={actualisationGoogleEnCours ? "inline-block animate-spin" : ""}>↻</span>
+                  {actualisationGoogleEnCours ? "Actualizando..." : (usine === "vb" ? "Actualizar stock VB + MC" : "Actualizar stock")}
+                </button>
                 <span className="font-medium">{produitsEtatStocks.filter(estConfigure).length} configurado(s)</span>
                 <span>· {produitsEtatStocks.filter((p) => !estConfigure(p)).length} sin mín./máx.</span>
                 <label className="flex items-center gap-1 cursor-pointer select-none text-violet-800"><input type="checkbox" checked={masquerNonConfig} onChange={(e) => setMasquerNonConfig(e.target.checked)} />Ocultar sin mín./máx.</label>
               </div>
             </div>
             {stockActuelComparaison.length > 0 && <div className="mb-3 rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-sm text-sky-900"><strong>Stock actual mostrado:</strong> datos cargados el {dateStockActuelComparaison || ultimaFechaStocks || "día de la última importación"}.{planningFige ? " La versión aprobada continúa congelada y se compara por separado." : " Estos son los valores utilizados por el módulo."}</div>}
+            {msgImport && <div className="mb-3 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">{msgImport}</div>}
             <Legende />
             {[...lignesUsine.map((l) => ({ ligne: l, prods: produitsEtatStocks.filter((p) => p.ligne === l.id) })), { ligne: null, prods: produitsEtatStocksNonAssignes }]
               .map((g) => ({ ...g, prods: masquerNonConfig ? g.prods.filter(estConfigure) : g.prods }))
@@ -5642,8 +5616,8 @@ export default function PlanificateurChocolat() {
               <p className="text-xs text-gray-500 mb-2">Valores en <strong>bultos</strong>: nombres, luego Stock máx., Stock mín., y la última línea con fecha = stock del día.</p>
               <textarea className="w-full border rounded-lg p-2 text-sm h-40 font-mono" placeholder="(pega aquí todo el contenido de la pestaña)" value={texteImport} onChange={(e) => setTexteImport(e.target.value)} />
               <div className="mt-2 flex flex-wrap gap-2">
-                <button onClick={actualiserStocksGoogle} className="px-4 py-2 bg-sky-700 text-white rounded-lg text-sm hover:bg-sky-800">
-                  {usine === "vb" ? "Actualizar VB + MC desde Google Sheets" : "Actualizar desde Google Sheets"}
+                <button onClick={lancerActualisationGoogle} disabled={actualisationGoogleEnCours} className="px-4 py-2 bg-sky-700 text-white rounded-lg text-sm hover:bg-sky-800 disabled:cursor-not-allowed disabled:opacity-60">
+                  {actualisationGoogleEnCours ? "Actualizando..." : (usine === "vb" ? "Actualizar VB + MC desde Google Sheets" : "Actualizar desde Google Sheets")}
                 </button>
                 <button onClick={actualiserStocksUsine} className="px-4 py-2 bg-emerald-700 text-white rounded-lg text-sm hover:bg-emerald-800">Actualizar stocks y conservar planning</button>
                 <button onClick={importerFeuilleUsine} className="px-4 py-2 bg-violet-800 text-white rounded-lg text-sm hover:bg-violet-900">Importar base para {usineActive ? usineActive.nom : ""}</button>

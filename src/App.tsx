@@ -7,7 +7,7 @@ import {
   ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts";
 
-const APP_VERSION = "2026.08.05-inicio-vacio";
+const APP_VERSION = "2026.08.05-cambios-orange";
 const PORTAIL_EMAIL_ACTIF = true;
 
 const PALETTE = [
@@ -4976,8 +4976,8 @@ export default function PlanificateurChocolat() {
                                 return (
                                   <div key={cle} className="mb-1" onDragOver={(e) => e.preventDefault()} onDrop={() => onDrop(cle)}>
                                     {enEdition ? (
-                                      <div className={"rounded-lg border bg-white p-1.5 shadow-sm " + (planningFige ? "border-fuchsia-600 ring-2 ring-fuchsia-200" : "border-violet-300")}>
-                                        {planningFige && peutPlanifier && <div className="mb-1 rounded bg-fuchsia-50 px-2 py-1 text-[10px] font-bold text-fuchsia-800">Cambio sobre planificación congelada</div>}
+                                      <div className={"rounded-lg border bg-white p-1.5 shadow-sm " + (planningFige ? "border-orange-500 ring-2 ring-orange-200" : "border-violet-300")}>
+                                        {planningFige && peutPlanifier && <div className="mb-1 rounded bg-orange-50 px-2 py-1 text-[10px] font-bold text-orange-800">Cambio sobre planificación congelada</div>}
                                         <select autoFocus disabled={!peutPlanifier} className="w-full disabled:bg-slate-100 text-xs border rounded p-1" value={b ? b.p : ""} onChange={(e) => assigner(cle, e.target.value)}>
                                           <option value="">— vacío —</option>
                                           {produits.filter((p) => produitCompatibleLigne(p, ligne.id) && (planningFige || estConfigure(p))).map((p) => <option key={p.id} value={p.id}>{optionProduitPlanning(p)}</option>)}
@@ -5007,7 +5007,7 @@ export default function PlanificateurChocolat() {
                                       </div>
                                     ) : (
                                       <div draggable={!!prod && !planningFige && peutPlanifier} onDragStart={() => setDragKey(cle)} onClick={() => setSelection(cle)} title={b ? "Plan: " + fmtNb(b.kg) + " kg" + (b.realKg != null && b.realKg !== "" ? " · Real: " + fmtNb(kgEff) + " kg" : "") + (kgpb ? " · ≈ " + fmtNb(bultos) + " bultos" : " · conversión faltante") + (etatBloc ? " · " + (etatBloc.actuel ? "stock actual: " : "stock despues del bloque: ") + fmtNb(etatBloc.stock) + " (" + etatBloc.label + ")" : "") + ((b as any).raison ? " · " + (b as any).raison : "") + (b.note ? " · Nota: " + b.note : "") : ""}
-                                        className={"relative w-full text-xs rounded p-1.5 border-2 text-left min-h-10 transition cursor-pointer " + ((b as any)?.modifiedAfterFreeze ? "bg-fuchsia-100 border-fuchsia-700 text-fuchsia-950 font-semibold ring-4 ring-fuchsia-300" : prod ? pal.clair + " " + pal.bordure + " " + pal.texte + " font-medium" : "bg-gray-50 border-dashed border-gray-300 text-gray-400 hover:bg-gray-100") + (dragKey === cle ? " opacity-40" : "")}>
+                                        className={"relative w-full text-xs rounded p-1.5 border-2 text-left min-h-10 transition cursor-pointer " + ((b as any)?.modifiedAfterFreeze ? "bg-orange-100 border-orange-600 text-orange-950 font-semibold ring-4 ring-orange-300" : prod ? pal.clair + " " + pal.bordure + " " + pal.texte + " font-medium" : "bg-gray-50 border-dashed border-gray-300 text-gray-400 hover:bg-gray-100") + (dragKey === cle ? " opacity-40" : "")}>
                                         {planningFige && peutPlanifier && <button type="button" onClick={(e) => { e.stopPropagation(); setSelection(cle); }} className="absolute left-1 top-1 flex h-5 w-5 items-center justify-center rounded text-[12px] font-normal text-slate-400 transition hover:bg-white/80 hover:text-violet-700 focus:outline-none focus:ring-2 focus:ring-violet-300" title="Cambiar producto" aria-label="Cambiar producto">✎</button>}
                                         <span className={"flex items-center justify-between " + (planningFige && peutPlanifier ? "pl-5" : "")}>
                                           <span className="text-[10px] opacity-60">{turno.nom}{produitsParTurno(ligne) > 1 ? " · " + (sousIndex + 1) + "/" + produitsParTurno(ligne) : ""}</span>
@@ -5019,7 +5019,7 @@ export default function PlanificateurChocolat() {
                                         </span>
                                         {prod ? <><span>{prod.nom}</span>{zone && <span className="ml-1 px-1 rounded bg-white/70 text-[10px]">{zone}</span>}</> : "+ asignar"}
                                         {prod && <span className="block text-[10px] opacity-60">Plan {fmtNb(b.kg)} kg{b.realKg != null && b.realKg !== "" ? " · Real " + fmtNb(kgEff) + " kg" + (ecartKg ? " (" + (ecartKg > 0 ? "+" : "") + fmtNb(ecartKg) + ")" : "") : ""}{kgpb ? " · " + fmtNb(bultos) + " blt" : ""}</span>}
-                                        {(b as any)?.modifiedAfterFreeze && <span className="mt-1 block border-t border-fuchsia-500 pt-1 text-[10px] font-extrabold text-fuchsia-900">CAMBIO POSTERIOR AL CONGELADO{produitAvantModification ? " · Antes: " + produitAvantModification.nom : ""}</span>}
+                                        {(b as any)?.modifiedAfterFreeze && <span className="mt-1 block border-t border-orange-500 pt-1 text-[10px] font-extrabold text-orange-950">CAMBIO POSTERIOR AL CONGELADO{produitAvantModification ? " · Antes: " + produitAvantModification.nom : ""}</span>}
                                         {prod && b.note && <span className="mt-1 block border-t border-current/15 pt-1 text-[10px] font-normal opacity-75 line-clamp-2">Nota: {b.note}</span>}
                                       </div>
                                     )}

@@ -7,7 +7,7 @@ import {
   ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts";
 
-const APP_VERSION = "2026.08.05-refresh-stock-directo";
+const APP_VERSION = "2026.08.05-inicio-vacio";
 const PORTAIL_EMAIL_ACTIF = true;
 
 const PALETTE = [
@@ -1059,6 +1059,7 @@ export default function PlanificateurChocolat() {
   const [texteImport, setTexteImport] = useState("");
   const [msgImport, setMsgImport] = useState("");
   const [actualisationGoogleEnCours, setActualisationGoogleEnCours] = useState(false);
+  const [stockChargeSession, setStockChargeSession] = useState(false);
   const [ultimaFechaStocks, setUltimaFechaStocks] = useState("");
   const [stockActuelComparaison, setStockActuelComparaison] = useState<any[]>([]);
   const [dateStockActuelComparaison, setDateStockActuelComparaison] = useState("");
@@ -1153,10 +1154,12 @@ export default function PlanificateurChocolat() {
       setDateStockActuelComparaison("");
       return;
     }
-    setUltimaFechaStocks(localStorage.getItem("choco_planner_fecha_stock_" + usine) || "");
-    const stockSauve = chargerStockActuel(usine);
-    setStockActuelComparaison(Array.isArray(stockSauve?.produits) ? stockSauve.produits : []);
-    setDateStockActuelComparaison(stockSauve?.dateSource || "");
+    if (!versionActive) {
+      setUltimaFechaStocks("");
+      setStockActuelComparaison([]);
+      setDateStockActuelComparaison("");
+      setStockChargeSession(false);
+    }
   }, [usine]);
 
   useEffect(() => {
@@ -1809,6 +1812,31 @@ export default function PlanificateurChocolat() {
   const kgProduitPourPartTurno = (produit, ligne, turno = null, date = null, nombreProduits = 1) =>
     kgBlocProduitPlanning(produit, ligne, turno, date) / Math.max(1, nombreProduits);
   const capaciteJourPlanning = (ligne, date) => turnosLignePourDate(ligne, date).reduce((s, t) => s + kgBlocPlanning(ligne, t, date), 0);
+  const facteursTurnoDisponibles = (ligne, dates) => dates.reduce((total, date) =>
+    total + turnosLignePourDate(ligne, date).reduce((somme, turno) => somme + (Number(turno.facteur) || 1), 0), 0);
+  const analyseCapaciteMix = (ligne, produitsLigne, dates, joursDemande) => {
+    const facteursDisponibles = facteursTurnoDisponibles(ligne, dates);
+    let demandeKg = 0;
+    let turnosNecessaires = 0;
+    produitsLigne.forEach((produit) => {
+      const kgBulto = kgParBulto(produit);
+      if (!kgBulto) return;
+      const kg = demandeJour(produit) * joursDemande * kgBulto;
+      const capaciteProduit = Number(produit.capaciteTurno) > 0 ? Number(produit.capaciteTurno) : capaciteLigneDate(ligne);
+      demandeKg += kg;
+      if (capaciteProduit > 0) turnosNecessaires += kg / capaciteProduit;
+    });
+    const rendementMix = turnosNecessaires > 0 ? demandeKg / turnosNecessaires : capaciteLigneDate(ligne);
+    const capaciteEffectiveKg = facteursDisponibles * rendementMix;
+    return {
+      facteursDisponibles,
+      demandeKg,
+      turnosNecessaires,
+      rendementMix,
+      capaciteEffectiveKg,
+      charge: facteursDisponibles > 0 ? turnosNecessaires / facteursDisponibles : 0,
+    };
+  };
   const optionProduitPlanning = (p) => {
     if (!estConfigure(p)) return "○ " + p.nom + " · sin min/max";
     const s = seuils(p);
@@ -1869,11 +1897,16 @@ export default function PlanificateurChocolat() {
 
     const parLigne = {};
     lignesFiltrees.forEach((ligne) => {
+      const produitsLigne = produitsFiltres.filter((produit) => produitCompatibleLigne(produit, ligne.id));
+      const analyseMix = analyseCapaciteMix(ligne, produitsLigne, dates, periodeOpti.jours);
       parLigne[ligne.id] = {
         id: ligne.id,
         ligne: ligne.nom,
-        capacite: dates.reduce((s, date) => s + capaciteJourPlanning(ligne, date), 0),
-        demande: produitsFiltres.filter((produit) => produitCompatibleLigne(produit, ligne.id)).reduce((s, produit) => s + demandeJour(produit) * (kgParBulto(produit) || 0) * periodeOpti.jours, 0),
+        capacite: analyseMix.capaciteEffectiveKg,
+        capaciteDemandeMix: analyseMix.capaciteEffectiveKg,
+        facteursDisponibles: analyseMix.facteursDisponibles,
+        turnosPlanifiesEquivalents: 0,
+        demande: analyseMix.demandeKg,
         planifie: 0,
         reel: 0,
         planifieRenseigne: 0,
@@ -1905,9 +1938,12 @@ export default function PlanificateurChocolat() {
       if (!bloc || bloc.p == null) return;
       if (!idsProduitsFiltres.has(String(bloc.p))) return;
       const planifie = Number(bloc.kg) || 0;
+      const produitPlanifie = produits.find((produit) => memeId(produit.id, bloc.p));
+      const capaciteProduit = Number(produitPlanifie?.capaciteTurno) > 0 ? Number(produitPlanifie.capaciteTurno) : capaciteLigneDate(ligne, dateDepuisCle(dateCle));
       const reelRenseigne = bloc.realKg != null && bloc.realKg !== "";
       const reel = reelRenseigne ? Number(bloc.realKg) || 0 : 0;
       parLigne[ligneId].planifie += planifie;
+      if (capaciteProduit > 0) parLigne[ligneId].turnosPlanifiesEquivalents += planifie / capaciteProduit;
       parLigne[ligneId].turnosPlanifies++;
       parJour[dateCle].planifie += planifie;
       kgParProduitPlan[bloc.p] = (kgParProduitPlan[bloc.p] || 0) + planifie;
@@ -1922,11 +1958,16 @@ export default function PlanificateurChocolat() {
       if (bloc.note) notes++;
     });
 
-    const lignesStats = Object.values(parLigne).map((d: any) => ({
-      ...d,
-      charge: d.capacite > 0 ? (d.planifie / d.capacite) * 100 : 0,
-      execution: d.planifieRenseigne > 0 ? (d.reel / d.planifieRenseigne) * 100 : null,
-    }));
+    const lignesStats = Object.values(parLigne).map((d: any) => {
+      const rendementPlanifie = d.turnosPlanifiesEquivalents > 0 ? d.planifie / d.turnosPlanifiesEquivalents : 0;
+      const capaciteMixPlanifie = rendementPlanifie > 0 ? rendementPlanifie * d.facteursDisponibles : d.capaciteDemandeMix;
+      return {
+        ...d,
+        capacite: capaciteMixPlanifie,
+        charge: d.facteursDisponibles > 0 ? (d.turnosPlanifiesEquivalents / d.facteursDisponibles) * 100 : 0,
+        execution: d.planifieRenseigne > 0 ? (d.reel / d.planifieRenseigne) * 100 : null,
+      };
+    });
     const totalCapacite = lignesStats.reduce((s: number, d: any) => s + d.capacite, 0);
     const totalDemande = lignesStats.reduce((s: number, d: any) => s + d.demande, 0);
     const totalPlanifie = lignesStats.reduce((s: number, d: any) => s + d.planifie, 0);
@@ -2120,45 +2161,15 @@ export default function PlanificateurChocolat() {
   };
 
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const partage = params.get("plan");
-    if (partage) {
-      try {
-        const data = decodePayload(partage);
-        if (data.usine) setUsine(data.usine);
-        restaurerPeriode(data);
-        if (data.plan && typeof data.plan === "object") setPlan(data.plan);
-        if (Array.isArray(data.lignes)) {
-          setLignes((actuelles) => {
-            const autres = actuelles.filter((l) => !data.lignes.some((x) => x.id === l.id));
-            return [...autres, ...data.lignes];
-          });
-        }
-        if (Array.isArray(data.produits)) {
-          setProduits((actuels) => {
-            const autres = actuels.filter((p) => !data.produits.some((x) => x.id === p.id));
-            return [...autres, ...data.produits];
-          });
-        }
-        setMsgPartage("Planificación compartida cargada.");
-      } catch (e) {
-        setMsgPartage("No se pudo cargar el enlace compartido.");
-      }
-      return;
-    }
-    try {
-      OLD_STORAGE_KEYS.forEach((key) => localStorage.removeItem(key));
-      const sauvegarde = localStorage.getItem(STORAGE_KEY);
-      if (!sauvegarde) return;
-      const data = JSON.parse(sauvegarde);
-      if (Array.isArray(data.lignes)) setLignes(fusionAvecBase(LIGNES_INIT, data.lignes));
-      if (Array.isArray(data.produits)) setProduits(fusionAvecBase(PRODUITS_INIT, data.produits));
-      if (data.plan && typeof data.plan === "object") setPlan(data.plan);
-      restaurerPeriode(data);
-      setMsgPartage("Planificación guardada cargada.");
-    } catch (e) {
-      localStorage.removeItem(STORAGE_KEY);
-    }
+    OLD_STORAGE_KEYS.forEach((key) => localStorage.removeItem(key));
+    localStorage.removeItem(STORAGE_KEY);
+    USINES.forEach((fabrique) => {
+      localStorage.removeItem("choco_planner_fecha_stock_" + fabrique.id);
+      localStorage.removeItem(STOCK_ACTUEL_STORAGE_PREFIX + fabrique.id);
+    });
+    setPlan({});
+    setProduits(PRODUITS_INIT.map((produit) => ({ ...produit, stock: 0 })));
+    setStockChargeSession(false);
   }, []);
 
   const estadoActual = () => ({
@@ -2646,6 +2657,7 @@ export default function PlanificateurChocolat() {
       };
     });
     setProduits(produitsVersion);
+    setStockChargeSession(true);
     setPlan(planCharge);
     setDateDebutOpti(snapshot.dateDebutOpti || data.period_start);
     setDateFinOpti(snapshot.dateFinOpti || data.period_end);
@@ -2714,6 +2726,11 @@ export default function PlanificateurChocolat() {
     fin.setDate(fin.getDate() + HORIZON * 7 - 1);
     const lineasFabrica = new Set(lignes.filter((linea) => linea.usine === usine).map((linea) => linea.id));
     setPlan((actual) => Object.fromEntries(Object.entries(actual).filter(([clave]) => !lineasFabrica.has(clave.split("|")[1]))));
+    setProduits((actuels) => actuels.map((produit) => produit.usine === usine ? { ...produit, stock: 0 } : produit));
+    setStockChargeSession(false);
+    setUltimaFechaStocks("");
+    setStockActuelComparaison([]);
+    setDateStockActuelComparaison("");
     setVersionActive(null);
     setNomVersion("");
     setSelection(null);
@@ -3325,6 +3342,7 @@ export default function PlanificateurChocolat() {
       setStockActuelComparaison(nouveaux.filter((produit) => produit.usine === usine));
       setDateStockActuelComparaison(dateStock);
     }
+    setStockChargeSession(true);
     setTexteImport("");
     return { produits: nouveaux, message: messageResultat, maj, avecMinMax, dateStock };
   };
@@ -3411,6 +3429,7 @@ export default function PlanificateurChocolat() {
       return;
     }
     const fechaMostrada = fechasFuentes.join(" · ");
+    setStockChargeSession(true);
     if (fechaMostrada) {
       setUltimaFechaStocks(fechaMostrada);
       localStorage.setItem("choco_planner_fecha_stock_" + usine, fechaMostrada);
@@ -4870,7 +4889,7 @@ export default function PlanificateurChocolat() {
               <button onClick={() => changerSemaine(1)} className="px-3 py-1 bg-violet-100 rounded-lg hover:bg-violet-200 text-violet-900">Semana sig. →</button>
             </div>
             <div className="flex items-center gap-2 mb-3 flex-wrap">
-              <button disabled={planningFige || !peutPlanifier} onClick={() => { setLundi(lundiDeLaSemaine(periodeOpti.debut)); optimiser(periodeOpti.debut, { respecterDateExacte: true, dateFin: periodeOpti.fin }); }} className="px-4 py-2 bg-green-700 disabled:bg-slate-300 text-white rounded-lg text-sm font-medium hover:bg-green-800 shadow">✨ Optimizar la planificación</button>
+              <button disabled={planningFige || !peutPlanifier || !stockChargeSession} title={!stockChargeSession ? "Actualiza el stock antes de optimizar" : ""} onClick={() => { setLundi(lundiDeLaSemaine(periodeOpti.debut)); optimiser(periodeOpti.debut, { respecterDateExacte: true, dateFin: periodeOpti.fin }); }} className="px-4 py-2 bg-green-700 disabled:bg-slate-300 text-white rounded-lg text-sm font-medium hover:bg-green-800 shadow">✨ Optimizar la planificación</button>
               <label className="flex items-center gap-2 px-3 py-2 bg-green-50 border border-green-200 rounded-lg text-sm text-green-900">
                 Desde
                 <input disabled={planningFige || !peutPlanifier} type="date" className="bg-white disabled:bg-slate-100 border border-green-300 rounded-md px-2 py-1 text-sm font-semibold text-green-900" value={dateDebutOpti} onChange={(e) => { const valeur = e.target.value; const nouvelleFin = dateFinOpti < valeur ? valeur : dateFinOpti; setDateDebutOpti(valeur); setDateFinOpti(nouvelleFin); setLundi(lundiDeLaSemaine(dateDepuisCle(valeur))); nettoyerPlanningHorsPeriode(dateDepuisCle(valeur), dateDepuisCle(nouvelleFin)); }} />
@@ -5186,7 +5205,8 @@ export default function PlanificateurChocolat() {
                 <label className="flex items-center gap-1 cursor-pointer select-none text-violet-800"><input type="checkbox" checked={masquerNonConfig} onChange={(e) => setMasquerNonConfig(e.target.checked)} />Ocultar sin mín./máx.</label>
               </div>
             </div>
-            {stockActuelComparaison.length > 0 && <div className="mb-3 rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-sm text-sky-900"><strong>Stock actual mostrado:</strong> datos cargados el {dateStockActuelComparaison || ultimaFechaStocks || "día de la última importación"}.{planningFige ? " La versión aprobada continúa congelada y se compara por separado." : " Estos son los valores utilizados por el módulo."}</div>}
+            {!stockChargeSession && !planningFige && <div className="mb-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900"><strong>Stock no cargado.</strong> Actualiza desde Google Sheets o introduce un valor manualmente para consultar el estado y habilitar la optimización.</div>}
+            {stockChargeSession && stockActuelComparaison.length > 0 && <div className="mb-3 rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-sm text-sky-900"><strong>Stock actual mostrado:</strong> datos cargados el {dateStockActuelComparaison || ultimaFechaStocks || "día de la última importación"}.{planningFige ? " La versión aprobada continúa congelada y se compara por separado." : " Estos son los valores utilizados por el módulo."}</div>}
             {msgImport && <div className="mb-3 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">{msgImport}</div>}
             <Legende />
             {[...lignesUsine.map((l) => ({ ligne: l, prods: produitsEtatStocks.filter((p) => p.ligne === l.id) })), { ligne: null, prods: produitsEtatStocksNonAssignes }]
@@ -5210,6 +5230,7 @@ export default function PlanificateurChocolat() {
                         <tbody>
                           {g.prods.map((p) => {
                             const config = estConfigure(p); const s = seuils(p);
+                            const stockDisponible = stockChargeSession || planningFige;
                             const prodB = productionParProduit[p.id] || 0; const projB = projection(p);
                             const couvertureProjetee = demandeJour(p) > 0 ? Math.max(0, projB) / demandeJour(p) : null;
                             const objectifMinJours = joursMinCouverture(p); const objectifMaxJours = joursMaxCouverture(p);
@@ -5232,13 +5253,13 @@ export default function PlanificateurChocolat() {
                                     onChange={(e) => majProduit(p.id, "demande", e.target.value === "" ? 0 : parseFloat(e.target.value) || 0)}
                                   />
                                 </td>
-                                <td className="py-2 text-right"><input type="number" className="w-16 text-right border rounded p-1" value={p.stock} onChange={(e) => majProduit(p.id, "stock", parseFloat(e.target.value) || 0)} /></td>
-                                <td className="py-2">{config ? <div className="flex justify-center"><Jauge stock={p.stock} min={s.min} max={s.max} /></div> : null}</td>
-                                <td className="py-2 text-center">{config ? <span className={"inline-block px-2 py-0.5 rounded-full border text-xs font-medium " + stA.fond}>{stA.label}</span> : <span className="inline-block px-2 py-0.5 rounded-full border text-xs bg-gray-100 text-gray-400 border-gray-300">No configurado</span>}</td>
+                                <td className="py-2 text-right"><input type="number" className="w-16 text-right border rounded p-1" value={stockDisponible ? p.stock : ""} placeholder="—" onChange={(e) => { setStockChargeSession(true); majProduit(p.id, "stock", parseFloat(e.target.value) || 0); }} /></td>
+                                <td className="py-2">{config && stockDisponible ? <div className="flex justify-center"><Jauge stock={p.stock} min={s.min} max={s.max} /></div> : null}</td>
+                                <td className="py-2 text-center">{!stockDisponible ? <span className="inline-block px-2 py-0.5 rounded-full border text-xs bg-gray-100 text-gray-500 border-gray-300">Sin cargar</span> : config ? <span className={"inline-block px-2 py-0.5 rounded-full border text-xs font-medium " + stA.fond}>{stA.label}</span> : <span className="inline-block px-2 py-0.5 rounded-full border text-xs bg-gray-100 text-gray-400 border-gray-300">No configurado</span>}</td>
                                 <td className="py-2 text-right text-blue-700">{prodB > 0 ? "+" + fmtNb(prodB) : "—"}</td>
-                                <td className="py-2 text-right font-bold">{config ? fmtNb(projB) : "—"}</td>
-                                <td className={"py-2 text-right font-semibold " + (!config || couvertureProjetee == null ? "text-gray-400" : couvertureProjetee < objectifMinJours ? "text-red-700" : couvertureProjetee > objectifMaxJours ? "text-violet-700" : "text-emerald-700")} title={config ? "Objetivo: " + objectifMinJours + " a " + objectifMaxJours + " días" : ""}>{config && couvertureProjetee != null ? fmtNb(couvertureProjetee) + " días" : "—"}</td>
-                                <td className="py-2 text-center">{config ? <span className={"inline-block px-2 py-0.5 rounded-full border text-xs font-medium " + stP.fond}>{stP.label}</span> : "—"}</td>
+                                <td className="py-2 text-right font-bold">{config && stockDisponible ? fmtNb(projB) : "—"}</td>
+                                <td className={"py-2 text-right font-semibold " + (!config || !stockDisponible || couvertureProjetee == null ? "text-gray-400" : couvertureProjetee < objectifMinJours ? "text-red-700" : couvertureProjetee > objectifMaxJours ? "text-violet-700" : "text-emerald-700")} title={config && stockDisponible ? "Objetivo: " + objectifMinJours + " a " + objectifMaxJours + " días" : ""}>{config && stockDisponible && couvertureProjetee != null ? fmtNb(couvertureProjetee) + " días" : "—"}</td>
+                                <td className="py-2 text-center">{config && stockDisponible ? <span className={"inline-block px-2 py-0.5 rounded-full border text-xs font-medium " + stP.fond}>{stP.label}</span> : "—"}</td>
                               </tr>
                             );
                           })}
@@ -5637,21 +5658,21 @@ export default function PlanificateurChocolat() {
         {onglet === "diagnostic" && (() => {
           const datesDiagnostic = [];
           for (let dt = new Date(periodeOpti.debut); dt <= periodeOpti.fin; dt.setDate(dt.getDate() + 1)) datesDiagnostic.push(new Date(dt));
+          const datesSemaineDiagnostic = JOURS.map((_jour, idx) => new Date(lundiAffiche.getFullYear(), lundiAffiche.getMonth(), lundiAffiche.getDate() + idx));
           const diag = lignesUsine.map((ligne) => {
             const prods = produitsUsine.filter((p) => produitCompatibleLigne(p, ligne.id) && estConfigure(p) && kgParBulto(p));
-            const capH = datesDiagnostic.reduce((s, date) => s + capaciteJourPlanning(ligne, date), 0);
-            const demH = prods.reduce((s, p) => s + demandeJour(p) * periodeOpti.jours * kgParBulto(p), 0);
-            const capSemInfo = JOURS.reduce((s, _jour, idx) => {
-              const date = new Date(lundiAffiche.getFullYear(), lundiAffiche.getMonth(), lundiAffiche.getDate() + idx);
-              return s + capaciteJourPlanning(ligne, date);
-            }, 0);
-            const demSemInfo = prods.reduce((s, p) => s + demandeJour(p) * 7 * kgParBulto(p), 0);
+            const analysePeriode = analyseCapaciteMix(ligne, prods, datesDiagnostic, periodeOpti.jours);
+            const analyseSemaine = analyseCapaciteMix(ligne, prods, datesSemaineDiagnostic, 7);
+            const capH = analysePeriode.capaciteEffectiveKg;
+            const demH = analysePeriode.demandeKg;
+            const capSemInfo = analyseSemaine.capaciteEffectiveKg;
+            const demSemInfo = analyseSemaine.demandeKg;
             const margeSemInfo = capSemInfo - demSemInfo;
             const defi = prods.reduce((s, p) => s + Math.max(0, (seuils(p).min * 1.5 - p.stock)) * kgParBulto(p), 0);
             const marge = capH - demH;
             const sansConv = produitsUsine.filter((p) => produitCompatibleLigne(p, ligne.id) && estConfigure(p) && !kgParBulto(p)).length;
             const temps = defi <= 0 ? 0 : (margeSemInfo > 0 ? defi / margeSemInfo : Infinity);
-            return { ligne, capH, demH, defi, marge, capSemInfo, demSemInfo, margeSemInfo, charge: capH > 0 ? demH / capH : 0, temps, sansConv };
+            return { ligne, capH, demH, defi, marge, capSemInfo, demSemInfo, margeSemInfo, charge: analysePeriode.charge, rendementMix: analysePeriode.rendementMix, turnosNecessaires: analysePeriode.turnosNecessaires, facteursDisponibles: analysePeriode.facteursDisponibles, temps, sansConv };
           });
           const totalDem = diag.reduce((s, d) => s + d.demH, 0);
           const goulots = diag.filter((d) => d.marge <= 0 && d.demH > 0);
@@ -5693,7 +5714,7 @@ export default function PlanificateurChocolat() {
           return (
             <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-4">
               <h2 className="font-semibold text-violet-900 mb-1">Diagnóstico de capacidad — {usineActive ? usineActive.nom : ""}</h2>
-              <p className="text-xs text-gray-500 mb-3">Periodo analizado: <strong>{fmtDate(periodeOpti.debut)} al {fmtDate(periodeOpti.fin)}</strong> ({periodeOpti.jours} dias). La carga principal se calcula sobre ese rango: demanda acumulada del periodo dividida por la capacidad disponible del periodo. La estimacion en semanas es solo informativa y usa el margen semanal normal.</p>
+              <p className="text-xs text-gray-500 mb-3">Periodo analizado: <strong>{fmtDate(periodeOpti.debut)} al {fmtDate(periodeOpti.fin)}</strong> ({periodeOpti.jours} dias). La carga convierte la demanda de cada producto en tiempo de turno según su capacidad específica. Ejemplo: 130 kg de Dulce y 400 kg de Licor representan cada uno un turno completo en Stephan / Buldos.</p>
               {totalDem === 0 ? (
                 <div className="p-3 bg-violet-50 rounded-lg text-sm text-violet-800">Primero importa los stocks (mín./máx.) en la pestaña Importar: el diagnóstico se calcula con tus valores reales.</div>
               ) : goulots.length > 0 ? (
@@ -5760,7 +5781,8 @@ export default function PlanificateurChocolat() {
                     <th className="py-1 pr-2">Línea</th>
                     <th className="py-1 text-right">Capacidad periodo (kg)</th>
                     <th className="py-1 text-right">Demanda periodo (kg)</th>
-                    <th className="py-1 text-right">Carga periodo</th>
+                    <th className="py-1 text-right">Carga real por mix</th>
+                    <th className="py-1 text-right">Turnos nec./disp.</th>
                     <th className="py-1 text-right">Déficit actual (kg)</th>
                     <th className="py-1 text-right">Margen periodo (kg)</th>
                     <th className="py-1 text-right">Info semanas → verde</th>
@@ -5774,6 +5796,7 @@ export default function PlanificateurChocolat() {
                           <td className="py-2 text-right">{fmtNb(d.capH)}</td>
                           <td className="py-2 text-right">{fmtNb(d.demH)}</td>
                           <td className={"py-2 text-right " + cc}>{Math.round(d.charge * 100)}%</td>
+                          <td className="py-2 text-right">{fmtNb(d.turnosNecessaires)} / {fmtNb(d.facteursDisponibles)}</td>
                           <td className="py-2 text-right">{fmtNb(d.defi)}</td>
                           <td className={"py-2 text-right " + (d.marge > 0 ? "text-green-700" : "text-red-600")}>{d.marge > 0 ? "+" : ""}{fmtNb(d.marge)}</td>
                           <td className="py-2 text-right font-medium">{d.defi <= 0 ? "ya OK" : (d.marge > 0 ? (d.temps < 1 ? "< 1 sem." : Math.ceil(d.temps) + " sem.") : "nunca")}</td>
@@ -5783,7 +5806,7 @@ export default function PlanificateurChocolat() {
                   </tbody>
                 </table>
               </div>
-              <p className="text-xs text-gray-500 mt-3"><strong>Carga periodo</strong> = demanda acumulada entre Desde/Hasta ÷ capacidad disponible entre Desde/Hasta. Una carga baja no garantiza que todo quede verde si se exige producir turnos completos y un turno completo haria superar el maximo de stock. <strong>Info semanas → verde</strong> = deficit actual hasta el piso verde ÷ margen semanal normal; es una referencia, no el diagnostico principal del rango.</p>
+              <p className="text-xs text-gray-500 mt-3"><strong>Carga real por mix</strong> = suma de los turnos necesarios por producto (kg demandados ÷ capacidad específica del producto) ÷ turnos disponibles. La capacidad expresada en kg es la capacidad efectiva equivalente para ese mix, no el máximo teórico del producto más rápido. <strong>Info semanas → verde</strong> sigue siendo una referencia complementaria.</p>
             </div>
           );
         })()}

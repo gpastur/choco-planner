@@ -7,7 +7,7 @@ import {
   ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts";
 
-const APP_VERSION = "2026.08.06-stock-api-local";
+const APP_VERSION = "2026.08.06-cobertura-actual-proyectada";
 const PORTAIL_EMAIL_ACTIF = true;
 
 const PALETTE = [
@@ -2113,6 +2113,7 @@ export default function PlanificateurChocolat() {
       const demande = demandeJour(produit) * (kgParBulto(produit) || 0) * periodeOpti.jours;
       const kgBulto = kgParBulto(produit) || 0;
       const projete = produit.stock + (kgBulto ? planifie / kgBulto : 0) - demandeJour(produit) * periodeOpti.jours;
+      const couvertureActuelle = demandeJour(produit) > 0 ? Math.max(0, produit.stock) / demandeJour(produit) : null;
       const couvertureJours = demandeJour(produit) > 0 ? Math.max(0, projete) / demandeJour(produit) : null;
       return {
         id: produit.id,
@@ -2121,7 +2122,9 @@ export default function PlanificateurChocolat() {
         demande,
         planifie,
         reel,
+        stockActuel: produit.stock,
         projete,
+        couvertureActuelle,
         couvertureJours,
         couvertureMin: joursMinCouverture(produit),
         couvertureMax: joursMaxCouverture(produit),
@@ -4963,8 +4966,10 @@ export default function PlanificateurChocolat() {
                   <th className="py-2 text-right">Demanda</th>
                   <th className="py-2 text-right">Planificado</th>
                   <th className="py-2 text-right">Real</th>
-                  <th className="py-2 text-right">Proyección stock</th>
-                  <th className="py-2 text-right">Cobertura proy.</th>
+                  <th className="py-2 text-right text-sky-800">Stock actual</th>
+                  <th className="py-2 text-right text-sky-800">Cobertura actual</th>
+                  <th className="py-2 text-right text-violet-800">Stock proyectado</th>
+                  <th className="py-2 text-right text-violet-800">Cobertura proyectada</th>
                   <th className="py-2 pl-3">Estado</th>
                 </tr></thead>
                 <tbody>
@@ -4975,12 +4980,14 @@ export default function PlanificateurChocolat() {
                       <td className="py-2 text-right text-orange-700">{fmtNb(item.demande)} kg</td>
                       <td className="py-2 text-right text-violet-700">{fmtNb(item.planifie)} kg</td>
                       <td className="py-2 text-right text-emerald-700">{fmtNb(item.reel)} kg</td>
-                      <td className="py-2 text-right">{fmtNb(item.projete)} bultos</td>
+                      <td className="py-2 text-right font-medium text-sky-800">{fmtNb(item.stockActuel)} bultos</td>
+                      <td className={"py-2 text-right font-semibold " + (item.couvertureActuelle == null ? "text-slate-400" : item.couvertureActuelle < item.couvertureMin ? "text-red-700" : item.couvertureActuelle > item.couvertureMax ? "text-violet-700" : "text-emerald-700")}>{item.couvertureActuelle == null ? "—" : fmtNb(item.couvertureActuelle) + " días"}</td>
+                      <td className="py-2 text-right font-medium text-violet-800">{fmtNb(item.projete)} bultos</td>
                       <td className={"py-2 text-right font-semibold " + (item.couvertureJours == null ? "text-slate-400" : item.couvertureJours < item.couvertureMin ? "text-red-700" : item.couvertureJours > item.couvertureMax ? "text-violet-700" : "text-emerald-700")}>{item.couvertureJours == null ? "—" : fmtNb(item.couvertureJours) + " días"}</td>
                       <td className="py-2 pl-3 text-xs">{item.statut}</td>
                     </tr>
                   ))}
-                  {donneesDashboard.produitsAnalyse.length === 0 && <tr><td colSpan={8} className="py-8 text-center text-slate-400">No hay productos configurados en esta selección.</td></tr>}
+                  {donneesDashboard.produitsAnalyse.length === 0 && <tr><td colSpan={10} className="py-8 text-center text-slate-400">No hay productos configurados en esta selección.</td></tr>}
                 </tbody>
               </table>
             </section>
@@ -5329,11 +5336,16 @@ export default function PlanificateurChocolat() {
                     <div className="overflow-x-auto">
                       <table className="w-full text-sm">
                         <thead>
-                          <tr className="text-left text-gray-500 border-b">
+                          <tr className="border-b border-slate-200 text-[11px] font-semibold uppercase text-slate-500">
+                            <th colSpan={5}></th>
+                            <th colSpan={4} className="border-l border-sky-200 bg-sky-50 px-2 py-1 text-center text-sky-800">Situación actual</th>
+                            <th colSpan={4} className="border-l border-violet-200 bg-violet-50 px-2 py-1 text-center text-violet-800">Proyección del período</th>
+                          </tr>
+                          <tr className="border-b text-left text-gray-500">
                             <th className="py-1 pr-2">Producto</th><th className="py-1 text-right">kg/bulto</th>
                             <th className="py-1 text-right">Min</th><th className="py-1 text-right">Max</th><th className="py-1 text-right">Dem/d</th>
-                            <th className="py-1 text-right">Stock</th><th className="py-1 text-center">Indicador</th><th className="py-1 text-center">Estado</th>
-                            <th className="py-1 text-right">Prod (blt)</th><th className="py-1 text-right">Proyectado</th><th className="py-1 text-right">Cobertura proy.</th><th className="py-1 text-center">Estado proy.</th>
+                            <th className="border-l border-sky-100 bg-sky-50/50 py-1 text-right">Stock</th><th className="bg-sky-50/50 py-1 text-right">Cobertura</th><th className="bg-sky-50/50 py-1 text-center">Indicador</th><th className="bg-sky-50/50 py-1 text-center">Estado</th>
+                            <th className="border-l border-violet-100 bg-violet-50/50 py-1 text-right">Prod. (blt)</th><th className="bg-violet-50/50 py-1 text-right">Stock</th><th className="bg-violet-50/50 py-1 text-right">Cobertura</th><th className="bg-violet-50/50 py-1 text-center">Estado</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -5341,6 +5353,7 @@ export default function PlanificateurChocolat() {
                             const config = estConfigure(p); const s = seuils(p);
                             const stockDisponible = stockChargeSession || planningFige;
                             const prodB = productionParProduit[p.id] || 0; const projB = projection(p);
+                            const couvertureActuelle = demandeJour(p) > 0 ? Math.max(0, p.stock) / demandeJour(p) : null;
                             const couvertureProjetee = demandeJour(p) > 0 ? Math.max(0, projB) / demandeJour(p) : null;
                             const objectifMinJours = joursMinCouverture(p); const objectifMaxJours = joursMaxCouverture(p);
                             const stA = statutStock(p.stock, s.min, s.max); const stP = statutStock(projB, s.min, s.max);
@@ -5362,13 +5375,14 @@ export default function PlanificateurChocolat() {
                                     onChange={(e) => majProduit(p.id, "demande", e.target.value === "" ? 0 : parseFloat(e.target.value) || 0)}
                                   />
                                 </td>
-                                <td className="py-2 text-right"><input type="number" className="w-16 text-right border rounded p-1" value={stockDisponible ? p.stock : ""} placeholder="—" onChange={(e) => { setStockChargeSession(true); majProduit(p.id, "stock", parseFloat(e.target.value) || 0); }} /></td>
-                                <td className="py-2">{config && stockDisponible ? <div className="flex justify-center"><Jauge stock={p.stock} min={s.min} max={s.max} /></div> : null}</td>
-                                <td className="py-2 text-center">{!stockDisponible ? <span className="inline-block px-2 py-0.5 rounded-full border text-xs bg-gray-100 text-gray-500 border-gray-300">Sin cargar</span> : config ? <span className={"inline-block px-2 py-0.5 rounded-full border text-xs font-medium " + stA.fond}>{stA.label}</span> : <span className="inline-block px-2 py-0.5 rounded-full border text-xs bg-gray-100 text-gray-400 border-gray-300">No configurado</span>}</td>
-                                <td className="py-2 text-right text-blue-700">{prodB > 0 ? "+" + fmtNb(prodB) : "—"}</td>
-                                <td className="py-2 text-right font-bold">{config && stockDisponible ? fmtNb(projB) : "—"}</td>
-                                <td className={"py-2 text-right font-semibold " + (!config || !stockDisponible || couvertureProjetee == null ? "text-gray-400" : couvertureProjetee < objectifMinJours ? "text-red-700" : couvertureProjetee > objectifMaxJours ? "text-violet-700" : "text-emerald-700")} title={config && stockDisponible ? "Objetivo: " + objectifMinJours + " a " + objectifMaxJours + " días" : ""}>{config && stockDisponible && couvertureProjetee != null ? fmtNb(couvertureProjetee) + " días" : "—"}</td>
-                                <td className="py-2 text-center">{config && stockDisponible ? <span className={"inline-block px-2 py-0.5 rounded-full border text-xs font-medium " + stP.fond}>{stP.label}</span> : "—"}</td>
+                                <td className="border-l border-sky-100 bg-sky-50/30 py-2 text-right"><input type="number" className="w-16 text-right border rounded p-1" value={stockDisponible ? p.stock : ""} placeholder="—" onChange={(e) => { setStockChargeSession(true); majProduit(p.id, "stock", parseFloat(e.target.value) || 0); }} /></td>
+                                <td className={"bg-sky-50/30 py-2 text-right font-semibold " + (!config || !stockDisponible || couvertureActuelle == null ? "text-gray-400" : couvertureActuelle < objectifMinJours ? "text-red-700" : couvertureActuelle > objectifMaxJours ? "text-violet-700" : "text-emerald-700")} title={config && stockDisponible ? "Stock actual / demanda diaria. Objetivo: " + objectifMinJours + " a " + objectifMaxJours + " días" : ""}>{config && stockDisponible && couvertureActuelle != null ? fmtNb(couvertureActuelle) + " días" : "—"}</td>
+                                <td className="bg-sky-50/30 py-2">{config && stockDisponible ? <div className="flex justify-center"><Jauge stock={p.stock} min={s.min} max={s.max} /></div> : null}</td>
+                                <td className="bg-sky-50/30 py-2 text-center">{!stockDisponible ? <span className="inline-block px-2 py-0.5 rounded-full border text-xs bg-gray-100 text-gray-500 border-gray-300">Sin cargar</span> : config ? <span className={"inline-block px-2 py-0.5 rounded-full border text-xs font-medium " + stA.fond}>{stA.label}</span> : <span className="inline-block px-2 py-0.5 rounded-full border text-xs bg-gray-100 text-gray-400 border-gray-300">No configurado</span>}</td>
+                                <td className="border-l border-violet-100 bg-violet-50/30 py-2 text-right text-blue-700">{prodB > 0 ? "+" + fmtNb(prodB) : "—"}</td>
+                                <td className="bg-violet-50/30 py-2 text-right font-bold">{config && stockDisponible ? fmtNb(projB) : "—"}</td>
+                                <td className={"bg-violet-50/30 py-2 text-right font-semibold " + (!config || !stockDisponible || couvertureProjetee == null ? "text-gray-400" : couvertureProjetee < objectifMinJours ? "text-red-700" : couvertureProjetee > objectifMaxJours ? "text-violet-700" : "text-emerald-700")} title={config && stockDisponible ? "Stock proyectado / demanda diaria. Objetivo: " + objectifMinJours + " a " + objectifMaxJours + " días" : ""}>{config && stockDisponible && couvertureProjetee != null ? fmtNb(couvertureProjetee) + " días" : "—"}</td>
+                                <td className="bg-violet-50/30 py-2 text-center">{config && stockDisponible ? <span className={"inline-block px-2 py-0.5 rounded-full border text-xs font-medium " + stP.fond}>{stP.label}</span> : "—"}</td>
                               </tr>
                             );
                           })}

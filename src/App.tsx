@@ -7,7 +7,7 @@ import {
   ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts";
 
-const APP_VERSION = "2026.08.05-cambios-orange";
+const APP_VERSION = "2026.08.06-stock-api-local";
 const PORTAIL_EMAIL_ACTIF = true;
 
 const PALETTE = [
@@ -33,6 +33,10 @@ const GOOGLE_STOCK_GIDS = {
 };
 const GOOGLE_STOCK_GID_MC = "1834619743";
 const GOOGLE_STOCK_SHEET_ID = "1EgT_gHFf8qht-dNF_H0XTV0QVNMQIvCG";
+const GOOGLE_STOCK_TERMINADO = {
+  sheetId: "18dvBiX62TmirjKCVi36urbu0ptwTtMkeg0xtRdhnJJc",
+  gid: "778740066",
+};
 const GOOGLE_MP_STOCK_SHEETS = {
   esandi: { sheetId: "1gSX71TD0LtJiw5hmrojVEVRBQq9FLOpVJuXZ2M9jhJA", gid: "1633317681" },
 };
@@ -706,6 +710,83 @@ function extraireDerniereDateStock(texte) {
     .sort((a, b) => a.date.getTime() - b.date.getTime());
   return dates.length ? dates[dates.length - 1].libelle : "";
 }
+function memeDateStock(libelle, dateReference) {
+  const reference = convertirFechaStock(dateReference);
+  if (!reference) return false;
+  const dateComplete = convertirFechaStock(libelle);
+  if (dateComplete) {
+    return dateComplete.getFullYear() === reference.getFullYear()
+      && dateComplete.getMonth() === reference.getMonth()
+      && dateComplete.getDate() === reference.getDate();
+  }
+  const courte = normaliser(libelle).match(/^(\d{1,2})[\/\-.](\d{1,2})$/);
+  return !!courte && Number(courte[1]) === reference.getDate() && Number(courte[2]) === reference.getMonth() + 1;
+}
+function nettoyerNomStockTerminado(nom) {
+  return normaliser(String(nom || "").replace(/\([^)]*\)/g, " "));
+}
+const STOCK_TERMINADO_EXCLUS = [
+  "PELOTA CHICA COPA AMERICA",
+  "OSO CON PELOTA ARGENTINA",
+  "TURRONES",
+];
+const STOCK_TERMINADO_ALIASES = {
+  "RAMA AMARGO GRANEL": "RAMA AMARGA GRANEL",
+  "TABLETA AMARGA SAL Y CARAMELO": "TABLETA SAL Y CARAMELO VB",
+  "CAFE EN GRANO X250GR": "CAFE EN GRANO ENV. X250",
+  "CAFE MOLIDO X250GR": "CAFE MOLIDO ENV.X250",
+  "MARROC 50": "MARROC 50gr (comun)",
+  "MARROC 100": "MARROC 100gr (comun)",
+  "SUBMARINOS": "SUBMARINO X 3",
+  "BARRA ALMENDRA BLANC0 PURO": "BARRA BLANCO ALMENDRA",
+  "TABLETA FRAMBUESA Y CRANBERRY": "TABLETA FRAMB/CRANBERRIES X 45 gramos",
+  "NUCCIOLATO 50GR": "NUICCIOLATO X 50 GR",
+  "MARROC CROC 50": "MARROC CROCANTE X50GR",
+  "TORTUGA MIX 22UNI": "MIX TORTUGAS 22uni",
+  "RAPASAURIOS 3D": "RAPASAURIO 3D",
+  "CORAZON DDL X5": "CORAZON x5",
+};
+function ajouterStockTerminado(texte, produitsSource, dateReference, usineId = "esandi") {
+  if (!dateReference) return { produits: produitsSource, ajoutes: 0, reconnus: 0, nonReconnus: [], erreur: "fecha principal ausente" };
+  const rows = parseTSV(texte).map((row) => row.map((cell) => normaliser(cell)));
+  const indexPremiereDate = rows.findIndex((row) => convertirFechaStock((row || [])[0]) || /^\d{1,2}[\/\-.]\d{1,2}$/.test(normaliser((row || [])[0])));
+  if (indexPremiereDate < 0) return { produits: produitsSource, ajoutes: 0, reconnus: 0, nonReconnus: [], erreur: "sin filas fechadas" };
+  const entetes = rows.slice(0, indexPremiereDate);
+  const ligneNoms = entetes.reduce((meilleure, row) => {
+    const score = row.slice(1).filter((cell) => nettoyerNomStockTerminado(cell)).length;
+    const scoreMeilleur = meilleure.slice(1).filter((cell) => nettoyerNomStockTerminado(cell)).length;
+    return score > scoreMeilleur ? row : meilleure;
+  }, []);
+  const lignesDate = rows.filter((row) => memeDateStock((row || [])[0], dateReference));
+  if (!lignesDate.length) return { produits: produitsSource, ajoutes: 0, reconnus: 0, nonReconnus: [], erreur: "sin datos para " + dateReference };
+  const ligneStock = lignesDate[lignesDate.length - 1];
+  let produitsMaj = [...produitsSource];
+  let ajoutes = 0;
+  let reconnus = 0;
+  const nonReconnus = [];
+  const nbCols = Math.max(ligneNoms.length, ligneStock.length);
+  for (let c = 1; c < nbCols; c++) {
+    const nomBrut = normaliser(ligneNoms[c]);
+    const nomNettoye = nettoyerNomStockTerminado(nomBrut);
+    const cleExclusion = NORMALISER_REFERENCE(nomNettoye);
+    if (!nomNettoye || STOCK_TERMINADO_EXCLUS.some((nom) => cleExclusion.includes(nom))) continue;
+    const valeur = parseNum(ligneStock[c]);
+    if (isNaN(valeur) || valeur === 0) continue;
+    const nomAlias = STOCK_TERMINADO_ALIASES[cleExclusion] || nomNettoye;
+    const cleAlias = NORMALISER_REFERENCE(nomAlias);
+    const exact = produitsMaj.find((p) => p.usine === usineId && NORMALISER_REFERENCE(p.nom) === cleAlias);
+    const alias = !exact ? produitsMaj.find((p) => p.usine === usineId && Array.isArray(p.aliases) && p.aliases.some((a) => NORMALISER_REFERENCE(a) === cleExclusion)) : null;
+    const rapproche = exact || alias || trouverProduitExistant(produitsMaj, usineId, nomAlias);
+    if (!rapproche) {
+      nonReconnus.push(nomNettoye);
+      continue;
+    }
+    produitsMaj = produitsMaj.map((p) => memeId(p.id, rapproche.id) ? { ...p, stock: Number(p.stock || 0) + valeur } : p);
+    ajoutes += valeur;
+    reconnus++;
+  }
+  return { produits: produitsMaj, ajoutes, reconnus, nonReconnus, erreur: "" };
+}
 const NOMS_FATIMA_PROTEGES = [
   "TAB SAL CARAMELO 100gr", "TABLETA DE PISTACHO, SAL Y CARAMELO BsAs", "TABLETA DE PISTACHO, SAL Y CARAMELO VB", "TABLETA PISTACHO",
   "TAB CHOC LECHE PURO 80G BsAs", "TAB CHOC LECHE PURO 80G VB", "TABLETA LECHE PURO X80gr", "TABLETA LECHE PURO X80gr solo BsAs stock max p/4 meses min 2",
@@ -731,6 +812,18 @@ function tokensProduit(s) {
     .split(/\s+/)
     .map((t) => t.trim())
     .map((t) => (t === "TAB" ? "TABLETA" : t))
+    .map((t) => ({
+      ALMEN: "ALMENDRA",
+      AVELL: "AVELLANA",
+      GARRAPINADA: "GARRAP",
+      GARRAPINADAS: "GARRAP",
+      RAPASAURIOS: "RAPASAURIO",
+      SUBMARINOS: "SUBMARINO",
+      TORTUGA: "TORTUGAS",
+      NUCCIOLATO: "NUICCIOLATO",
+      CROC: "CROCANTE",
+      CRANBERRY: "CRANBERRIES",
+    }[t] || (/^X\d+$/.test(t) ? t.slice(1) : t)))
     .filter((t) => t && !MOTS_IMPORT_IGNORES.has(t));
 }
 function trouverProduitExistant(produitsListe, usineId, nomImporte) {
@@ -1530,7 +1623,9 @@ export default function PlanificateurChocolat() {
       nettoyer();
       reject(new Error("No se pudo cargar Google Sheets desde el navegador."));
     };
-    script.src = "https://docs.google.com/spreadsheets/d/" + sheetId + "/gviz/tq?gid=" + encodeURIComponent(gid) + "&tqx=responseHandler:" + callback;
+    // Google essaie sinon de deviner les en-tetes et absorbe les lignes SKU/PRODUCTOS.
+    // Sans la ligne PRODUCTOS, les valeurs sont lisibles mais impossibles a rattacher au catalogue.
+    script.src = "https://docs.google.com/spreadsheets/d/" + sheetId + "/gviz/tq?gid=" + encodeURIComponent(gid) + "&headers=0&tqx=responseHandler:" + callback;
     document.body.appendChild(script);
   });
 
@@ -3348,7 +3443,7 @@ export default function PlanificateurChocolat() {
   };
   const importerFeuilleUsine = () => appliquerCollageStocks({ modeActualisation: false });
   const actualiserStocksUsine = () => appliquerCollageStocks({ modeActualisation: true });
-  const lireGoogleSheetDepuisNavigateur = (gid) => new Promise((resolve, reject) => {
+  const lireGoogleSheetDepuisNavigateur = (gid, sheetId = GOOGLE_STOCK_SHEET_ID) => new Promise((resolve, reject) => {
     const callback = "__chocoSheet_" + Date.now() + "_" + Math.round(Math.random() * 100000);
     const script = document.createElement("script");
     const nettoyer = () => {
@@ -3380,7 +3475,7 @@ export default function PlanificateurChocolat() {
       nettoyer();
       reject(new Error("No se pudo cargar Google Sheets desde el navegador."));
     };
-    script.src = "https://docs.google.com/spreadsheets/d/" + GOOGLE_STOCK_SHEET_ID + "/gviz/tq?gid=" + encodeURIComponent(gid) + "&tqx=responseHandler:" + callback;
+    script.src = "https://docs.google.com/spreadsheets/d/" + sheetId + "/gviz/tq?gid=" + encodeURIComponent(gid) + "&tqx=responseHandler:" + callback;
     document.body.appendChild(script);
   });
   const actualiserStocksGoogle = async () => {
@@ -3391,14 +3486,14 @@ export default function PlanificateurChocolat() {
       setMsgImport("⚠️ No hay una fuente Google Sheets configurada para esta fabrica.");
       return;
     }
-    const lireSource = async (gidSource) => {
+    const lireSource = async (gidSource, sheetId = GOOGLE_STOCK_SHEET_ID) => {
       try {
-        const resp = await fetch("/api/google-stock?gid=" + encodeURIComponent(gidSource));
+        const resp = await fetch("/api/google-sheet?sheetId=" + encodeURIComponent(sheetId) + "&gid=" + encodeURIComponent(gidSource));
         const data = await resp.json();
         if (!resp.ok || !data.texto) throw new Error((data && (data.detalle || data.error)) || "No se pudo leer Google Sheets.");
         return data.texto;
       } catch (_) {
-        return await lireGoogleSheetDepuisNavigateur(gidSource);
+        return await lireGoogleSheetDepuisNavigateur(gidSource, sheetId);
       }
     };
     const sources = usine === "vb"
@@ -3409,6 +3504,7 @@ export default function PlanificateurChocolat() {
     const messages = [];
     const fechasFuentes = [];
     const erreurs = [];
+    let fechaReferenciaPrincipal = "";
     for (const source of sources) {
       try {
         const texte = await lireSource(source.gid);
@@ -3417,10 +3513,23 @@ export default function PlanificateurChocolat() {
         const resultat = appliquerCollageStocks({ modeActualisation: true, texteSource: texte, produitsSource: produitsFusionnes, conserverMessage: true });
         if (!resultat) throw new Error("ningun producto reconocido");
         produitsFusionnes = resultat.produits;
+        if (source.nom === nomUsineGoogle) fechaReferenciaPrincipal = normaliser(resultat.dateStock || fechaFuente);
         messages.push(source.nom + ": " + resultat.maj + " producto(s), " + resultat.avecMinMax + " con min./max.");
         if (fechaFuente || resultat.dateStock) fechasFuentes.push(source.nom + ": " + (fechaFuente || resultat.dateStock));
       } catch (error) {
         erreurs.push(source.nom + " (" + String(error && error.message ? error.message : error) + ")");
+      }
+    }
+    if (usine === "esandi" && fechaReferenciaPrincipal) {
+      try {
+        const texteTerminado = await lireSource(GOOGLE_STOCK_TERMINADO.gid, GOOGLE_STOCK_TERMINADO.sheetId);
+        const terminado = ajouterStockTerminado(texteTerminado, produitsFusionnes, fechaReferenciaPrincipal, "esandi");
+        if (terminado.erreur) throw new Error(terminado.erreur);
+        produitsFusionnes = terminado.produits;
+        messages.push("Prod. Terminado " + fechaReferenciaPrincipal + ": " + terminado.reconnus + " producto(s), +" + fmtNb(terminado.ajoutes) + " bultos");
+        if (terminado.nonReconnus.length) erreurs.push("Prod. Terminado sin correspondencia: " + terminado.nonReconnus.join(", "));
+      } catch (error) {
+        erreurs.push("Prod. Terminado (" + String(error && error.message ? error.message : error) + ")");
       }
     }
     if (!planningFige) setProduits(produitsFusionnes);

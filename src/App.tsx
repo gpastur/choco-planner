@@ -7,7 +7,7 @@ import {
   ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts";
 
-const APP_VERSION = "2026.08.06-cobertura-periodo-visible";
+const APP_VERSION = "2026.08.06-stock-date-commune";
 const PORTAIL_EMAIL_ACTIF = true;
 
 const PALETTE = [
@@ -299,7 +299,6 @@ const PRODUITS_BASE = [
   mkEsandi(110, "TURRON PISTACHO Y NARANJA", "e_tur", 3.63),
   mkEsandi(139, "TABLETA 70 ECUADOR VB", "e_bomb", 3.04),
   mkEsandi(140, "TABLETA 80 TUMACO VB", "e_bomb", 3.04),
-  mkEsandi(143, "HUESITO FIG MACIZA", "e_bomb", 7.98),
   { ...mkEsandi(155, "RAMA BAÑADA", "e_crem", null), aliases: ["RAMA BANADA"], sku: "VT-TRUF-00066" },
   { ...mkEsandi(156, "GRANIZADO", "e_crem", null), sku: "PR-MATP-0000434" },
   { ...mkEsandi(157, "GRANIZADO MENTA", "e_crem", null), sku: "PR-MATP-0000435" },
@@ -710,6 +709,22 @@ function extraireDerniereDateStock(texte) {
     .sort((a, b) => a.date.getTime() - b.date.getTime());
   return dates.length ? dates[dates.length - 1].libelle : "";
 }
+function extraireDerniereDateCommuneStock(textePrincipal, texteAdditionnel) {
+  const datesPrincipales = parseTSV(textePrincipal)
+    .map((ligne) => ({
+      libelle: normaliser((ligne || [])[0]),
+      date: convertirFechaStock((ligne || [])[0]),
+      avecDonnees: (ligne || []).slice(1).some((cellule) => normaliser(cellule) !== ""),
+    }))
+    .filter((item) => item.date && item.avecDonnees)
+    .sort((a, b) => b.date.getTime() - a.date.getTime());
+  const libellesAdditionnels = parseTSV(texteAdditionnel)
+    .filter((ligne) => (ligne || []).slice(1).some((cellule) => normaliser(cellule) !== ""))
+    .map((ligne) => normaliser((ligne || [])[0]))
+    .filter(Boolean);
+  const commune = datesPrincipales.find((item) => libellesAdditionnels.some((libelle) => memeDateStock(libelle, item.libelle)));
+  return commune ? commune.libelle : "";
+}
 function memeDateStock(libelle, dateReference) {
   const reference = convertirFechaStock(dateReference);
   if (!reference) return false;
@@ -953,11 +968,11 @@ function cleGroupePailaEsandi(cleSlot, ligne) {
 }
 function etiquetaCampagneEsandi(ligne) {
   if (!ligne || ligne.usine !== "esandi") return "";
-  if (ligne.id === "e_tur") return "Campaña continua de 2 o 3 días, TM y TT";
-  if (["e_pf_g1", "e_pf_g2", "e_pf_c1", "e_pf_c2", "e_pc_auto", "e_pc_manual"].includes(ligne.id)) return "Producto fijo por turno durante la semana";
+  if (ligne.id === "e_tur") return "Campaña continua de 2 o 3 días, hasta llegar a sobrestock";
+  if (["e_pf_g1", "e_pf_g2", "e_pf_c1", "e_pf_c2", "e_pc_auto", "e_pc_manual"].includes(ligne.id)) return "Producto fijo por turno durante la semana, hasta llegar a sobrestock";
   if (ligne.id === "e_rama") return "Mismo sabor durante la jornada; puede cambiar al día siguiente al llegar a verde";
   if (ligne.id === "e_mh") return "Mismo relleno durante la jornada; puede cambiar al día siguiente al llegar a verde";
-  if (["e_crem", "e_bomb"].includes(ligne.id)) return "Mismo producto en TM y TT de la jornada";
+  if (["e_crem", "e_bomb"].includes(ligne.id)) return "Mismo producto en TM y TT, salvo que llegue a sobrestock";
   return "";
 }
 function dureeCampagneTurron(produit) {
@@ -3109,7 +3124,6 @@ export default function PlanificateurChocolat() {
 
     let blocsUtilises = 0;
     let blocsSansBesoin = 0;
-    let blocsAjustes = 0;
     let frascoCampanaActivo = null;
     const derniereFamilleParLigne = {};
     const prioritesActives = prioritesProduction.filter((regle) => regle.active && regle.factory_id === usine);
@@ -3157,15 +3171,40 @@ export default function PlanificateurChocolat() {
           let meilleureRegle = null;
           const joursRestantsHorizon = Math.max(0, datesHorizon.length - jourIndex - 1);
           const cleCampagne = cleCampagneEsandi(cleExistante, ligne);
-          const produitTurronForceId = ligne.id === "e_tur" ? campagnesTurronParDate.get(jour.cle) : null;
-          const produitCampagneId = produitTurronForceId != null ? produitTurronForceId : (cleCampagne ? produitsCampagneParCle.get(cleCampagne) : null);
+          let produitTurronForceId = ligne.id === "e_tur" ? campagnesTurronParDate.get(jour.cle) : null;
+          if (produitTurronForceId != null) {
+            const turronForce = produitsUsine.find((p) => memeId(p.id, produitTurronForceId));
+            const seuilForce = turronForce ? seuils(turronForce) : null;
+            if (!turronForce || (seuilForce && stockSim[turronForce.id] >= seuilForce.max)) {
+              campagnesTurronParDate.forEach((produitId, dateCle) => {
+                if (dateCle >= jour.cle && memeId(produitId, produitTurronForceId)) campagnesTurronParDate.delete(dateCle);
+              });
+              produitTurronForceId = null;
+            }
+          }
+          let produitCampagneId = produitTurronForceId != null ? produitTurronForceId : (cleCampagne ? produitsCampagneParCle.get(cleCampagne) : null);
+          if (produitCampagneId != null) {
+            const produitForce = produitsUsine.find((p) => memeId(p.id, produitCampagneId));
+            const seuilForce = produitForce ? seuils(produitForce) : null;
+            if (!produitForce || (seuilForce && stockSim[produitForce.id] >= seuilForce.max)) {
+              if (cleCampagne) produitsCampagneParCle.delete(cleCampagne);
+              produitCampagneId = null;
+            }
+          }
           const cleGroupePaila = cleGroupePailaEsandi(cleExistante, ligne);
           const produitsPailaFixes = cleGroupePaila ? produitsPailaParGroupe.get(cleGroupePaila) : null;
+          if (produitsPailaFixes) {
+            [...produitsPailaFixes].forEach((produitId) => {
+              const produitFixe = produitsUsine.find((p) => memeId(p.id, produitId));
+              if (!produitFixe || stockSim[produitFixe.id] >= seuils(produitFixe).max) produitsPailaFixes.delete(String(produitId));
+            });
+          }
           const produitsSelonPaila = produitsPailaFixes && produitsPailaFixes.size >= 2 ? prods.filter((p) => produitsPailaFixes.has(String(p.id))) : prods;
           const produitsEligibles = produitCampagneId != null ? produitsSelonPaila.filter((p) => memeId(p.id, produitCampagneId)) : produitsSelonPaila;
           if (!frascoCampana) produitsEligibles.forEach((p) => {
             if (clesTurno.some((slot) => { const existant = lireBloc(nouveauPlan[slot], ligne); return existant && memeId(existant.p, p.id); })) return;
             const s = seuils(p);
+            if (stockSim[p.id] >= s.max) return;
             const reglesProduit = prioritesActives.filter((regle) => String(regle.product_id) === String(p.id));
             const multiplicateurCible = reglesProduit.reduce((max, regle) => Math.max(max, Number(regle.target_multiplier) || 1.5), 1.5);
             const plancher = Math.min(s.max, s.min * multiplicateurCible);
@@ -3223,16 +3262,10 @@ export default function PlanificateurChocolat() {
           const s = seuils(meilleur);
           const kgpb = kgParBulto(meilleur);
           const kgb_ligne = kgProduitPourPartTurno(meilleur, ligne, turno, jour.date, produitsParTurno(ligne));
-          const stockProjeteFinAvant = stockSim[meilleur.id] - demandeJour(meilleur) * joursRestantsHorizon;
-          const stockProjeteFinPlein = stockProjeteFinAvant + kgb_ligne / kgpb;
-          const limitePleinRaisonnable = s.max * 1.1;
-          const kgPourFinirAuMaximum = Math.max(0, (s.max - stockProjeteFinAvant) * kgpb);
-          const doitAjuster = !frascoCampana && ligne.id !== "e_tur" && stockProjeteFinPlein > limitePleinRaisonnable && kgPourFinirAuMaximum > 0;
           const kgProduit = frascoCampana
             ? Math.min(kgb_ligne, frascoCampana.restanteKg)
-            : (doitAjuster ? Math.min(kgb_ligne, kgPourFinirAuMaximum) : kgb_ligne);
+            : kgb_ligne;
           if (kgProduit <= 0) return;
-          if (doitAjuster) blocsAjustes++;
           const famille = familleProduit(meilleur);
           const raisonPriorite = frascoCampana
             ? "Lote mínimo mensual de esta variedad de Frasco, activado por necesidad de stock"
@@ -3245,7 +3278,7 @@ export default function PlanificateurChocolat() {
             : (meilleureRegle
               ? "Prioridad admin: " + (meilleureRegle.rule_type === "never_stockout" ? "producto crítico" : meilleureRegle.rule_type === "sequence" ? "secuencia obligatoria" : meilleureRegle.rule_type === "due_date" ? "fecha límite" : "stock objetivo reforzado")
               : (stockSim[meilleur.id] < s.min ? "Prioridad: salir de zona roja" : "Protección del stock final"));
-          const raison = raisonPriorite + (doitAjuster ? " · Cantidad ajustada para evitar sobrestock extremo" : " · Producción a capacidad completa");
+          const raison = raisonPriorite + " · Producción a capacidad completa; cambio de producto al llegar a sobrestock";
           nouveauPlan[cleExistante] = { p: meilleur.id, kg: kgProduit, raison };
           stockSim[meilleur.id] += kgProduit / kgpb;
           if (frascoCampana) {
@@ -3277,7 +3310,7 @@ export default function PlanificateurChocolat() {
     const sansConv = configures.filter((p) => !kgParBulto(p)).length;
     const enVert = configures.filter((p) => { const s = seuils(p); if (s.max <= 0) return true; return stockSim[p.id] >= s.min * 1.5 && stockSim[p.id] <= s.max; }).length;
     const sousMin = configures.filter((p) => stockSim[p.id] < seuils(p).min).length;
-    setMsgOpti("✓ " + blocsUtilises + " turno(s) utilizado(s) del " + fmtDate(lundiDepart) + (dateFin ? " al " + fmtDate(dateFin) : " en " + horizonOpti + " sem.") + " · " + produitsCampagneParCle.size + " campaña(s) semanal(es)/diaria(s) fijada(s) · capacidad completa por defecto · " + blocsAjustes + " turno(s) ajustado(s) porque producir completo superaba ampliamente el máximo · " + blocsSansBesoin + " turno(s) libres sin necesidad de producción · prioridad absoluta a productos bajo mínimo y riesgo al final del período · " + enVert + "/" + configures.length + " en zona verde al final del horizonte" + (sousMin > 0 ? " · ⚠️ " + sousMin + " todavía bajo el mínimo por falta real de capacidad, turnos o conversión" : "") + (sansConv > 0 ? " · " + sansConv + " sin conversión no planificados" : "") + ".");
+    setMsgOpti("✓ " + blocsUtilises + " turno(s) utilizado(s) del " + fmtDate(lundiDepart) + (dateFin ? " al " + fmtDate(dateFin) : " en " + horizonOpti + " sem.") + " · " + produitsCampagneParCle.size + " campaña(s) semanal(es)/diaria(s) fijada(s) · producción a capacidad completa y cambio de producto al llegar a sobrestock · " + blocsSansBesoin + " turno(s) libres sin necesidad de producción · prioridad absoluta a productos bajo mínimo y riesgo al final del período · " + enVert + "/" + configures.length + " en zona verde al final del horizonte" + (sousMin > 0 ? " · ⚠️ " + sousMin + " todavía bajo el mínimo por falta real de capacidad, turnos o conversión" : "") + (sansConv > 0 ? " · " + sansConv + " sin conversión no planificados" : "") + ".");
   };
 
   const viderHorizon = () => {
@@ -3323,7 +3356,7 @@ export default function PlanificateurChocolat() {
   };
   const majLigne = (id, champ, valeur) => setLignes(lignes.map((l) => (l.id === id ? { ...l, [champ]: valeur } : l)));
 
-  const appliquerCollageStocks = ({ modeActualisation = false, texteSource = null, produitsSource = null, conserverMessage = false } = {}) => {
+  const appliquerCollageStocks = ({ modeActualisation = false, texteSource = null, produitsSource = null, conserverMessage = false, dateCibleStock = "" } = {}) => {
     if (!usine) return;
     const texteAImporter = texteSource != null ? texteSource : texteImport;
     const brut = parseTSV(texteAImporter).map((r) => r.map((c) => normaliser(c)));
@@ -3358,7 +3391,15 @@ export default function PlanificateurChocolat() {
       .map((ligne, indexLigne) => ({ ligne, indexLigne, date: convertirFechaStock((ligne || [])[0]) }))
       .filter((item) => item.indexLigne >= idxDebutStocks && item.date)
       .sort((a, b) => a.date.getTime() - b.date.getTime());
-    let idxStock = lignesDatees.length ? lignesDatees[lignesDatees.length - 1].indexLigne : -1;
+    const dateCible = convertirFechaStock(dateCibleStock);
+    const lignesDateesEligibles = dateCible
+      ? lignesDatees.filter((item) => item.date.getFullYear() === dateCible.getFullYear() && item.date.getMonth() === dateCible.getMonth() && item.date.getDate() === dateCible.getDate())
+      : lignesDatees;
+    let idxStock = lignesDateesEligibles.length ? lignesDateesEligibles[lignesDateesEligibles.length - 1].indexLigne : -1;
+    if (dateCible && idxStock === -1) {
+      if (!conserverMessage) setMsgImport("No se encontró stock para la fecha común " + dateCibleStock + ".");
+      return null;
+    }
     if (idxStock === -1) {
       for (let i = rows.length - 1; i >= idxDebutStocks; i--) {
         if (rows[i].some((c, ci) => ci > 0 && c !== "" && !isNaN(parseNum(c)))) { idxStock = i; break; }
@@ -3367,7 +3408,8 @@ export default function PlanificateurChocolat() {
     const ligneStock = idxStock !== -1 ? rows[idxStock] : [];
     const dateStock = ligneStock[0] || "";
     const derniereValeurStock = (colonne) => {
-      const historique = lignesDatees.length ? [...lignesDatees].reverse() : rows.slice(idxDebutStocks).map((ligne, offset) => ({ ligne, indexLigne: idxDebutStocks + offset })).reverse();
+      const historiqueBase = dateCible ? lignesDatees.filter((item) => item.date.getTime() <= dateCible.getTime()) : lignesDatees;
+      const historique = historiqueBase.length ? [...historiqueBase].reverse() : rows.slice(idxDebutStocks, idxStock + 1).map((ligne, offset) => ({ ligne, indexLigne: idxDebutStocks + offset })).reverse();
       for (const entree of historique) {
         const cellule = normaliser((entree.ligne || [])[colonne]);
         if (cellule === "") continue;
@@ -3388,6 +3430,7 @@ export default function PlanificateurChocolat() {
         "TABLETA DE PISTACHO SAL Y CARAMELO BSAS",
         "CHOC EN RAMA LECHE A GRANEL",
         "CHOC EN RAMA AMARGO A GRANEL",
+        "HUESITO FIG MACIZA",
         "PIGGY",
       ].includes(NORMALISER_REFERENCE(nom).replace(/,/g, ""))) { ignores++; continue; }
       const sku = normaliser(ligneSku[c]);
@@ -3508,25 +3551,48 @@ export default function PlanificateurChocolat() {
     const fechasFuentes = [];
     const erreurs = [];
     let fechaReferenciaPrincipal = "";
+    let texteTerminadoEsandi = "";
+    let dateCommuneEsandi = "";
+    if (usine === "esandi") {
+      try {
+        texteTerminadoEsandi = await lireSource(GOOGLE_STOCK_TERMINADO.gid, GOOGLE_STOCK_TERMINADO.sheetId);
+        if (!texteTerminadoEsandi) throw new Error("respuesta vacia");
+      } catch (error) {
+        setMsgImport("No se pudo sincronizar Esandi con Prod. Terminado. No se cargo ningun stock para evitar mezclar fechas diferentes. " + String(error && error.message ? error.message : error));
+        return;
+      }
+    }
     for (const source of sources) {
       try {
         const texte = await lireSource(source.gid);
         if (!texte) throw new Error("respuesta vacia");
         const fechaFuente = extraireDerniereDateStock(texte);
-        const resultat = appliquerCollageStocks({ modeActualisation: true, texteSource: texte, produitsSource: produitsFusionnes, conserverMessage: true });
+        let dateCibleStock = "";
+        if (usine === "esandi" && source.nom === nomUsineGoogle) {
+          dateCommuneEsandi = extraireDerniereDateCommuneStock(texte, texteTerminadoEsandi);
+          if (!dateCommuneEsandi) throw new Error("ninguna fecha comun con Prod. Terminado");
+          dateCibleStock = dateCommuneEsandi;
+        }
+        const resultat = appliquerCollageStocks({
+          modeActualisation: true,
+          texteSource: texte,
+          produitsSource: produitsFusionnes,
+          conserverMessage: true,
+          dateCibleStock,
+        });
         if (!resultat) throw new Error("ningun producto reconocido");
         produitsFusionnes = resultat.produits;
-        if (source.nom === nomUsineGoogle) fechaReferenciaPrincipal = normaliser(resultat.dateStock || fechaFuente);
+        if (source.nom === nomUsineGoogle) fechaReferenciaPrincipal = normaliser(dateCibleStock || resultat.dateStock || fechaFuente);
         messages.push(source.nom + ": " + resultat.maj + " producto(s), " + resultat.avecMinMax + " con min./max.");
-        if (fechaFuente || resultat.dateStock) fechasFuentes.push(source.nom + ": " + (fechaFuente || resultat.dateStock));
+        const fechaUtilizada = dateCibleStock || resultat.dateStock || fechaFuente;
+        if (fechaUtilizada) fechasFuentes.push(source.nom + (dateCibleStock ? " + Prod. Terminado" : "") + ": " + fechaUtilizada);
       } catch (error) {
         erreurs.push(source.nom + " (" + String(error && error.message ? error.message : error) + ")");
       }
     }
     if (usine === "esandi" && fechaReferenciaPrincipal) {
       try {
-        const texteTerminado = await lireSource(GOOGLE_STOCK_TERMINADO.gid, GOOGLE_STOCK_TERMINADO.sheetId);
-        const terminado = ajouterStockTerminado(texteTerminado, produitsFusionnes, fechaReferenciaPrincipal, "esandi");
+        const terminado = ajouterStockTerminado(texteTerminadoEsandi, produitsFusionnes, fechaReferenciaPrincipal, "esandi");
         if (terminado.erreur) throw new Error(terminado.erreur);
         produitsFusionnes = terminado.produits;
         messages.push("Prod. Terminado " + fechaReferenciaPrincipal + ": " + terminado.reconnus + " producto(s), +" + fmtNb(terminado.ajoutes) + " bultos");

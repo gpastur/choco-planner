@@ -625,10 +625,12 @@ function turnosLigne(ligne) {
   if (ligne && ligne.id === "f_franui") return TURNOS_FRANUI;
   const turnos = turnosUsine(ligne && ligne.usine);
   if (ligne && ligne.id === "vb_stephan") return turnos.filter((t) => t.id !== "n");
-  if (ligne && ["vb_tostadora", "vb_envasado"].includes(ligne.id)) return turnos.filter((t) => t.id === "m");
+  if (ligne && ligne.id === "vb_tostadora") return turnos.filter((t) => t.id === "m");
+  if (ligne && ligne.id === "vb_envasado") return turnos.filter((t) => t.id === "m" || t.id === "t");
   return turnos;
 }
-function turnosBaseAffiches(ligne) { return ligne && ligne.id === "f_franui" ? 2 : ligne && ligne.usine === "fatima" ? 1 : turnosLigne(ligne).length; }
+function turnosBaseAffiches(ligne) { return ligne && ligne.id === "f_franui" ? 2 : ligne && (ligne.usine === "fatima" || ligne.id === "vb_envasado") ? 1 : turnosLigne(ligne).length; }
+function detailTurnosSpeciaux(ligne) { return ligne && ligne.id === "vb_envasado" ? " + 3 tardes/semana" : ""; }
 function turnosUsinePourDate(usineId, date) {
   const turnos = turnosUsine(usineId);
   const jour = date instanceof Date ? date.getDay() : null;
@@ -649,9 +651,14 @@ function turnosLignePourDate(ligne, date) {
     if (date instanceof Date && (date.getDay() === 0 || date.getDay() === 6)) return [];
     return turnos.filter((t) => t.id !== "n");
   }
-  if (ligne && ["vb_tostadora", "vb_envasado"].includes(ligne.id)) {
+  if (ligne && ligne.id === "vb_tostadora") {
     if (date instanceof Date && (date.getDay() === 0 || date.getDay() === 6)) return [];
     return turnos.filter((t) => t.id === "m");
+  }
+  if (ligne && ligne.id === "vb_envasado") {
+    if (date instanceof Date && (date.getDay() === 0 || date.getDay() === 6)) return [];
+    const jour = date instanceof Date ? date.getDay() : null;
+    return turnos.filter((t) => t.id === "m" || (t.id === "t" && [1, 3, 5].includes(jour)));
   }
   return turnos;
 }
@@ -5112,7 +5119,7 @@ export default function PlanificateurChocolat() {
                         <tr key={ligne.id}>
                           <td className={"w-56 min-w-56 p-2 font-semibold align-top " + pal.texte}>
                             {ligne.nom}
-                            <div className="text-xs font-normal text-gray-500">{fmtNb(ligne.capacite)} {uniteCapacite(ligne)}/turno<br />{turnosBaseAffiches(ligne)} turno(s)/dia base{produitsParTurno(ligne) > 1 && <><br /><span className="text-violet-600">Hasta {produitsParTurno(ligne)} productos/turno</span></>}</div>
+                            <div className="text-xs font-normal text-gray-500">{fmtNb(ligne.capacite)} {uniteCapacite(ligne)}/turno<br />{turnosBaseAffiches(ligne)} turno(s)/dia base{detailTurnosSpeciaux(ligne)}{produitsParTurno(ligne) > 1 && <><br /><span className="text-violet-600">Hasta {produitsParTurno(ligne)} productos/turno</span></>}</div>
                             {etiquetaCampagneEsandi(ligne) && <div className="mt-2 rounded border border-emerald-200 bg-emerald-50 px-2 py-1 text-[10px] font-medium leading-tight text-emerald-800">↻ {etiquetaCampagneEsandi(ligne)}</div>}
                             {capacitesSemaine.length > 0 && (
                               <div className="mt-3 border-t border-amber-200 pt-2 text-[10px] font-normal leading-tight text-slate-600">
@@ -5219,7 +5226,7 @@ export default function PlanificateurChocolat() {
                 </table>
               </div>
             )}
-            <p className="text-xs text-gray-500 mt-2">Cada turno produce segun los horarios de la fabrica: Fatima trabaja de lunes a viernes un turno completo dividido en medio turno manana y medio turno tarde, y no trabaja sabado ni domingo; Esandi trabaja manana y tarde, con solo manana el sabado; Mitre/VB trabajan 3 turnos base, con solo manana el sabado. Excepcion: Stephan / Buldos trabaja solo lunes a viernes, manana y tarde. La cantidad es <strong>divisible</strong>. La gomita muestra el stock justo despues de cada bloque: usa los <strong>kg reales</strong> cuando estan informados y, para los bloques futuros, mantiene los kg planificados.</p>
+            <p className="text-xs text-gray-500 mt-2">Cada turno produce segun los horarios de la fabrica: Fatima trabaja de lunes a viernes un turno completo dividido en medio turno manana y medio turno tarde, y no trabaja sabado ni domingo; Esandi trabaja manana y tarde, con solo manana el sabado; Mitre/VB trabajan 3 turnos base, con solo manana el sabado. Excepciones VB: Stephan / Buldos trabaja solo lunes a viernes, manana y tarde; Envasado trabaja cada manana y agrega turno tarde los lunes, miercoles y viernes. La cantidad es <strong>divisible</strong>. La gomita muestra el stock justo despues de cada bloque: usa los <strong>kg reales</strong> cuando estan informados y, para los bloques futuros, mantiene los kg planificados.</p>
             <Legende />
           </div>
         )}
@@ -5509,7 +5516,7 @@ export default function PlanificateurChocolat() {
                       <span className={"w-3 h-3 rounded-full " + pal.couleur}></span>
                       <input className="flex-1 bg-transparent border-b border-transparent focus:border-violet-400 outline-none text-sm font-medium" value={l.nom} onChange={(e) => majLigne(l.id, "nom", e.target.value)} />
                       <input type="number" className="w-20 border rounded p-1 text-sm text-right" value={l.capacite} onChange={(e) => majLigne(l.id, "capacite", parseFloat(e.target.value) || 0)} />
-                      <span className="text-xs text-gray-500">{uniteCapacite(l)}/turno - {turnosBaseAffiches(l)} turno(s)/dia base</span>
+                      <span className="text-xs text-gray-500">{uniteCapacite(l)}/turno - {turnosBaseAffiches(l)} turno(s)/dia base{detailTurnosSpeciaux(l)}</span>
                       {!active && <span className="text-[11px] px-2 py-0.5 rounded-full bg-slate-200 text-slate-600">Inactiva</span>}
                       <button onClick={() => supprimerLigne(l.id)} className="text-red-500 hover:text-red-700 text-sm px-1">✕</button>
                     </div>

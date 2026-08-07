@@ -146,6 +146,7 @@ const PESO_BULTO_POR_PRODUCTO = {
   "RAMA LECHE GRANEL": 7,
   "RAMON": 4.8,
   "RAPASAURIO 3D": 2.5,
+  "SUBMARINO A GRANEL": 1.5,
   "SUBMARINO PIGGY": 1.575,
   "SUBMARINO X 3": 1.98,
   "TAB 60 DIET": 3.04,
@@ -309,6 +310,7 @@ const PRODUITS_BASE = [
   { ...mkEsandi(163, "RAMA LECHE GRANEL 45/50G CAJON", "e_rama", null), sku: "PR-MATP-0000569" },
   { ...mkEsandi(166, "RAMA BLANCO FLOWPEADA", "e_rama", null), sku: "VT-CRAM-0000006" },
   { ...mkEsandi(167, "RAMA LECHE FLOWPEADA", "e_rama", null), sku: "VT-CRAM-0000007" },
+  { ...mkEsandi(168, "SUBMARINO A GRANEL", "e_bomb", 1.5), sku: "CF-CAFE-0000022", unidadesBulto: 50, pesoUnidad: 0.03 },
   mkVB(148, "Cafe Crudo", "vb_tostadora", null),
   { ...mkVB(112, "DULCE FRAMBUESA 420gr BsAs", "vb_stephan", 4.62), sku: "VT-DULC-0000900", min: 82, max: 163, capaciteTurno: 130 },
   { ...mkVB(113, "DULCE FRUTILLA 420gr BsAs", "vb_stephan", 4.62), sku: "VT-DULC-0000902", min: 39, max: 78, capaciteTurno: 130 },
@@ -531,6 +533,7 @@ const PRODUITS_INIT = PRODUITS_AVEC_VB_MAESTRO.map((produit) => {
     105: { min: 58, max: 116 },
     155: { min: 39, max: 78 },
     158: { min: 66, max: 264 },
+    168: { min: 50, max: 100 },
   }[produit.id] : null;
   return { ...produit, stock: 0, min: seuilsEsandi?.min ?? null, max: seuilsEsandi?.max ?? null, demande: 0 };
 });

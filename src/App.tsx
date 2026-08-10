@@ -1407,21 +1407,6 @@ export default function PlanificateurChocolat() {
     return { nom, date: d, cle: cleDate(d) };
   }), [lundiAffiche]);
 
-  const nettoyerPlanningHorsPeriode = (debut, fin) => {
-    const debutCle = cleDate(debutJour(debut));
-    const finCle = cleDate(debutJour(fin));
-    const lignesIds = new Set(lignesUsine.map((l) => l.id));
-    setPlan((p) => {
-      const np = {};
-      Object.entries(p).forEach(([k, v]) => {
-        const [dt, lid] = k.split("|");
-        if (lignesIds.has(lid) && (dt < debutCle || dt > finCle)) return;
-        np[k] = v;
-      });
-      return np;
-    });
-  };
-
   // Production planifiée par produit, EN BULTOS (en tenant compte des quantités partielles)
   const productionParProduit = useMemo(() => {
     const prod = {};
@@ -2659,6 +2644,8 @@ export default function PlanificateurChocolat() {
         .from("planning_versions")
         .update({
           name: nomVersion.trim() || versionActive.name,
+          period_start: dateDebutOpti,
+          period_end: dateFinOpti,
           snapshot,
           status: approuver ? "approved" : "draft",
           approved_by: approuver ? session.user.id : null,
@@ -5084,11 +5071,11 @@ export default function PlanificateurChocolat() {
               <button disabled={planningFige || !peutPlanifier || !stockChargeSession} title={!stockChargeSession ? "Actualiza el stock antes de optimizar" : ""} onClick={() => { setLundi(lundiDeLaSemaine(periodeOpti.debut)); optimiser(periodeOpti.debut, { respecterDateExacte: true, dateFin: periodeOpti.fin }); }} className="px-4 py-2 bg-green-700 disabled:bg-slate-300 text-white rounded-lg text-sm font-medium hover:bg-green-800 shadow">✨ Optimizar la planificación</button>
               <label className="flex items-center gap-2 px-3 py-2 bg-green-50 border border-green-200 rounded-lg text-sm text-green-900">
                 Desde
-                <input disabled={planningFige || !peutPlanifier} type="date" className="bg-white disabled:bg-slate-100 border border-green-300 rounded-md px-2 py-1 text-sm font-semibold text-green-900" value={dateDebutOpti} onChange={(e) => { const valeur = e.target.value; const nouvelleFin = dateFinOpti < valeur ? valeur : dateFinOpti; setDateDebutOpti(valeur); setDateFinOpti(nouvelleFin); setLundi(lundiDeLaSemaine(dateDepuisCle(valeur))); nettoyerPlanningHorsPeriode(dateDepuisCle(valeur), dateDepuisCle(nouvelleFin)); }} />
+                <input disabled={planningFige || !peutPlanifier} type="date" className="bg-white disabled:bg-slate-100 border border-green-300 rounded-md px-2 py-1 text-sm font-semibold text-green-900" value={dateDebutOpti} onChange={(e) => { const valeur = e.target.value; const nouvelleFin = dateFinOpti < valeur ? valeur : dateFinOpti; setDateDebutOpti(valeur); setDateFinOpti(nouvelleFin); setLundi(lundiDeLaSemaine(dateDepuisCle(valeur))); }} />
               </label>
               <label className="flex items-center gap-2 px-3 py-2 bg-green-50 border border-green-200 rounded-lg text-sm text-green-900">
                 Hasta
-                <input disabled={planningFige || !peutPlanifier} type="date" className="bg-white disabled:bg-slate-100 border border-green-300 rounded-md px-2 py-1 text-sm font-semibold text-green-900" value={dateFinOpti} min={dateDebutOpti} onChange={(e) => { const valeur = e.target.value; setDateFinOpti(valeur); nettoyerPlanningHorsPeriode(dateDepuisCle(dateDebutOpti), dateDepuisCle(valeur)); }} />
+                <input disabled={planningFige || !peutPlanifier} type="date" className="bg-white disabled:bg-slate-100 border border-green-300 rounded-md px-2 py-1 text-sm font-semibold text-green-900" value={dateFinOpti} min={dateDebutOpti} onChange={(e) => { setDateFinOpti(e.target.value); }} />
               </label>
               <button disabled={planningFige || !peutPlanifier} onClick={viderHorizon} className="px-3 py-2 bg-white disabled:bg-slate-100 border border-gray-300 text-gray-600 rounded-lg text-sm hover:bg-gray-100">Borrar horizonte</button>
               {!cloudUtilisateurActif && <button onClick={guardarPlanificacion} className="px-3 py-2 bg-violet-800 text-white rounded-lg text-sm hover:bg-violet-900">Guardar local</button>}

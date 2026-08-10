@@ -146,7 +146,6 @@ const PESO_BULTO_POR_PRODUCTO = {
   "RAMA LECHE GRANEL": 7,
   "RAMON": 4.8,
   "RAPASAURIO 3D": 2.5,
-  "SUBMARINO A GRANEL": 1.5,
   "SUBMARINO PIGGY": 1.575,
   "SUBMARINO X 3": 1.98,
   "TAB 60 DIET": 3.04,
@@ -310,7 +309,6 @@ const PRODUITS_BASE = [
   { ...mkEsandi(163, "RAMA LECHE GRANEL 45/50G CAJON", "e_rama", null), sku: "PR-MATP-0000569" },
   { ...mkEsandi(166, "RAMA BLANCO FLOWPEADA", "e_rama", null), sku: "VT-CRAM-0000006" },
   { ...mkEsandi(167, "RAMA LECHE FLOWPEADA", "e_rama", null), sku: "VT-CRAM-0000007" },
-  { ...mkEsandi(168, "SUBMARINO A GRANEL", "e_bomb", 1.5), sku: "CF-CAFE-0000022", unidadesBulto: 50, pesoUnidad: 0.03 },
   mkVB(148, "Cafe Crudo", "vb_tostadora", null),
   { ...mkVB(112, "DULCE FRAMBUESA 420gr BsAs", "vb_stephan", 4.62), sku: "VT-DULC-0000900", min: 82, max: 163, capaciteTurno: 130 },
   { ...mkVB(113, "DULCE FRUTILLA 420gr BsAs", "vb_stephan", 4.62), sku: "VT-DULC-0000902", min: 39, max: 78, capaciteTurno: 130 },
@@ -533,7 +531,6 @@ const PRODUITS_INIT = PRODUITS_AVEC_VB_MAESTRO.map((produit) => {
     105: { min: 58, max: 116 },
     155: { min: 39, max: 78 },
     158: { min: 66, max: 264 },
-    168: { min: 50, max: 100 },
   }[produit.id] : null;
   return { ...produit, stock: 0, min: seuilsEsandi?.min ?? null, max: seuilsEsandi?.max ?? null, demande: 0 };
 });
@@ -1170,6 +1167,12 @@ export default function PlanificateurChocolat() {
   const [plan, setPlan] = useState({}); // cle -> { p: id, kg: number }
   const [lundi, setLundi] = useState(() => lundiDeLaSemaine(new Date()));
   const [onglet, setOnglet] = useState("calendrier");
+  const [theme, setTheme] = useState<"light" | "dark">(() => {
+    const memorise = localStorage.getItem("choco-planner-theme");
+    return memorise === "dark" || memorise === "light"
+      ? memorise
+      : window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+  });
   const [nouveauNom, setNouveauNom] = useState("");
   const [nouvelleLigneProd, setNouvelleLigneProd] = useState("");
   const [nomNouvelleLigne, setNomNouvelleLigne] = useState("");
@@ -1264,6 +1267,11 @@ export default function PlanificateurChocolat() {
   const [nomVersionEdition, setNomVersionEdition] = useState("");
   const [activationLignes, setActivationLignes] = useState<Record<string, boolean>>({});
   const [msgActivationLignes, setMsgActivationLignes] = useState("");
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    localStorage.setItem("choco-planner-theme", theme);
+  }, [theme]);
 
   useEffect(() => {
     if (!usine) {
@@ -1406,6 +1414,21 @@ export default function PlanificateurChocolat() {
     const d = new Date(lundiAffiche.getFullYear(), lundiAffiche.getMonth(), lundiAffiche.getDate() + i);
     return { nom, date: d, cle: cleDate(d) };
   }), [lundiAffiche]);
+
+  const nettoyerPlanningHorsPeriode = (debut, fin) => {
+    const debutCle = cleDate(debutJour(debut));
+    const finCle = cleDate(debutJour(fin));
+    const lignesIds = new Set(lignesUsine.map((l) => l.id));
+    setPlan((p) => {
+      const np = {};
+      Object.entries(p).forEach(([k, v]) => {
+        const [dt, lid] = k.split("|");
+        if (lignesIds.has(lid) && (dt < debutCle || dt > finCle)) return;
+        np[k] = v;
+      });
+      return np;
+    });
+  };
 
   // Production planifiée par produit, EN BULTOS (en tenant compte des quantités partielles)
   const productionParProduit = useMemo(() => {
@@ -2644,8 +2667,6 @@ export default function PlanificateurChocolat() {
         .from("planning_versions")
         .update({
           name: nomVersion.trim() || versionActive.name,
-          period_start: dateDebutOpti,
-          period_end: dateFinOpti,
           snapshot,
           status: approuver ? "approved" : "draft",
           approved_by: approuver ? session.user.id : null,
@@ -3631,7 +3652,7 @@ export default function PlanificateurChocolat() {
     }
   };
 
-  const exporterExcel = () => {
+  const exporterHtml = () => {
     const nomUsine = (USINES.find((u) => u.id === usine) || {}).nom || "";
     const semanas = [];
     for (let w = 0; w < horizonOpti; w++) {
@@ -3643,16 +3664,31 @@ export default function PlanificateurChocolat() {
     }
     const estilo = `
       <style>
-        body { font-family: Arial, sans-serif; }
-        table { border-collapse: collapse; margin-bottom: 24px; }
-        th { background: #78350f; color: white; font-weight: bold; }
-        th, td { border: 1px solid #cbd5e1; padding: 6px; vertical-align: top; }
-        .linea { background: #fef3c7; font-weight: bold; }
-        .bloque { min-width: 150px; height: 52px; }
-        .turno { color: #64748b; font-size: 11px; }
+        * { box-sizing: border-box; }
+        body { font-family: -apple-system, Segoe UI, Arial, sans-serif; margin: 24px; color: #1e293b; background: #f8fafc; }
+        h1 { color: #78350f; margin-bottom: 4px; }
+        h2 { color: #78350f; margin-top: 32px; }
+        .barra { position: sticky; top: 0; background: #f8fafc; padding: 8px 0; margin-bottom: 8px; z-index: 10; }
+        .barra button { padding: 8px 16px; border-radius: 8px; border: none; background: #15803d; color: white; font-size: 14px; cursor: pointer; }
+        .barra button:hover { background: #166534; }
+        table { border-collapse: collapse; margin-bottom: 24px; background: white; width: 100%; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+        th { background: #78350f; color: white; font-weight: bold; position: sticky; top: 48px; }
+        th, td { border: 1px solid #e2e8f0; padding: 8px; vertical-align: top; text-align: left; }
+        tr:nth-child(even) td { background: #fafaf9; }
+        .linea { background: #fef3c7 !important; font-weight: bold; }
+        .bloque { min-width: 150px; }
+        .bloque + .bloque { margin-top: 6px; }
+        .turno { color: #64748b; font-size: 11px; text-transform: uppercase; }
         .producto { font-weight: bold; color: #78350f; }
         .cantidad { color: #475569; font-size: 11px; }
-        .vacio { color: #94a3b8; }
+        .vacio { color: #94a3b8; font-style: italic; }
+        @media print {
+          .barra { display: none; }
+          body { background: white; margin: 0; }
+          table { box-shadow: none; }
+          h2 { page-break-before: always; }
+          h2:first-of-type { page-break-before: avoid; }
+        }
       </style>`;
     const tablasCalendario = semanas.map((dias, idx) => `
       <h2>Semana ${idx + 1}: ${htmlEscape(fmtDate(dias[0].date))} al ${htmlEscape(fmtDate(dias[5].date))}</h2>
@@ -3705,14 +3741,13 @@ export default function PlanificateurChocolat() {
           }).join("")}
         </tbody>
       </table>`;
-    const html = `<!doctype html><html><head><meta charset="utf-8">${estilo}</head><body><h1>Planificación ${htmlEscape(nomUsine)}</h1>${tablasCalendario}${tablaStocks}</body></html>`;
-    const blob = new Blob(["\ufeff" + html], { type: "application/vnd.ms-excel;charset=utf-8" });
+    const html = `<!doctype html><html><head><meta charset="utf-8"><title>Planificación ${htmlEscape(nomUsine)}</title>${estilo}</head><body>
+      <div class="barra"><button onclick="window.print()">Imprimir / Guardar como PDF</button></div>
+      <h1>Planificación ${htmlEscape(nomUsine)}</h1>${tablasCalendario}${tablaStocks}</body></html>`;
+    const blob = new Blob([html], { type: "text/html;charset=utf-8" });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "planificacion_" + nomUsine + ".xls";
-    a.click();
-    URL.revokeObjectURL(url);
+    window.open(url, "_blank");
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
   };
 
   const changerSemaine = (delta) => setLundi(new Date(lundiAffiche.getFullYear(), lundiAffiche.getMonth(), lundiAffiche.getDate() + delta * 7));
@@ -4262,7 +4297,7 @@ export default function PlanificateurChocolat() {
   if (PORTAIL_EMAIL_ACTIF && supabaseConfigured && session && doitChoisirMotDePasse) {
     return (
       <div className="min-h-screen bg-violet-50 grid place-items-center p-4 font-sans text-slate-800">
-        <form onSubmit={definirMotDePasse} className="w-full max-w-sm bg-white border border-violet-100 shadow-lg rounded-xl p-6">
+        <form onSubmit={definirMotDePasse} className="w-full max-w-sm app-card p-6">
           <div className="text-3xl mb-2">🍫</div>
           <h1 className="text-2xl font-bold text-violet-950">Crea tu contraseña</h1>
           <p className="text-sm text-slate-500 mt-1 mb-5">Tu invitación fue aceptada. Define una contraseña para acceder a Choco Planner.</p>
@@ -4274,7 +4309,7 @@ export default function PlanificateurChocolat() {
             Confirmar contraseña
             <input type="password" required minLength={8} autoComplete="new-password" className="mt-1 w-full border border-slate-300 rounded-lg px-3 py-2" value={confirmationMotDePasse} onChange={(e) => setConfirmationMotDePasse(e.target.value)} />
           </label>
-          <button type="submit" className="w-full bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg px-4 py-2 font-medium">Guardar y continuar</button>
+          <button type="submit" className="w-full app-btn-primary">Guardar y continuar</button>
           {messageMotDePasse && <p className="mt-3 text-sm text-red-700">{messageMotDePasse}</p>}
         </form>
       </div>
@@ -4284,7 +4319,7 @@ export default function PlanificateurChocolat() {
   if (PORTAIL_EMAIL_ACTIF && supabaseConfigured && !session) {
     return (
       <div className="min-h-screen bg-violet-50 grid place-items-center p-4 font-sans text-slate-800">
-        <form onSubmit={connecter} className="w-full max-w-sm bg-white border border-violet-100 shadow-lg rounded-xl p-6">
+        <form onSubmit={connecter} className="w-full max-w-sm app-card p-6">
           <div className="text-3xl mb-2">🍫</div>
           <h1 className="text-2xl font-bold text-violet-950">Choco Planner</h1>
           <p className="text-sm text-slate-500 mt-1 mb-5">Acceso reservado a usuarios autorizados en Supabase.</p>
@@ -4296,7 +4331,7 @@ export default function PlanificateurChocolat() {
             Contraseña
             <input type="password" required autoComplete="current-password" className="mt-1 w-full border border-slate-300 rounded-lg px-3 py-2" value={authPassword} onChange={(e) => setAuthPassword(e.target.value)} />
           </label>
-          <button type="submit" className="w-full bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg px-4 py-2 font-medium">Ingresar</button>
+          <button type="submit" className="w-full app-btn-primary">Ingresar</button>
           <button type="button" onClick={demanderReinitialisation} className="mt-3 w-full text-sm font-medium text-violet-800 hover:text-violet-950">Olvidé mi contraseña / cambiar contraseña</button>
           {authMessage && <p className="mt-3 text-sm text-red-700">{authMessage}</p>}
         </form>
@@ -4394,7 +4429,7 @@ export default function PlanificateurChocolat() {
               const nbP = produits.filter((p) => p.usine === u.id).length;
               const nbConfig = produits.filter((p) => p.usine === u.id && estConfigure(p)).length;
               return (
-                <button key={u.id} onClick={() => { setUsine(u.id); setOnglet("calendrier"); }} className="group bg-white rounded-xl shadow-sm border border-violet-100 hover:shadow-lg p-5 transition transform hover:-translate-y-1 hover:border-violet-300 text-left overflow-hidden">
+                <button key={u.id} onClick={() => { setUsine(u.id); setOnglet("calendrier"); }} className="group app-card hover:shadow-lg p-5 transition transform hover:-translate-y-1 hover:border-violet-300 text-left overflow-hidden">
                   <div className="flex items-start justify-between gap-4">
                     <div>
                       <div className="text-2xl font-bold text-violet-950">{u.nom}</div>
@@ -4441,6 +4476,15 @@ export default function PlanificateurChocolat() {
               </div>
             </div>
             <div className="flex flex-wrap items-center justify-end gap-2">
+              <button
+                type="button"
+                className="theme-toggle"
+                onClick={() => setTheme((actuel) => actuel === "dark" ? "light" : "dark")}
+                title={theme === "dark" ? "Activar modo claro" : "Activar modo oscuro"}
+                aria-label={theme === "dark" ? "Activar modo claro" : "Activar modo oscuro"}
+              >
+                <span aria-hidden="true">{theme === "dark" ? "☀" : "☾"}</span>
+              </button>
               {supabaseConfigured && session?.user ? (
                 <span className="text-xs text-slate-500 text-right rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5">
                   <strong className="block text-emerald-900">{profil?.full_name || session.user.email}</strong>
@@ -4474,7 +4518,7 @@ export default function PlanificateurChocolat() {
         </nav>
 
         {onglet === "usuarios" && profil?.role === "admin" && (
-          <section className="bg-white border border-violet-100 rounded-xl shadow-sm p-4 md:p-6 mb-4">
+          <section className="app-card p-4 md:p-6 mb-4">
             <div className="flex flex-wrap items-start justify-between gap-3 mb-5">
               <div>
                 <h2 className="text-xl font-semibold text-violet-950">Usuarios y permisos</h2>
@@ -4540,7 +4584,7 @@ export default function PlanificateurChocolat() {
         )}
 
         {onglet === "prioridades" && (
-          <section className="bg-white border border-violet-100 rounded-xl shadow-sm p-4 md:p-6 mb-4">
+          <section className="app-card p-4 md:p-6 mb-4">
             <div className="flex flex-wrap items-start justify-between gap-3 mb-5">
               <div>
                 <h2 className="text-xl font-semibold text-violet-950">Prioridades de producción</h2>
@@ -4604,7 +4648,7 @@ export default function PlanificateurChocolat() {
                     <input maxLength={300} value={nouvellePriorite.note} onChange={(e) => setNouvellePriorite((r) => ({ ...r, note: e.target.value }))} placeholder="Ej.: cliente estratégico, campaña, compromiso comercial..." className="mt-1 w-full border border-slate-300 rounded-lg bg-white px-3 py-2 text-sm" />
                   </label>
                 </div>
-                <button type="button" onClick={enregistrerPriorite} className="mt-3 px-4 py-2 bg-emerald-700 text-white rounded-lg text-sm font-medium hover:bg-emerald-800">Guardar prioridad</button>
+                <button type="button" onClick={enregistrerPriorite} className="mt-3 app-btn-success">Guardar prioridad</button>
               </div>
             )}
 
@@ -4626,7 +4670,7 @@ export default function PlanificateurChocolat() {
                         <td className="p-3 text-xs text-slate-600">Peso {regle.priority}{regle.rule_type !== "sequence" ? " · objetivo x" + regle.target_multiplier : ""}{regle.due_date ? " · " + regle.due_date : ""}</td>
                         <td className="p-3 text-xs text-slate-500 max-w-64">{regle.note || "—"}</td>
                         <td className="p-3">{peutGererPriorites ? <button type="button" onClick={() => modifierPriorite(regle.id, { active: !regle.active })} className={"px-3 py-1 rounded-full text-xs font-semibold " + (regle.active ? "bg-emerald-100 text-emerald-800" : "bg-slate-200 text-slate-600")}>{regle.active ? "Activa" : "Inactiva"}</button> : <span className="text-xs">{regle.active ? "Activa" : "Inactiva"}</span>}</td>
-                        <td className="p-3 text-right">{peutGererPriorites && <button type="button" onClick={() => supprimerPriorite(regle)} className="px-2.5 py-1.5 border border-red-200 text-red-700 rounded-lg hover:bg-red-50">Eliminar</button>}</td>
+                        <td className="p-3 text-right">{peutGererPriorites && <button type="button" onClick={() => supprimerPriorite(regle)} className="app-btn-danger">Eliminar</button>}</td>
                       </tr>
                     );
                   })}
@@ -4639,13 +4683,13 @@ export default function PlanificateurChocolat() {
 
         {onglet === "simulations" && (
           <div className="space-y-4">
-            <section className="bg-white rounded-lg shadow-sm border border-slate-200 p-4 md:p-6">
+            <section className="app-card p-4 md:p-6">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
                   <h2 className="text-xl font-semibold text-violet-950">Simulador de capacidad — {usineActive?.nom}</h2>
                   <p className="text-sm text-slate-500 mt-1">Prueba escenarios sin modificar el planning ni las capacidades registradas.</p>
                 </div>
-                <button type="button" onClick={() => { setSimulationSemaines(12); setSimulationDemandePct(20); setSimulationEfficacitePct(90); setSimulationTurnosExtra({}); setSimulationVue("global"); setSimulationLigneId(""); setSimulationProduitId(""); setSimulationRechercheSku(""); }} className="px-3 py-2 border border-slate-300 rounded-lg text-sm text-slate-700 hover:bg-slate-50">Restablecer escenario</button>
+                <button type="button" onClick={() => { setSimulationSemaines(12); setSimulationDemandePct(20); setSimulationEfficacitePct(90); setSimulationTurnosExtra({}); setSimulationVue("global"); setSimulationLigneId(""); setSimulationProduitId(""); setSimulationRechercheSku(""); }} className="app-btn-neutral">Restablecer escenario</button>
               </div>
 
               <div className="mt-5 flex flex-wrap items-end gap-3 border-y border-slate-100 py-4">
@@ -4723,7 +4767,7 @@ export default function PlanificateurChocolat() {
               </div>
             </section>
 
-            <section className="bg-white rounded-lg shadow-sm border border-slate-200 p-4">
+            <section className="app-card p-4">
               <div className="mb-3">
                   <h3 className="font-semibold text-violet-950">Proyección demanda y capacidad</h3>
                   <p className="text-xs text-slate-500">La demanda evoluciona progresivamente hasta la variación seleccionada. La capacidad incluye eficiencia y turnos extra.{simulationVue === "produit" && simulationProduitId ? " Para el SKU, se descuenta primero la demanda normal de los otros productos de su línea." : ""}</p>
@@ -4744,7 +4788,7 @@ export default function PlanificateurChocolat() {
               </div>
             </section>
 
-            <section className="bg-white rounded-lg shadow-sm border border-slate-200 p-4 overflow-x-auto">
+            <section className="app-card p-4 overflow-x-auto">
               <div className="mb-3">
                 <h3 className="font-semibold text-violet-950">Simulación por línea</h3>
                 <p className="text-xs text-slate-500">Agrega turnos virtuales por semana y observa inmediatamente si la línea cubre la demanda proyectada.</p>
@@ -4785,7 +4829,7 @@ export default function PlanificateurChocolat() {
 
         {onglet === "dashboard" && (
           <div className="space-y-4">
-            <section className="bg-white rounded-lg shadow-sm border border-slate-200 p-4">
+            <section className="app-card p-4">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
                   <h2 className="text-xl font-semibold text-violet-950">Dashboard de producción — {usineActive?.nom}</h2>
@@ -4849,7 +4893,7 @@ export default function PlanificateurChocolat() {
               ))}
             </section>
 
-            <section className="bg-white rounded-lg shadow-sm border border-slate-200 p-4">
+            <section className="app-card p-4">
               <h3 className="font-semibold text-violet-950 mb-3">Atención requerida</h3>
               <div className="grid gap-2 md:grid-cols-2">
                 {donneesDashboard.alertes.map((alerte, index) => (
@@ -4864,7 +4908,7 @@ export default function PlanificateurChocolat() {
             </section>
 
             <section className="grid gap-4 xl:grid-cols-2">
-              <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-4">
+              <div className="app-card p-4">
                 <div className="mb-3">
                   <h3 className="font-semibold text-violet-950">Capacidad y carga por línea</h3>
                   <p className="text-xs text-slate-500">Capacidad, demanda proyectada, planificación y producción real.</p>
@@ -4886,7 +4930,7 @@ export default function PlanificateurChocolat() {
                 </div>
               </div>
 
-              <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-4">
+              <div className="app-card p-4">
                 <div className="mb-3">
                   <h3 className="font-semibold text-violet-950">Demanda vs. planificado vs. real por día</h3>
                   <p className="text-xs text-slate-500">La demanda es una proyección; el real aparece cuando el turno fue informado.</p>
@@ -4910,7 +4954,7 @@ export default function PlanificateurChocolat() {
             </section>
 
             <section className="grid gap-4 xl:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]">
-              <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-4">
+              <div className="app-card p-4">
                 <h3 className="font-semibold text-violet-950">Stock proyectado al final del periodo</h3>
                 <p className="text-xs text-slate-500 mb-2">Incluye producción planificada y demanda estimada.</p>
                 {donneesDashboard.etatStocks.length > 0 ? (
@@ -4963,7 +5007,7 @@ export default function PlanificateurChocolat() {
                 )}
               </div>
 
-              <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-4">
+              <div className="app-card p-4">
                 <h3 className="font-semibold text-violet-950">Productos con mayor volumen planificado</h3>
                 <p className="text-xs text-slate-500 mb-3">Los ocho productos que más ocupan las líneas en el periodo.</p>
                 {donneesDashboard.topProduits.length > 0 ? (
@@ -4987,7 +5031,7 @@ export default function PlanificateurChocolat() {
               </div>
             </section>
 
-            <section className="bg-white rounded-lg shadow-sm border border-slate-200 p-4 overflow-x-auto">
+            <section className="app-card p-4 overflow-x-auto">
               <h3 className="font-semibold text-violet-950 mb-3">Detalle ejecutivo por línea</h3>
               <table className="w-full text-sm">
                 <thead><tr className="text-left text-slate-500 border-b">
@@ -5017,7 +5061,7 @@ export default function PlanificateurChocolat() {
               </table>
             </section>
 
-            <section className="bg-white rounded-lg shadow-sm border border-slate-200 p-4 overflow-x-auto">
+            <section className="app-card p-4 overflow-x-auto">
               <div className="mb-3">
                 <h3 className="font-semibold text-violet-950">Detalle por producto / SKU</h3>
                 <p className="text-xs text-slate-500">Demanda proyectada, producción planificada, producción real y stock final.</p>
@@ -5058,7 +5102,7 @@ export default function PlanificateurChocolat() {
         )}
 
         {onglet === "calendrier" && (
-          <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-4">
+          <div className="app-card p-4">
             <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
               <button onClick={() => changerSemaine(-1)} className="px-3 py-1 bg-violet-100 rounded-lg hover:bg-violet-200 text-violet-900">← Semana ant.</button>
               <div className="flex items-center gap-2 font-semibold text-violet-900">
@@ -5068,22 +5112,22 @@ export default function PlanificateurChocolat() {
               <button onClick={() => changerSemaine(1)} className="px-3 py-1 bg-violet-100 rounded-lg hover:bg-violet-200 text-violet-900">Semana sig. →</button>
             </div>
             <div className="flex items-center gap-2 mb-3 flex-wrap">
-              <button disabled={planningFige || !peutPlanifier || !stockChargeSession} title={!stockChargeSession ? "Actualiza el stock antes de optimizar" : ""} onClick={() => { setLundi(lundiDeLaSemaine(periodeOpti.debut)); optimiser(periodeOpti.debut, { respecterDateExacte: true, dateFin: periodeOpti.fin }); }} className="px-4 py-2 bg-green-700 disabled:bg-slate-300 text-white rounded-lg text-sm font-medium hover:bg-green-800 shadow">✨ Optimizar la planificación</button>
+              <button disabled={planningFige || !peutPlanifier || !stockChargeSession} title={!stockChargeSession ? "Actualiza el stock antes de optimizar" : ""} onClick={() => { setLundi(lundiDeLaSemaine(periodeOpti.debut)); optimiser(periodeOpti.debut, { respecterDateExacte: true, dateFin: periodeOpti.fin }); }} className="app-btn-primary">✨ Optimizar la planificación</button>
               <label className="flex items-center gap-2 px-3 py-2 bg-green-50 border border-green-200 rounded-lg text-sm text-green-900">
                 Desde
-                <input disabled={planningFige || !peutPlanifier} type="date" className="bg-white disabled:bg-slate-100 border border-green-300 rounded-md px-2 py-1 text-sm font-semibold text-green-900" value={dateDebutOpti} onChange={(e) => { const valeur = e.target.value; const nouvelleFin = dateFinOpti < valeur ? valeur : dateFinOpti; setDateDebutOpti(valeur); setDateFinOpti(nouvelleFin); setLundi(lundiDeLaSemaine(dateDepuisCle(valeur))); }} />
+                <input disabled={planningFige || !peutPlanifier} type="date" className="bg-white disabled:bg-slate-100 border border-green-300 rounded-md px-2 py-1 text-sm font-semibold text-green-900" value={dateDebutOpti} onChange={(e) => { const valeur = e.target.value; const nouvelleFin = dateFinOpti < valeur ? valeur : dateFinOpti; setDateDebutOpti(valeur); setDateFinOpti(nouvelleFin); setLundi(lundiDeLaSemaine(dateDepuisCle(valeur))); nettoyerPlanningHorsPeriode(dateDepuisCle(valeur), dateDepuisCle(nouvelleFin)); }} />
               </label>
               <label className="flex items-center gap-2 px-3 py-2 bg-green-50 border border-green-200 rounded-lg text-sm text-green-900">
                 Hasta
-                <input disabled={planningFige || !peutPlanifier} type="date" className="bg-white disabled:bg-slate-100 border border-green-300 rounded-md px-2 py-1 text-sm font-semibold text-green-900" value={dateFinOpti} min={dateDebutOpti} onChange={(e) => { setDateFinOpti(e.target.value); }} />
+                <input disabled={planningFige || !peutPlanifier} type="date" className="bg-white disabled:bg-slate-100 border border-green-300 rounded-md px-2 py-1 text-sm font-semibold text-green-900" value={dateFinOpti} min={dateDebutOpti} onChange={(e) => { const valeur = e.target.value; setDateFinOpti(valeur); nettoyerPlanningHorsPeriode(dateDepuisCle(dateDebutOpti), dateDepuisCle(valeur)); }} />
               </label>
-              <button disabled={planningFige || !peutPlanifier} onClick={viderHorizon} className="px-3 py-2 bg-white disabled:bg-slate-100 border border-gray-300 text-gray-600 rounded-lg text-sm hover:bg-gray-100">Borrar horizonte</button>
-              {!cloudUtilisateurActif && <button onClick={guardarPlanificacion} className="px-3 py-2 bg-violet-800 text-white rounded-lg text-sm hover:bg-violet-900">Guardar local</button>}
-              {cloudUtilisateurActif && !planningFige && peutPlanifier && <button onClick={() => sauvegarderVersion()} className="px-3 py-2 bg-violet-800 text-white rounded-lg text-sm hover:bg-violet-900">Guardar borrador</button>}
-              {cloudUtilisateurActif && !planningFige && peutPlanifier && <button onClick={() => sauvegarderVersion({ approuver: true })} className="px-3 py-2 bg-emerald-700 text-white rounded-lg text-sm hover:bg-emerald-800">Aprobar y congelar</button>}
-              {cloudUtilisateurActif && planningFige && peutPlanifier && <button onClick={creerRevision} className="px-3 py-2 bg-amber-600 text-white rounded-lg text-sm hover:bg-amber-700">Crear revisión</button>}
-              {cloudUtilisateurActif && versionActive && peutPlanifier && <button onClick={crearNuevaPlanificacion} className="px-3 py-2 border border-violet-300 bg-white text-violet-800 rounded-lg text-sm font-medium hover:bg-violet-50">＋ Nueva planificación</button>}
-              <button onClick={compartirPlanificacion} className="px-3 py-2 bg-sky-700 text-white rounded-lg text-sm hover:bg-sky-800">Compartir</button>
+              <button disabled={planningFige || !peutPlanifier} onClick={viderHorizon} className="app-btn-danger">Borrar horizonte</button>
+              {!cloudUtilisateurActif && <button onClick={guardarPlanificacion} className="app-btn-neutral">Guardar local</button>}
+              {cloudUtilisateurActif && !planningFige && peutPlanifier && <button onClick={() => sauvegarderVersion()} className="app-btn-neutral">Guardar borrador</button>}
+              {cloudUtilisateurActif && !planningFige && peutPlanifier && <button onClick={() => sauvegarderVersion({ approuver: true })} className="app-btn-success">Aprobar y congelar</button>}
+              {cloudUtilisateurActif && planningFige && peutPlanifier && <button onClick={creerRevision} className="app-btn-neutral">Crear revisión</button>}
+              {cloudUtilisateurActif && versionActive && peutPlanifier && <button onClick={crearNuevaPlanificacion} className="app-secondary-button">＋ Nueva planificación</button>}
+              <button onClick={compartirPlanificacion} className="app-btn-neutral">Compartir</button>
               {versionActive && <span className={"px-2 py-1 rounded-full text-xs font-semibold " + (planningFige ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-800")}>V{versionActive.version_no} · {versionActive.status}</span>}
               {msgOpti && <span className="text-sm text-green-800">{msgOpti}</span>}
               {msgPartage && <span className="text-sm text-sky-800">{msgPartage}</span>}
@@ -5093,7 +5137,7 @@ export default function PlanificateurChocolat() {
               <p className="text-center text-gray-500 py-8">No hay líneas en esta fábrica. Agrega una en Productos y Líneas.</p>
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full border-collapse">
+                <table className="calendar-table w-full">
                   <thead>
                     <tr>
                       <th className="p-2 text-left text-sm text-violet-900 w-32">Línea</th>
@@ -5107,7 +5151,7 @@ export default function PlanificateurChocolat() {
                       const capacitesSemaine = capacitesProduitsSemaine(ligne);
                       return (
                         <tr key={ligne.id}>
-                          <td className={"w-56 min-w-56 p-2 font-semibold align-top " + pal.texte}>
+                          <td className={"calendar-line-header w-56 min-w-56 p-2 font-semibold align-top " + pal.texte}>
                             {ligne.nom}
                             <div className="text-xs font-normal text-gray-500">{fmtNb(ligne.capacite)} {uniteCapacite(ligne)}/turno<br />{turnosBaseAffiches(ligne)} turno(s)/dia base{detailTurnosSpeciaux(ligne)}{produitsParTurno(ligne) > 1 && <><br /><span className="text-violet-600">Hasta {produitsParTurno(ligne)} productos/turno</span></>}</div>
                             {etiquetaCampagneEsandi(ligne) && <div className="mt-2 rounded border border-emerald-200 bg-emerald-50 px-2 py-1 text-[10px] font-medium leading-tight text-emerald-800">↻ {etiquetaCampagneEsandi(ligne)}</div>}
@@ -5128,7 +5172,7 @@ export default function PlanificateurChocolat() {
                             const utiliseJour = totalJourLigne(ligne, j);
                             const capJour = capacitePlanifieeJourLigne(ligne, j);
                             return (
-                            <td key={j.cle} className="p-1 align-top">
+                            <td key={j.cle} className="calendar-cell p-1 align-top">
                               <div className="text-[10px] text-gray-400 text-center mb-1">{fmtNb(utiliseJour)} / {fmtNb(capJour)} {uniteCapacite(ligne)}</div>
                               {turnosJour.length === 0 ? (
                                 <div className="w-full text-xs rounded p-1.5 border-2 border-dashed border-gray-200 bg-gray-50 text-gray-400 text-center min-h-10">Sin turno</div>
@@ -5186,7 +5230,7 @@ export default function PlanificateurChocolat() {
                                       </div>
                                     ) : (
                                       <div draggable={!!prod && !planningFige && peutPlanifier} onDragStart={() => setDragKey(cle)} onClick={() => setSelection(cle)} title={b ? "Plan: " + fmtNb(b.kg) + " kg" + (b.realKg != null && b.realKg !== "" ? " · Real: " + fmtNb(kgEff) + " kg" : "") + (kgpb ? " · ≈ " + fmtNb(bultos) + " bultos" : " · conversión faltante") + (etatBloc ? " · " + (etatBloc.actuel ? "stock actual: " : "stock despues del bloque: ") + fmtNb(etatBloc.stock) + " (" + etatBloc.label + ")" : "") + ((b as any).raison ? " · " + (b as any).raison : "") + (b.note ? " · Nota: " + b.note : "") : ""}
-                                        className={"relative w-full text-xs rounded p-1.5 border-2 text-left min-h-10 transition cursor-pointer " + ((b as any)?.modifiedAfterFreeze ? "bg-orange-100 border-orange-600 text-orange-950 font-semibold ring-4 ring-orange-300" : prod ? pal.clair + " " + pal.bordure + " " + pal.texte + " font-medium" : "bg-gray-50 border-dashed border-gray-300 text-gray-400 hover:bg-gray-100") + (dragKey === cle ? " opacity-40" : "")}>
+                                        className={"calendar-block relative w-full text-xs rounded p-1.5 border-2 text-left min-h-10 transition cursor-pointer " + ((b as any)?.modifiedAfterFreeze ? "bg-orange-100 border-orange-600 text-orange-950 font-semibold ring-4 ring-orange-300" : prod ? pal.clair + " " + pal.bordure + " " + pal.texte + " font-medium" : "bg-gray-50 border-dashed border-gray-300 text-gray-400 hover:bg-gray-100") + (dragKey === cle ? " opacity-40" : "")}>
                                         {planningFige && peutPlanifier && <button type="button" onClick={(e) => { e.stopPropagation(); setSelection(cle); }} className="absolute left-1 top-1 flex h-5 w-5 items-center justify-center rounded text-[12px] font-normal text-slate-400 transition hover:bg-white/80 hover:text-violet-700 focus:outline-none focus:ring-2 focus:ring-violet-300" title="Cambiar producto" aria-label="Cambiar producto">✎</button>}
                                         <span className={"flex items-center justify-between " + (planningFige && peutPlanifier ? "pl-5" : "")}>
                                           <span className="text-[10px] opacity-60">{turno.nom}{produitsParTurno(ligne) > 1 ? " · " + (sousIndex + 1) + "/" + produitsParTurno(ligne) : ""}</span>
@@ -5222,7 +5266,7 @@ export default function PlanificateurChocolat() {
         )}
 
         {onglet === "versions" && (
-          <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-4">
+          <div className="app-card p-4">
             <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
               <div>
                 <h2 className="text-lg font-semibold text-violet-950">Versiones de planificación</h2>
@@ -5230,7 +5274,7 @@ export default function PlanificateurChocolat() {
               </div>
               {cloudUtilisateurActif && <div className="flex flex-wrap items-center gap-2">
                 {peutPlanifier && <button onClick={crearNuevaPlanificacion} className="px-3 py-2 border border-violet-300 bg-violet-50 text-violet-800 rounded-lg text-sm font-medium hover:bg-violet-100">＋ Nueva planificación</button>}
-                <button onClick={() => chargerVersions()} className="px-3 py-2 border border-slate-300 rounded-lg text-sm hover:bg-slate-50">Actualizar lista</button>
+                <button onClick={() => chargerVersions()} className="app-btn-neutral">Actualizar lista</button>
               </div>}
             </div>
 
@@ -5243,7 +5287,7 @@ export default function PlanificateurChocolat() {
                     Email autorizado en Supabase
                     <input type="email" required className="mt-1 w-full rounded-lg border border-amber-300 bg-white px-3 py-2 text-slate-800 outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-100" placeholder="nombre@empresa.com" value={authEmail} onChange={(e) => setAuthEmail(e.target.value)} />
                   </label>
-                  <button type="submit" className="rounded-lg bg-violet-800 px-4 py-2 text-white font-semibold hover:bg-violet-900">Recibir enlace de acceso</button>
+                  <button type="submit" className="app-btn-primary">Recibir enlace de acceso</button>
                 </form>
                 {authMessage && <p className="mt-3 rounded-lg bg-white/70 px-3 py-2 text-sm">{authMessage}</p>}
               </div>
@@ -5254,9 +5298,9 @@ export default function PlanificateurChocolat() {
                     Nombre de la planificación
                     <input className="mt-1 w-full bg-white border border-violet-200 rounded-lg px-3 py-2" placeholder={(usineActive?.nom || "") + " - " + dateDebutOpti + " / " + dateFinOpti} value={nomVersion} onChange={(e) => setNomVersion(e.target.value)} />
                   </label>
-                  {!planningFige && peutPlanifier && <button onClick={() => sauvegarderVersion()} className="px-4 py-2 bg-violet-800 text-white rounded-lg text-sm">Guardar borrador</button>}
-                  {!planningFige && peutPlanifier && <button onClick={() => sauvegarderVersion({ approuver: true })} className="px-4 py-2 bg-emerald-700 text-white rounded-lg text-sm">Aprobar y congelar</button>}
-                  {planningFige && peutPlanifier && <button onClick={creerRevision} className="px-4 py-2 bg-amber-600 text-white rounded-lg text-sm">Crear revisión</button>}
+                  {!planningFige && peutPlanifier && <button onClick={() => sauvegarderVersion()} className="app-btn-neutral">Guardar borrador</button>}
+                  {!planningFige && peutPlanifier && <button onClick={() => sauvegarderVersion({ approuver: true })} className="app-btn-success">Aprobar y congelar</button>}
+                  {planningFige && peutPlanifier && <button onClick={creerRevision} className="app-btn-neutral">Crear revisión</button>}
                 </div>
 
                 {msgVersions && <p className="mb-3 text-sm text-emerald-800">{msgVersions}</p>}
@@ -5348,13 +5392,13 @@ export default function PlanificateurChocolat() {
                               <button onClick={() => ouvrirVersion(version)} className="px-3 py-1.5 border border-violet-200 text-violet-800 rounded-lg hover:bg-violet-50">Abrir</button>
                               {peutGerer && !edition && (
                                 <>
-                                  <button type="button" onClick={() => { setVersionEnEdition(version.id); setNomVersionEdition(version.name); }} className="px-2.5 py-1.5 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50">Renombrar</button>
+                                  <button type="button" onClick={() => { setVersionEnEdition(version.id); setNomVersionEdition(version.name); }} className="app-btn-neutral">Renombrar</button>
                                   {profil?.role === "admin" && version.status !== "draft" && (
                                     <button type="button" onClick={() => gererVersion(version, version.status === "archived" ? "restore" : "archive")} className="px-2.5 py-1.5 border border-amber-300 text-amber-800 rounded-lg hover:bg-amber-50">
                                       {version.status === "archived" ? "Restaurar" : "Archivar"}
                                     </button>
                                   )}
-                                  {profil?.role === "admin" && <button type="button" onClick={() => gererVersion(version, "delete")} className="px-2.5 py-1.5 border border-red-200 text-red-700 rounded-lg hover:bg-red-50">Eliminar</button>}
+                                  {profil?.role === "admin" && <button type="button" onClick={() => gererVersion(version, "delete")} className="app-btn-danger">Eliminar</button>}
                                 </>
                               )}
                             </div>
@@ -5371,7 +5415,7 @@ export default function PlanificateurChocolat() {
         )}
 
         {onglet === "stocks" && (
-          <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-4">
+          <div className="app-card p-4">
             <div className="flex flex-wrap items-center justify-between gap-3 mb-2">
               <h2 className="font-semibold text-violet-900">Estado de stocks (en bultos) — {usineActive ? usineActive.nom : ""}</h2>
               <div className="flex flex-wrap items-center justify-end gap-3 text-xs text-gray-500">
@@ -5464,7 +5508,7 @@ export default function PlanificateurChocolat() {
 
         {onglet === "produits" && (
           <div className="grid gap-4 md:grid-cols-2">
-            <div className="md:col-span-2 bg-white rounded-lg shadow-sm border border-slate-200 p-4">
+            <div className="md:col-span-2 app-card p-4">
               <div className="flex flex-wrap items-start justify-between gap-3 mb-3">
                 <div>
                   <h2 className="font-semibold text-violet-900">Líneas consideradas en la planificación</h2>
@@ -5489,12 +5533,12 @@ export default function PlanificateurChocolat() {
               {msgActivationLignes && <p className="text-sm text-emerald-800 mt-3">{msgActivationLignes}</p>}
               {!peutConfigurerLignes && <p className="text-xs text-slate-500 mt-2">Tu perfil puede consultar esta configuración, pero no modificarla.</p>}
             </div>
-            <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-4">
+            <div className="app-card p-4">
               <h2 className="font-semibold text-violet-900 mb-3">Líneas de producción — {usineActive ? usineActive.nom : ""}</h2>
               <div className="flex gap-2 mb-3 flex-wrap">
                 <input className="flex-1 min-w-32 border rounded-lg p-2 text-sm" placeholder="Nombre de la nueva línea" value={nomNouvelleLigne} onChange={(e) => setNomNouvelleLigne(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") ajouterLigne(); }} />
                 <input type="number" className="w-24 border rounded-lg p-2 text-sm text-right" placeholder="kg/turno" value={capNouvelleLigne} onChange={(e) => setCapNouvelleLigne(e.target.value)} />
-                <button onClick={ajouterLigne} className="px-3 py-2 bg-violet-800 text-white rounded-lg text-sm hover:bg-violet-900">+ Agregar</button>
+                <button onClick={ajouterLigne} className="app-btn-primary">+ Agregar</button>
               </div>
               {msgLigne && <p className="text-sm text-red-600 mb-2">{msgLigne}</p>}
               <div className="space-y-2">
@@ -5514,7 +5558,7 @@ export default function PlanificateurChocolat() {
                 })}
               </div>
             </div>
-            <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-4">
+            <div className="app-card p-4">
               <h2 className="font-semibold text-violet-900 mb-3">Productos — {usineActive ? usineActive.nom : ""}</h2>
               <div className="flex gap-2 mb-3">
                 <input className="flex-1 border rounded-lg p-2 text-sm" placeholder="Nombre del nuevo producto" value={nouveauNom} onChange={(e) => setNouveauNom(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") ajouterProduit(); }} />
@@ -5522,7 +5566,7 @@ export default function PlanificateurChocolat() {
                   <option value="">Línea...</option>
                   {lignesUsineToutes.map((l) => <option key={l.id} value={l.id}>{l.nom}{activationLignes[l.id] === false ? " (inactiva)" : ""}</option>)}
                 </select>
-                <button onClick={ajouterProduit} className="px-3 py-2 bg-violet-800 text-white rounded-lg text-sm hover:bg-violet-900">+ Agregar</button>
+                <button onClick={ajouterProduit} className="app-btn-primary">+ Agregar</button>
               </div>
               {produitsNonAssignes.length > 0 && <p className="text-sm text-orange-600 mb-2">⚠️ {produitsNonAssignes.length} producto(s) sin línea: asígnalos abajo.</p>}
               <div className="space-y-1 max-h-96 overflow-y-auto">
@@ -5550,7 +5594,7 @@ export default function PlanificateurChocolat() {
 
         {onglet === "materias" && (
           <div className="grid gap-4 lg:grid-cols-[0.9fr_1.4fr]">
-            <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-4">
+            <div className="app-card p-4">
               <h2 className="font-semibold text-violet-900 mb-2">Materias primas privadas</h2>
               <p className="text-sm text-slate-600 mb-3">
                 La receta no se guarda en la app ni en GitHub. Este modulo envia solo los kg planificados a una funcion privada del servidor y muestra totales agregados.
@@ -5559,7 +5603,7 @@ export default function PlanificateurChocolat() {
                 Periodo: <strong>{fmtDate(periodeOpti.debut)} - {fmtDate(periodeOpti.fin)}</strong>
               </div>
               <div className="flex flex-wrap gap-2">
-                <button onClick={calcularMateriasPrimas} className="px-4 py-2 bg-emerald-700 text-white rounded-lg text-sm hover:bg-emerald-800">Calcular necesidades</button>
+                <button onClick={calcularMateriasPrimas} className="app-btn-primary">Calcular necesidades</button>
               </div>
               {msgMatieres && <p className="text-sm text-emerald-800 mt-3">{msgMatieres}</p>}
               <div className="mt-4 border-t pt-3">
@@ -5581,7 +5625,7 @@ export default function PlanificateurChocolat() {
                 )}
               </div>
             </div>
-            <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-4">
+            <div className="app-card p-4">
               <h2 className="font-semibold text-violet-900 mb-2">Necesidades de materias primas</h2>
               {!matieresResultat ? (
                 <div className="p-4 rounded-lg bg-slate-50 border border-slate-200 text-sm text-slate-500">
@@ -5590,9 +5634,9 @@ export default function PlanificateurChocolat() {
               ) : (
                 <>
                   <div className="flex flex-wrap gap-2 mb-3">
-                    <button onClick={copiarMateriasPrimas} className="px-3 py-2 bg-emerald-700 text-white rounded-lg text-sm hover:bg-emerald-800">Copiar resumen</button>
-                    <button onClick={compartirMateriasPrimas} className="px-3 py-2 bg-sky-700 text-white rounded-lg text-sm hover:bg-sky-800">Compartir</button>
-                    <button onClick={descargarMateriasCSV} className="px-3 py-2 bg-white border border-slate-300 text-slate-700 rounded-lg text-sm hover:bg-slate-50">Descargar CSV</button>
+                    <button onClick={copiarMateriasPrimas} className="app-btn-neutral">Copiar resumen</button>
+                    <button onClick={compartirMateriasPrimas} className="app-btn-neutral">Compartir</button>
+                    <button onClick={descargarMateriasCSV} className="app-btn-neutral">Descargar CSV</button>
                   </div>
                   <textarea
                     readOnly
@@ -5712,10 +5756,10 @@ export default function PlanificateurChocolat() {
                   </div>
                 </label>
                 <div className="flex gap-2">
-                  <button type="button" onClick={agregarProductoCalculadora} className="px-5 py-2.5 bg-violet-700 text-white rounded-lg text-sm font-semibold hover:bg-violet-800">
+                  <button type="button" onClick={agregarProductoCalculadora} className="app-btn-primary">
                     Agregar
                   </button>
-                  <button type="button" onClick={limpiarCalculadora} className="px-3 py-2.5 border border-slate-300 text-slate-600 rounded-lg text-sm hover:bg-slate-50" title="Limpiar calculadora">Limpiar</button>
+                  <button type="button" onClick={limpiarCalculadora} className="app-btn-neutral" title="Limpiar calculadora">Limpiar</button>
                 </div>
               </div>
               <div className="px-4 pb-5 md:px-5">
@@ -5739,7 +5783,7 @@ export default function PlanificateurChocolat() {
                     </div>
                     <div className="flex flex-wrap items-center justify-between gap-3 bg-slate-50 border-t px-3 py-3">
                       <span className="text-sm text-slate-600"><strong>{calculadoraItems.length}</strong> producto(s) · <strong>{fmtNb(calculadoraItems.reduce((s, item) => s + (Number(item.kg) || 0), 0))} kg</strong> en total</span>
-                      <button type="button" onClick={calcularProductoIndividual} disabled={calculadoraCargando || calculadoraItems.some((item) => !(Number(item.kg) > 0))} className="px-5 py-2.5 bg-emerald-700 disabled:bg-slate-300 text-white rounded-lg text-sm font-semibold hover:bg-emerald-800">
+                      <button type="button" onClick={calcularProductoIndividual} disabled={calculadoraCargando || calculadoraItems.some((item) => !(Number(item.kg) > 0))} className="app-btn-success">
                         {calculadoraCargando ? "Calculando..." : "Calcular necesidades"}
                       </button>
                     </div>
@@ -5754,7 +5798,7 @@ export default function PlanificateurChocolat() {
 
             {calculadoraResultado && (
               <div className="grid gap-4 xl:grid-cols-3">
-                <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-4">
+                <div className="app-card p-4">
                   <div className="flex items-center justify-between gap-2 mb-3">
                     <h3 className="font-semibold text-violet-950">Materias del producto</h3>
                     <span className="text-xs font-semibold text-violet-700 bg-violet-50 border border-violet-200 rounded-full px-2 py-1">Nivel 1</span>
@@ -5770,7 +5814,7 @@ export default function PlanificateurChocolat() {
                   </div>
                 </div>
 
-                <div className="bg-white rounded-lg shadow-sm border border-violet-200 p-4">
+                <div className="app-card p-4">
                   <div className="flex items-center justify-between gap-2 mb-3">
                     <h3 className="font-semibold text-violet-950">Bases de Refinado</h3>
                     <span className="text-xs font-semibold text-violet-700 bg-violet-50 border border-violet-200 rounded-full px-2 py-1">Nivel 2</span>
@@ -5785,7 +5829,7 @@ export default function PlanificateurChocolat() {
                   ) : <p className="rounded-lg bg-amber-50 border border-amber-200 p-3 text-sm text-amber-800">Falta configurar RECETAS_REFINADO_JSON en Vercel.</p>}
                 </div>
 
-                <div className="bg-white rounded-lg shadow-sm border border-emerald-200 p-4">
+                <div className="app-card p-4">
                   <div className="flex items-center justify-between gap-2 mb-3">
                     <h3 className="font-semibold text-emerald-950">Materias para Refinado</h3>
                     <span className="text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-full px-2 py-1">Detalle</span>
@@ -5812,7 +5856,7 @@ export default function PlanificateurChocolat() {
 
         {onglet === "import" && (
           <div className="grid gap-4 md:grid-cols-2">
-            <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-4">
+            <div className="app-card p-4">
               <h2 className="font-semibold text-violet-900 mb-2">📥 Importar la pestaña « {usineActive ? usineActive.nom : ""} »</h2>
               <div className={"mb-3 rounded-lg border px-3 py-2 text-sm " + (ultimaFechaStocks ? "border-emerald-200 bg-emerald-50 text-emerald-900" : "border-slate-200 bg-slate-50 text-slate-500")}>
                 <strong>Últimos datos de stock cargados:</strong> {ultimaFechaStocks || "todavía no se cargaron datos para esta fábrica en este navegador"}
@@ -5826,20 +5870,20 @@ export default function PlanificateurChocolat() {
               <p className="text-xs text-gray-500 mb-2">Valores en <strong>bultos</strong>: nombres, luego Stock máx., Stock mín., y la última línea con fecha = stock del día.</p>
               <textarea className="w-full border rounded-lg p-2 text-sm h-40 font-mono" placeholder="(pega aquí todo el contenido de la pestaña)" value={texteImport} onChange={(e) => setTexteImport(e.target.value)} />
               <div className="mt-2 flex flex-wrap gap-2">
-                <button onClick={lancerActualisationGoogle} disabled={actualisationGoogleEnCours} className="px-4 py-2 bg-sky-700 text-white rounded-lg text-sm hover:bg-sky-800 disabled:cursor-not-allowed disabled:opacity-60">
+                <button onClick={lancerActualisationGoogle} disabled={actualisationGoogleEnCours} className="app-btn-primary">
                   {actualisationGoogleEnCours ? "Actualizando..." : (usine === "vb" ? "Actualizar VB + MC desde Google Sheets" : "Actualizar desde Google Sheets")}
                 </button>
-                <button onClick={actualiserStocksUsine} className="px-4 py-2 bg-emerald-700 text-white rounded-lg text-sm hover:bg-emerald-800">Actualizar stocks y conservar planning</button>
-                <button onClick={importerFeuilleUsine} className="px-4 py-2 bg-violet-800 text-white rounded-lg text-sm hover:bg-violet-900">Importar base para {usineActive ? usineActive.nom : ""}</button>
+                <button onClick={actualiserStocksUsine} className="app-btn-success">Actualizar stocks y conservar planning</button>
+                <button onClick={importerFeuilleUsine} className="app-btn-neutral">Importar base para {usineActive ? usineActive.nom : ""}</button>
               </div>
               {!GOOGLE_STOCK_GIDS[usine] && <p className="text-xs text-amber-700 mt-2">Google Sheets automatico aun no configurado para esta fabrica.</p>}
               <p className="text-xs text-gray-500 mt-2"><strong>Actualizar stocks</strong> modifica solo productos ya existentes: conserva calendario, reales kg, lineas y planning. Para recalcular el calendario, elige Desde/Hasta y pulsa Optimizar la planificacion.</p>
               {msgImport && <p className="text-sm text-green-700 mt-2">{msgImport}</p>}
             </div>
-            <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-4">
+            <div className="app-card p-4">
               <h2 className="font-semibold text-violet-900 mb-2">📤 Exportar</h2>
-              <p className="text-sm text-gray-600 mb-3">Excel con calendario por semana y resumen de stocks.</p>
-              <button onClick={exporterExcel} className="px-4 py-2 bg-green-700 text-white rounded-lg text-sm hover:bg-green-800">Descargar Excel</button>
+              <p className="text-sm text-gray-600 mb-3">Informe con calendario por semana y resumen de stocks, listo para ver o imprimir.</p>
+              <button onClick={exporterHtml} className="app-btn-success">Abrir informe</button>
             </div>
           </div>
         )}
@@ -5901,7 +5945,7 @@ export default function PlanificateurChocolat() {
               return b.deficitKg - a.deficitKg;
             });
           return (
-            <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-4">
+            <div className="app-card p-4">
               <h2 className="font-semibold text-violet-900 mb-1">Diagnóstico de capacidad — {usineActive ? usineActive.nom : ""}</h2>
               <p className="text-xs text-gray-500 mb-3">Periodo analizado: <strong>{fmtDate(periodeOpti.debut)} al {fmtDate(periodeOpti.fin)}</strong> ({periodeOpti.jours} dias). La carga convierte la demanda de cada producto en tiempo de turno según su capacidad específica. Ejemplo: 130 kg de Dulce y 400 kg de Licor representan cada uno un turno completo en Stephan / Buldos.</p>
               {totalDem === 0 ? (
@@ -6106,7 +6150,7 @@ export default function PlanificateurChocolat() {
                   onChange={(e) => setAldoTexte(e.target.value)}
                   onKeyDown={(e) => { if (e.key === "Enter") repondreAldo(aldoTexte); }}
                 />
-                <button disabled={aldoChargement} className="px-3 py-2 bg-emerald-700 disabled:bg-slate-300 text-white rounded-lg text-sm hover:bg-emerald-800" onClick={() => repondreAldo(aldoTexte)}>{aldoChargement ? "Analizando..." : "Enviar"}</button>
+                <button disabled={aldoChargement} className="app-btn-primary" onClick={() => repondreAldo(aldoTexte)}>{aldoChargement ? "Analizando..." : "Enviar"}</button>
               </div>
               <div className="flex flex-wrap gap-1 mt-2">
                 {["Resumen de alertas", "Carga por línea", "SKU críticos", "Demanda vs real"].map((txt) => (

@@ -1,0 +1,699 @@
+[
+  {
+    "sku": "VT-ALFA-0000511",
+    "nom": "ALFAJOR DE FRAMBUESA GLACE",
+    "linea": "l3",
+    "lignesCompatibles": [],
+    "unidadesBulto": 54,
+    "pesoUnidad": 0.06,
+    "pesoBulto": 3.2399999999999998,
+    "id": 3005,
+    "min": 96,
+    "max": 193,
+    "aliases": [],
+    "recetaConfigurada": true
+  },
+  {
+    "sku": "VT-ALFA-0000513",
+    "nom": "ALFAJOR DE MOUSSE CHOCO",
+    "linea": "l3",
+    "lignesCompatibles": [],
+    "unidadesBulto": 54,
+    "pesoUnidad": 0.06,
+    "pesoBulto": 3.2399999999999998,
+    "id": 3006,
+    "min": 229,
+    "max": 459,
+    "aliases": [],
+    "recetaConfigurada": true
+  },
+  {
+    "sku": "VT-ALFA-0000510",
+    "nom": "ALFAJOR FRAMBUESA CHOCO",
+    "linea": "l3",
+    "lignesCompatibles": [],
+    "unidadesBulto": 54,
+    "pesoUnidad": 0.06,
+    "pesoBulto": 3.2399999999999998,
+    "id": 3004,
+    "min": 247,
+    "max": 494,
+    "aliases": [],
+    "recetaConfigurada": true
+  },
+  {
+    "sku": "VT-ALFA-0000518",
+    "nom": "ALFAJOR PISTACHO",
+    "linea": "l3",
+    "lignesCompatibles": [],
+    "unidadesBulto": 54,
+    "pesoUnidad": 0.06,
+    "pesoBulto": 3.2399999999999998,
+    "id": 3061,
+    "min": 40,
+    "max": 80,
+    "aliases": [],
+    "recetaConfigurada": true
+  },
+  {
+    "sku": "VM-TRUF-00039",
+    "nom": "CGRA BROWNIE DDL",
+    "linea": "l3",
+    "lignesCompatibles": [
+      "l4",
+      "l5"
+    ],
+    "unidadesBulto": 40,
+    "pesoUnidad": 0.065,
+    "pesoBulto": 2.6,
+    "id": 3036,
+    "min": 19,
+    "max": 75,
+    "aliases": [],
+    "recetaConfigurada": true
+  },
+  {
+    "sku": "VM-TRUF-00028",
+    "nom": "CGRA BROWNIE MOUSSE AMARGO",
+    "linea": "l3",
+    "lignesCompatibles": [
+      "l4",
+      "l5"
+    ],
+    "unidadesBulto": 40,
+    "pesoUnidad": 0.065,
+    "pesoBulto": 2.6,
+    "id": 3037,
+    "min": 14,
+    "max": 57,
+    "aliases": [],
+    "recetaConfigurada": true
+  },
+  {
+    "sku": "VM-TRUF-00014",
+    "nom": "CGRA CAPRICHO AL RUHM",
+    "linea": "l5",
+    "lignesCompatibles": [],
+    "unidadesBulto": 6,
+    "pesoUnidad": 0.9,
+    "pesoBulto": 5.4,
+    "id": 3016,
+    "min": 14,
+    "max": 54,
+    "aliases": [],
+    "recetaConfigurada": true
+  },
+  {
+    "sku": "VM-TRUF-00017",
+    "nom": "CGRA CRIOLLA",
+    "linea": "l3",
+    "lignesCompatibles": [
+      "l4",
+      "l5"
+    ],
+    "unidadesBulto": 4,
+    "pesoUnidad": 0.9,
+    "pesoBulto": 3.6,
+    "id": 3019,
+    "min": 38,
+    "max": 150,
+    "aliases": [],
+    "recetaConfigurada": true
+  },
+  {
+    "sku": "VM-TRUF-00060",
+    "nom": "CGRA CROCANTE ALMENDRA AMARGO",
+    "linea": "l3",
+    "lignesCompatibles": [
+      "l4",
+      "l5"
+    ],
+    "unidadesBulto": 4,
+    "pesoUnidad": 0.75,
+    "pesoBulto": 3,
+    "id": 3009,
+    "min": 44,
+    "max": 175,
+    "aliases": [],
+    "recetaConfigurada": true
+  },
+  {
+    "sku": "VM-TRUF-00038",
+    "nom": "CGRA CROCANTE ALMENDRA LECHE",
+    "linea": "l3",
+    "lignesCompatibles": [
+      "l4",
+      "l5"
+    ],
+    "unidadesBulto": 4,
+    "pesoUnidad": 0.75,
+    "pesoBulto": 3,
+    "id": 3008,
+    "min": 66,
+    "max": 264,
+    "aliases": [],
+    "recetaConfigurada": true
+  },
+  {
+    "sku": "VM-TRUF-00023",
+    "nom": "CGRA ECLIPSE DE NOGAL",
+    "linea": "l3",
+    "lignesCompatibles": [
+      "l4",
+      "l5"
+    ],
+    "unidadesBulto": 4,
+    "pesoUnidad": 0.9,
+    "pesoBulto": 3.6,
+    "id": 3029,
+    "min": 10,
+    "max": 40,
+    "aliases": [],
+    "recetaConfigurada": true
+  },
+  {
+    "sku": "VM-TRUF-00007",
+    "nom": "CGRA ESTAMBUL",
+    "linea": "l4",
+    "lignesCompatibles": [
+      "l5"
+    ],
+    "unidadesBulto": 4,
+    "pesoUnidad": 0.9,
+    "pesoBulto": 3.6,
+    "id": 3044,
+    "min": 29,
+    "max": 117,
+    "aliases": [],
+    "recetaConfigurada": true
+  },
+  {
+    "sku": "VM-TRUF-00016",
+    "nom": "CGRA HABANOS",
+    "linea": "l3",
+    "lignesCompatibles": [
+      "l4",
+      "l5"
+    ],
+    "unidadesBulto": 4,
+    "pesoUnidad": 0.9,
+    "pesoBulto": 3.6,
+    "id": 3018,
+    "min": 45,
+    "max": 181,
+    "aliases": [],
+    "recetaConfigurada": true
+  },
+  {
+    "sku": "VM-TRUF-00022",
+    "nom": "CGRA MARACUYA AMARGA",
+    "linea": "l3",
+    "lignesCompatibles": [
+      "l4",
+      "l5"
+    ],
+    "unidadesBulto": 4,
+    "pesoUnidad": 0.9,
+    "pesoBulto": 3.6,
+    "id": 3026,
+    "min": 25,
+    "max": 101,
+    "aliases": [],
+    "recetaConfigurada": true
+  },
+  {
+    "sku": "VM-TRUF-00034",
+    "nom": "CGRA MENTITAS",
+    "linea": "l3",
+    "lignesCompatibles": [
+      "l4",
+      "l5"
+    ],
+    "unidadesBulto": 4,
+    "pesoUnidad": 0.9,
+    "pesoBulto": 3.6,
+    "id": 3025,
+    "min": 6,
+    "max": 23,
+    "aliases": [],
+    "recetaConfigurada": true
+  },
+  {
+    "sku": "VM-TRUF-00018",
+    "nom": "CGRA MOUSSE AMARGO",
+    "linea": "l3",
+    "lignesCompatibles": [
+      "l4",
+      "l5"
+    ],
+    "unidadesBulto": 4,
+    "pesoUnidad": 0.9,
+    "pesoBulto": 3.6,
+    "id": 3020,
+    "min": 12,
+    "max": 47,
+    "aliases": [],
+    "recetaConfigurada": false
+  },
+  {
+    "sku": "VM-TRUF-00049",
+    "nom": "CGRA MOUSSE FRAMBUESA",
+    "linea": "l3",
+    "lignesCompatibles": [
+      "l4"
+    ],
+    "unidadesBulto": 4,
+    "pesoUnidad": 0.9,
+    "pesoBulto": 3.6,
+    "id": 3021,
+    "min": 15,
+    "max": 61,
+    "aliases": [],
+    "recetaConfigurada": true
+  },
+  {
+    "sku": "VM-TRUF-00021",
+    "nom": "CGRA NARANJITAS",
+    "linea": "l3",
+    "lignesCompatibles": [
+      "l4"
+    ],
+    "unidadesBulto": 4,
+    "pesoUnidad": 0.9,
+    "pesoBulto": 3.6,
+    "id": 3024,
+    "min": 4,
+    "max": 16,
+    "aliases": [],
+    "recetaConfigurada": true
+  },
+  {
+    "sku": "VM-TRUF-00055",
+    "nom": "CGRA NIBS CACAO",
+    "linea": "l3",
+    "lignesCompatibles": [
+      "l4"
+    ],
+    "unidadesBulto": 4,
+    "pesoUnidad": 0.9,
+    "pesoBulto": 3.6,
+    "id": 3049,
+    "min": 10,
+    "max": 40,
+    "aliases": [],
+    "recetaConfigurada": true
+  },
+  {
+    "sku": "VM-TRUF-00029",
+    "nom": "CGRA NUEZ AL COGNAC",
+    "linea": "l4",
+    "lignesCompatibles": [
+      "l5"
+    ],
+    "unidadesBulto": 6,
+    "pesoUnidad": 0.9,
+    "pesoBulto": 5.4,
+    "id": 3039,
+    "min": 14,
+    "max": 57,
+    "aliases": [],
+    "recetaConfigurada": true
+  },
+  {
+    "sku": "VM-TRUF-00004",
+    "nom": "CGRA PASION DE ALMENDRA",
+    "linea": "l3",
+    "lignesCompatibles": [
+      "l4",
+      "l5"
+    ],
+    "unidadesBulto": 6,
+    "pesoUnidad": 0.9,
+    "pesoBulto": 5.4,
+    "id": 3038,
+    "min": 17,
+    "max": 67,
+    "aliases": [],
+    "recetaConfigurada": true
+  },
+  {
+    "sku": "VM-TRUF-00030",
+    "nom": "CGRA SAMBAYON",
+    "linea": "l3",
+    "lignesCompatibles": [
+      "l4",
+      "l5"
+    ],
+    "unidadesBulto": 4,
+    "pesoUnidad": 0.9,
+    "pesoBulto": 3.6,
+    "id": 3042,
+    "min": 16,
+    "max": 64,
+    "aliases": [],
+    "recetaConfigurada": true
+  },
+  {
+    "sku": "VM-TRUF-00027",
+    "nom": "CGRA TENTACION RAMA",
+    "linea": "l4",
+    "lignesCompatibles": [
+      "l5"
+    ],
+    "unidadesBulto": 4,
+    "pesoUnidad": 0.9,
+    "pesoBulto": 3.6,
+    "id": 3035,
+    "min": 10,
+    "max": 40,
+    "aliases": [],
+    "recetaConfigurada": true
+  },
+  {
+    "sku": "VM-TRUF-00005",
+    "nom": "CGRA TRINIDAD DE ALMENDRA",
+    "linea": "l3",
+    "lignesCompatibles": [
+      "l4",
+      "l5"
+    ],
+    "unidadesBulto": 4,
+    "pesoUnidad": 0.9,
+    "pesoBulto": 3.6,
+    "id": 3040,
+    "min": 28,
+    "max": 111,
+    "aliases": [],
+    "recetaConfigurada": true
+  },
+  {
+    "sku": "VM-TRUF-00006",
+    "nom": "CGRA TRINIDAD DE AVELLANA",
+    "linea": "l3",
+    "lignesCompatibles": [
+      "l4",
+      "l5"
+    ],
+    "unidadesBulto": 4,
+    "pesoUnidad": 0.9,
+    "pesoBulto": 3.6,
+    "id": 3041,
+    "min": 43,
+    "max": 172,
+    "aliases": [],
+    "recetaConfigurada": true
+  },
+  {
+    "sku": "VM-TRUF-00020",
+    "nom": "CGRA TRUFA 70% CACAO",
+    "linea": "l4",
+    "lignesCompatibles": [
+      "l5"
+    ],
+    "unidadesBulto": 4,
+    "pesoUnidad": 0.9,
+    "pesoBulto": 3.6,
+    "id": 3023,
+    "min": 16,
+    "max": 65,
+    "aliases": [],
+    "recetaConfigurada": true
+  },
+  {
+    "sku": "VM-TRUF-00026",
+    "nom": "CGRA TRUFA BANANA",
+    "linea": "l3",
+    "lignesCompatibles": [
+      "l4",
+      "l5"
+    ],
+    "unidadesBulto": 4,
+    "pesoUnidad": 0.9,
+    "pesoBulto": 3.6,
+    "id": 3034,
+    "min": 25,
+    "max": 101,
+    "aliases": [],
+    "recetaConfigurada": true
+  },
+  {
+    "sku": "VM-TRUF-00033",
+    "nom": "CGRA TRUFA CAPPUCCINO",
+    "linea": "l4",
+    "lignesCompatibles": [
+      "l5"
+    ],
+    "unidadesBulto": 4,
+    "pesoUnidad": 0.9,
+    "pesoBulto": 3.6,
+    "id": 3048,
+    "min": 9,
+    "max": 35,
+    "aliases": [],
+    "recetaConfigurada": true
+  },
+  {
+    "sku": "VM-TRUF-00031",
+    "nom": "CGRA TRUFA EUFORIA",
+    "linea": "l3",
+    "lignesCompatibles": [
+      "l4"
+    ],
+    "unidadesBulto": 4,
+    "pesoUnidad": 0.9,
+    "pesoBulto": 3.6,
+    "id": 3046,
+    "min": 16,
+    "max": 63,
+    "aliases": [],
+    "recetaConfigurada": true
+  },
+  {
+    "sku": "VM-TRUF-00019",
+    "nom": "CGRA TRUFA GOLOSA",
+    "linea": "l3",
+    "lignesCompatibles": [],
+    "unidadesBulto": 6,
+    "pesoUnidad": 0.9,
+    "pesoBulto": 5.4,
+    "id": 3022,
+    "min": 12,
+    "max": 46,
+    "aliases": [],
+    "recetaConfigurada": true
+  },
+  {
+    "sku": "VM-TRUF-00003",
+    "nom": "CGRA TRUFA KARI AMARGA",
+    "linea": "l3",
+    "lignesCompatibles": [
+      "l4",
+      "l5"
+    ],
+    "unidadesBulto": 4,
+    "pesoUnidad": 0.9,
+    "pesoBulto": 3.6,
+    "id": 3030,
+    "min": 6,
+    "max": 23,
+    "aliases": [],
+    "recetaConfigurada": true
+  },
+  {
+    "sku": "VM-TRUF-00008",
+    "nom": "CGRA TRUFA KARI LECHE",
+    "linea": "l3",
+    "lignesCompatibles": [
+      "l4",
+      "l5"
+    ],
+    "unidadesBulto": 4,
+    "pesoUnidad": 0.9,
+    "pesoBulto": 3.6,
+    "id": 3045,
+    "min": 26,
+    "max": 102,
+    "aliases": [],
+    "recetaConfigurada": true
+  },
+  {
+    "sku": "VM-TRUF-00024",
+    "nom": "CGRA TRUFA COCO NEVADO",
+    "linea": "l4",
+    "lignesCompatibles": [
+      "l5"
+    ],
+    "unidadesBulto": 4,
+    "pesoUnidad": 0.9,
+    "pesoBulto": 3.6,
+    "id": 3031,
+    "min": 34,
+    "max": 136,
+    "aliases": [],
+    "recetaConfigurada": true
+  },
+  {
+    "sku": "VM-TRUF-00015",
+    "nom": "CGRA TRUFA PATAGONIA",
+    "linea": "l4",
+    "lignesCompatibles": [
+      "l5"
+    ],
+    "unidadesBulto": 4,
+    "pesoUnidad": 0.9,
+    "pesoBulto": 3.6,
+    "id": 3017,
+    "min": 36,
+    "max": 142,
+    "aliases": [],
+    "recetaConfigurada": true
+  },
+  {
+    "sku": "VM-TRUF-00032",
+    "nom": "CGRA TRUFA WHISKY",
+    "linea": "l3",
+    "lignesCompatibles": [
+      "l5"
+    ],
+    "unidadesBulto": 4,
+    "pesoUnidad": 0.9,
+    "pesoBulto": 3.6,
+    "id": 3047,
+    "min": 12,
+    "max": 49,
+    "aliases": [],
+    "recetaConfigurada": true
+  },
+  {
+    "sku": "VM-TRUF-00056",
+    "nom": "CGRA VOLCAN DDL",
+    "linea": "l5",
+    "lignesCompatibles": [],
+    "unidadesBulto": 4,
+    "pesoUnidad": 0.9,
+    "pesoBulto": 3.6,
+    "id": 3028,
+    "min": 16,
+    "max": 65,
+    "aliases": [],
+    "recetaConfigurada": true
+  },
+  {
+    "sku": "VT-PAST-0000708",
+    "nom": "RAPANUINO X 2 AMARGO",
+    "linea": "l3",
+    "lignesCompatibles": [
+      "l4"
+    ],
+    "unidadesBulto": 108,
+    "pesoUnidad": 0.045,
+    "pesoBulto": 4.859999999999999,
+    "id": 3014,
+    "min": 38,
+    "max": 76,
+    "aliases": [],
+    "recetaConfigurada": true
+  },
+  {
+    "sku": "VT-PAST-0004111",
+    "nom": "RAPANUINO X 2 BLANCO",
+    "linea": "l3",
+    "lignesCompatibles": [
+      "l4"
+    ],
+    "unidadesBulto": 108,
+    "pesoUnidad": 0.045,
+    "pesoBulto": 4.859999999999999,
+    "id": 3015,
+    "min": 45,
+    "max": 90,
+    "aliases": [],
+    "recetaConfigurada": true
+  },
+  {
+    "sku": "VM-TRUF-00050",
+    "nom": "CGRA TRUFA PATAGONIA NEVADA",
+    "linea": "l3",
+    "lignesCompatibles": [
+      "l5",
+      "l4"
+    ],
+    "unidadesBulto": 4,
+    "pesoUnidad": 0.9,
+    "pesoBulto": 3.6,
+    "id": 3063,
+    "min": 36,
+    "max": 142,
+    "aliases": [
+      "NEVADA PATAGONIA",
+      "TRUFA GRANEL PARA SURTIDO"
+    ],
+    "recetaConfigurada": true
+  },
+  {
+    "sku": "VM-TRUF-00068",
+    "nom": "CEREZAS CON CABITO LECHE",
+    "linea": "l3",
+    "lignesCompatibles": [
+      "l4"
+    ],
+    "unidadesBulto": 4,
+    "pesoUnidad": 0.9,
+    "pesoBulto": 3.6,
+    "id": 3011,
+    "min": 12,
+    "max": 46,
+    "aliases": [
+      "CEREZA CON CABITO"
+    ],
+    "recetaConfigurada": true
+  },
+  {
+    "sku": "VM-TRUF-00025",
+    "nom": "CIRUELAS",
+    "linea": "l3",
+    "lignesCompatibles": [
+      "l4"
+    ],
+    "unidadesBulto": 4,
+    "pesoUnidad": 0.9,
+    "pesoBulto": 3.6,
+    "id": 3032,
+    "min": 6,
+    "max": 25,
+    "aliases": [],
+    "recetaConfigurada": true
+  },
+  {
+    "sku": "VM-TRUF-00053",
+    "nom": "HIGOS",
+    "linea": "l3",
+    "lignesCompatibles": [
+      "l4"
+    ],
+    "unidadesBulto": 4,
+    "pesoUnidad": 0.9,
+    "pesoBulto": 3.6,
+    "id": 3033,
+    "min": 3,
+    "max": 10,
+    "aliases": [],
+    "recetaConfigurada": true
+  },
+  {
+    "sku": "VM-TRUF-00067",
+    "nom": "CEREZAS SIN CABITO AMARGO",
+    "linea": "l4",
+    "lignesCompatibles": [],
+    "unidadesBulto": 4,
+    "pesoUnidad": 0.9,
+    "pesoBulto": 3.6,
+    "id": 3062,
+    "min": 12,
+    "max": 46,
+    "aliases": [
+      "CEREZA SIN CABITO AMARGO"
+    ],
+    "recetaConfigurada": true
+  }
+]

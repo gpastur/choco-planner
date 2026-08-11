@@ -2,12 +2,13 @@ import { useState, useEffect, useMemo } from "react";
 import { supabase, supabaseConfigured } from "./supabase";
 import esandiReference from "./esandi-reference.json";
 import vbReference from "./vb-reference.json";
+import mitreReference from "./mitre-reference.json";
 import {
   BarChart, Bar, CartesianGrid, Cell, Legend, Line, LineChart, Pie, PieChart,
   ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts";
 
-const APP_VERSION = "2026.08.06-stock-date-commune";
+const APP_VERSION = "2026.08.11-stock-alfabetico";
 const PORTAIL_EMAIL_ACTIF = true;
 
 const PALETTE = [
@@ -67,7 +68,6 @@ const LIGNES_INIT = [
 const mkEsandi = (id, nom, ligne, pesoBulto) => ({ id, nom, ligne, usine: "esandi", stock: 0, demande: 0, min: null, max: null, pesoBulto });
 const mkVB = (id, nom, ligne, pesoBulto = null) => ({ id, nom, ligne, usine: "vb", stock: 0, demande: 0, min: null, max: null, pesoBulto });
 const mkFatima = (id, nom, ligne, pesoBulto = null, aliases = []) => ({ id, nom, ligne, usine: "fatima", stock: 0, demande: 0, min: null, max: null, pesoBulto, aliases });
-const mkMitre = (id, nom, ligne = null, stock = 0, min = null, max = null, pesoBulto = null) => ({ id, nom, ligne, usine: "mitre", stock, demande: 0, min, max, pesoBulto });
 
 const PESO_BULTO_POR_PRODUCTO = {
   "BARRA AMARGO ALMENDRA": 4.4,
@@ -341,55 +341,13 @@ const PRODUITS_BASE = [
   { ...mkFatima(130, "TABLETA CHOC AMARGO 80% VB", "f_tabletas", 3.04, ["TABLETA 80 VB", "TABLETA CHOC AMARGO 80% VB"]), sku: "VT-CTAB-0000994" },
   { ...mkFatima(131, "TABLETA CHOC AMARGO 60% VB", "f_tabletas", 3.04, ["TABLETA 60 VB", "TABLETA CHOC AMARGO 60% VB"]), sku: "VT-CTAB-0000997" },
   { ...mkFatima(132, "TABLETA CHOC AMARGO 90% VB", "f_tabletas", 3.04, ["TABLETA 90 VB", "TABLETA CHOC AMARGO 90% VB"]), sku: "VT-CTAB-0000996" },
-  mkMitre(3001, "ALFAJOR ALMENDRA AVELLANA", "l3", 72, 241, 482, 2.7),
-  mkMitre(3002, "ALFAJOR DDL CHOCOLATE", "l3", 352, 310, 619, 2.7),
-  mkMitre(3003, "ALFAJOR DDL GLASE", "l3", 165, 119, 237, 2.7),
-  mkMitre(3004, "ALFAJOR FRAMBUESA CHOCO", "l3", 389, 247, 494, 2.7),
-  mkMitre(3005, "ALFAJOR FRAMBUESA GLASE", "l3", 0, 96, 193, 2.7),
-  mkMitre(3006, "ALFAJOR MOUSSE", "l3", 132, 229, 459, 2.7),
-  mkMitre(3007, "ALFAJOR BLANCO ALMENDRA", "l3", 76, 109, 218),
-  mkMitre(3008, "CROCANTE ALMENDRA LECHE", null, 0, 66, 264, 3),
-  mkMitre(3009, "CROCANTE ALMENDRA AMARGO", null, 0, 44, 175, 3),
-  mkMitre(3010, "TORTA GALESA 300gr", null, 22, 12, 47),
-  mkMitre(3011, "CEREZA CON CABITO", null, 0, 12, 46),
-  mkMitre(3012, "BUDIN DE LIMON sintacc viene de MC", null, 18, 12, 24),
-  mkMitre(3013, "BUDIN DE CHOCOLATE viene de mitre", null, 0, 4, 8),
-  mkMitre(3014, "RAPANUINOS x2 AMARGO", null, 28, 38, 76, 4.86),
-  mkMitre(3015, "RAPANUINOS x2 BLANCO", null, 6, 45, 90, 4.86),
-  mkMitre(3016, "CAPRICHO AL RUHM", null, 21, 14, 54, 5.4),
-  mkMitre(3017, "TRUFA PATAGONIA", null, 39, 36, 142, 3.6),
-  mkMitre(3018, "HABANOS", null, 31, 45, 181, 3.6),
-  mkMitre(3019, "CRIOLLA", null, 23, 38, 150, 3.6),
-  mkMitre(3020, "MOUSSE AMARGO", null, 3, 12, 47, 3.6),
-  mkMitre(3021, "MOUSSE FRAMBUESA", null, 1, 15, 61, 3.6),
-  mkMitre(3022, "GOLOSA", null, 21, 12, 46, 5.4),
-  mkMitre(3023, "70 CACAO", null, 35, 16, 65, 3.6),
-  mkMitre(3024, "NARANJITAS", null, 0, 4, 16, 3.6),
-  mkMitre(3025, "MENTITAS", null, 0, 6, 23, 3.6),
-  mkMitre(3026, "MARACUYA AMARGA", null, 15, 25, 101, 3.6),
-  mkMitre(3027, "RAMA BANADA", null, 0, 9, 36, 3.6),
-  mkMitre(3028, "VOLCAN DDL", null, 0, 16, 65, 3.6),
-  mkMitre(3029, "ECLIPSE DE NOGAL", null, 1, 10, 40, 3.6),
-  mkMitre(3030, "TRUFA KARI AMARGA", null, 0, 6, 23, 3.6),
-  mkMitre(3031, "TRUFA NEVADA (COCO)", null, 22, 34, 136, 3.6),
-  mkMitre(3032, "CIRUELAS", null, 0, 6, 25, 3.6),
-  mkMitre(3033, "HIGOS", null, 0, 3, 10, 3.6),
-  mkMitre(3034, "TRUFA BANANA", null, 2, 25, 101, 3.6),
-  mkMitre(3035, "TENTACION RAMA", null, 0, 10, 40, 3.6),
-  mkMitre(3036, "BROWNIE DDL", null, 0, 19, 75, 3.6),
-  mkMitre(3037, "BROWNIE MOUSSE AMARGO", null, 0, 14, 57, 3.6),
-  mkMitre(3038, "PASION DE ALMENDRA", null, 20, 17, 67, 5.4),
-  mkMitre(3039, "NUEZ AL COGNAC", null, 36, 14, 57, 5.4),
-  mkMitre(3040, "TRINIDAD DE ALMENDRA", null, 0, 28, 111, 3.6),
-  mkMitre(3041, "TRINIDAD DE AVELLANA", null, 15, 43, 172, 3.6),
-  mkMitre(3042, "TR SAMBAYON", null, 0, 16, 64, 3.6),
-  mkMitre(3043, "TR TIRAMISU", null, 0, 17, 66, 3.6),
-  mkMitre(3044, "ESTAMBUL", null, 4, 29, 117, 3.6),
-  mkMitre(3045, "TRUFA KARI LECHE", null, 0, 26, 102, 3.6),
-  mkMitre(3046, "TRUFA EUFORIA", null, 1, 16, 63, 3.6),
-  mkMitre(3047, "TRUFA WHISKY", null, 44, 12, 49, 3.6),
-  mkMitre(3048, "TRUFA CAPPUCCINO", null, 76, 9, 35, 3.6),
-  mkMitre(3049, "NIBS CACAO", null, 62, 10, 40, 1.2),
+  ...mitreReference.map((produit) => ({
+    ...produit,
+    ligne: produit.linea,
+    usine: "mitre",
+    stock: 0,
+    demande: 0,
+  })),
 ];
 
 const NORMALISER_REFERENCE = (valeur) => String(valeur || "")
@@ -532,7 +490,13 @@ const PRODUITS_INIT = PRODUITS_AVEC_VB_MAESTRO.map((produit) => {
     155: { min: 39, max: 78 },
     158: { min: 66, max: 264 },
   }[produit.id] : null;
-  return { ...produit, stock: 0, min: seuilsEsandi?.min ?? null, max: seuilsEsandi?.max ?? null, demande: 0 };
+  return {
+    ...produit,
+    stock: 0,
+    min: seuilsEsandi?.min ?? produit.min ?? null,
+    max: seuilsEsandi?.max ?? produit.max ?? null,
+    demande: 0,
+  };
 });
 
 const JOURS = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
@@ -696,13 +660,13 @@ function parseTSV(text) {
 const normaliser = (s) => String(s || "").replace(/\s+/g, " ").trim();
 function convertirFechaStock(valor) {
   const texto = normaliser(valor);
-  let match = texto.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})$/);
+  let match = texto.match(/^(\d{1,2})[\/\-._](\d{1,2})[\/\-._](\d{2,4})$/);
   if (match) {
     const anio = Number(match[3]) < 100 ? 2000 + Number(match[3]) : Number(match[3]);
     const fecha = new Date(anio, Number(match[2]) - 1, Number(match[1]));
     return Number.isNaN(fecha.getTime()) ? null : fecha;
   }
-  match = texto.match(/^(\d{4})[\/\-.](\d{1,2})[\/\-.](\d{1,2})$/);
+  match = texto.match(/^(\d{4})[\/\-._](\d{1,2})[\/\-._](\d{1,2})$/);
   if (match) {
     const fecha = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
     return Number.isNaN(fecha.getTime()) ? null : fecha;
@@ -1133,9 +1097,15 @@ function fusionAvecBase(base: any[], sauvegarde: any[]) {
       fusionne.max = baseItem.max;
       fusionne.ligne = baseItem.ligne;
     }
-    if (baseItem && fusionne.usine === "mitre" && fusionne.id >= 3001 && fusionne.id <= 3049) {
+    if (baseItem && fusionne.usine === "mitre") {
       fusionne.nom = baseItem.nom;
+      fusionne.sku = baseItem.sku;
       fusionne.ligne = baseItem.ligne;
+      fusionne.lignesCompatibles = baseItem.lignesCompatibles;
+      fusionne.unidadesBulto = baseItem.unidadesBulto;
+      fusionne.pesoUnidad = baseItem.pesoUnidad;
+      fusionne.pesoBulto = baseItem.pesoBulto;
+      fusionne.aliases = baseItem.aliases;
       fusionne.stock = baseItem.stock;
       fusionne.min = baseItem.min;
       fusionne.max = baseItem.max;
@@ -1643,7 +1613,7 @@ export default function PlanificateurChocolat() {
         );
         const texte = rows
           .filter((r) => r.some((c) => String(c || "").trim() !== ""))
-          .map((r) => r.map((c) => String(c || "").trim()).join("\t"))
+          .map((r) => r.map((c) => String(c || "").replace(/[\r\n]+/g, " ").trim()).join("\t"))
           .join("\n");
         nettoyer();
         resolve(texte);
@@ -3526,7 +3496,7 @@ export default function PlanificateurChocolat() {
         );
         const texte = rows
           .filter((r) => r.some((c) => String(c || "").trim() !== ""))
-          .map((r) => r.map((c) => String(c || "").trim()).join("\t"))
+          .map((r) => r.map((c) => String(c || "").replace(/[\r\n]+/g, " ").trim()).join("\t"))
           .join("\n");
         nettoyer();
         resolve(texte);
@@ -5432,19 +5402,26 @@ export default function PlanificateurChocolat() {
             {stockChargeSession && stockActuelComparaison.length > 0 && <div className="mb-3 rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-sm text-sky-900"><strong>Stock actual mostrado:</strong> datos cargados el {dateStockActuelComparaison || ultimaFechaStocks || "día de la última importación"}.{planningFige ? " La versión aprobada continúa congelada y se compara por separado." : " Estos son los valores utilizados por el módulo."}</div>}
             {msgImport && <div className="mb-3 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">{msgImport}</div>}
             <Legende />
-            {[...lignesUsine.map((l) => ({ ligne: l, prods: produitsEtatStocks.filter((p) => p.ligne === l.id) })), { ligne: null, prods: produitsEtatStocksNonAssignes }]
-              .map((g) => ({ ...g, prods: masquerNonConfig ? g.prods.filter(estConfigure) : g.prods }))
+            {(usine === "mitre"
+              ? [{ ligne: null, prods: produitsEtatStocks }]
+              : [...lignesUsine.map((l) => ({ ligne: l, prods: produitsEtatStocks.filter((p) => p.ligne === l.id) })), { ligne: null, prods: produitsEtatStocksNonAssignes }])
+              .map((g) => ({
+                ...g,
+                prods: (masquerNonConfig ? g.prods.filter(estConfigure) : g.prods)
+                  .slice()
+                  .sort((a, b) => a.nom.localeCompare(b.nom, "es", { sensitivity: "base" })),
+              }))
               .filter((g) => g.prods.length > 0)
               .map((g, gi) => {
                 const pal = g.ligne ? getPal(g.ligne) : null;
                 return (
                   <div key={g.ligne ? g.ligne.id : "na" + gi} className="mt-5">
-                    <h3 className={"font-semibold mb-2 " + (pal ? pal.texte : "text-gray-500")}>{g.ligne ? g.ligne.nom : "⚠️ Productos por asignar a una línea"}</h3>
+                    {usine !== "mitre" && <h3 className={"font-semibold mb-2 " + (pal ? pal.texte : "text-gray-500")}>{g.ligne ? g.ligne.nom : "⚠️ Productos por asignar a una línea"}</h3>}
                     <div className="overflow-x-auto">
                       <table className="w-full text-sm">
                         <thead>
                           <tr className="border-b border-slate-200 text-[11px] font-semibold uppercase text-slate-500">
-                            <th colSpan={5}></th>
+                            <th colSpan={6}></th>
                             <th colSpan={4} className="border-l border-sky-200 bg-sky-50 px-2 py-1 text-center text-sky-800">Situación actual</th>
                             <th colSpan={4} className="border-l border-violet-200 bg-violet-50 px-2 py-1 text-center text-violet-800">
                               <span className="block">Proyección del período</span>
@@ -5452,7 +5429,7 @@ export default function PlanificateurChocolat() {
                             </th>
                           </tr>
                           <tr className="border-b text-left text-gray-500">
-                            <th className="py-1 pr-2">Producto</th><th className="py-1 text-right">kg/bulto</th>
+                            <th className="py-1 pr-2">Producto</th><th className="py-1 px-2">Líneas</th><th className="py-1 text-right">kg/bulto</th>
                             <th className="py-1 text-right">Min</th><th className="py-1 text-right">Max</th><th className="py-1 text-right">Dem/d</th>
                             <th className="border-l border-sky-100 bg-sky-50/50 py-1 text-right">Stock</th><th className="bg-sky-50/50 py-1 text-right">Cobertura</th><th className="bg-sky-50/50 py-1 text-center">Indicador</th><th className="bg-sky-50/50 py-1 text-center">Estado</th>
                             <th className="border-l border-violet-100 bg-violet-50/50 py-1 text-right">Prod. (blt)</th><th className="bg-violet-50/50 py-1 text-right">Stock</th><th className="bg-violet-50/50 py-1 text-right">Cobertura</th><th className="bg-violet-50/50 py-1 text-center">Estado</th>
@@ -5469,9 +5446,16 @@ export default function PlanificateurChocolat() {
                             const stA = statutStock(p.stock, s.min, s.max); const stP = statutStock(projB, s.min, s.max);
                             const gris = config ? "" : "text-gray-400 bg-gray-50";
                             const zone = etiquetaZonaProducto(p);
+                            const lignesProduit = [...new Set([p.ligne, ...(Array.isArray(p.lignesCompatibles) ? p.lignesCompatibles : [])].filter(Boolean))]
+                              .map((ligneId) => lignes.find((ligne) => ligne.id === ligneId)?.nom || ligneId);
                             return (
                               <tr key={p.id} className={"border-b border-gray-100 " + gris}>
                                 <td className="py-2 pr-2 font-medium">{p.nom}{zone && <span className="ml-2 px-1.5 py-0.5 rounded bg-violet-100 text-violet-800 text-[10px]">{zone}</span>}</td>
+                                <td className="py-2 px-2">
+                                  <div className="flex min-w-28 flex-wrap gap-1">
+                                    {lignesProduit.length > 0 ? lignesProduit.map((nomLigne) => <span key={nomLigne} className="rounded-md border border-violet-200 bg-violet-50 px-1.5 py-0.5 text-[10px] font-semibold text-violet-800">{nomLigne}</span>) : <span className="text-xs text-gray-400">Sin asignar</span>}
+                                  </div>
+                                </td>
                                 <td className="py-2 text-right"><input type="number" step="0.001" className="w-20 text-right border rounded p-1" value={p.pesoBulto != null ? p.pesoBulto : ""} placeholder="-" onChange={(e) => majProduit(p.id, "pesoBulto", e.target.value === "" ? null : parseFloat(e.target.value) || 0)} /></td>
                                 <td className="py-2 text-right"><input type="number" className="w-16 text-right border rounded p-1" value={p.min != null ? p.min : ""} placeholder="—" onChange={(e) => majProduit(p.id, "min", e.target.value === "" ? null : parseFloat(e.target.value) || 0)} /></td>
                                 <td className="py-2 text-right"><input type="number" className="w-16 text-right border rounded p-1" value={p.max != null ? p.max : ""} placeholder="—" onChange={(e) => majProduit(p.id, "max", e.target.value === "" ? null : parseFloat(e.target.value) || 0)} /></td>

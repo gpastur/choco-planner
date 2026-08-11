@@ -63,9 +63,9 @@
       "l4",
       "l5"
     ],
-    "unidadesBulto": 60,
+    "unidadesBulto": 40,
     "pesoUnidad": 0.065,
-    "pesoBulto": 3.9,
+    "pesoBulto": 2.6,
     "id": 3036,
     "min": 19,
     "max": 75,

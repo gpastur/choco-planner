@@ -56,7 +56,9 @@ export default async function handler(req, res) {
     }
     const csv = await response.text();
     const rows = parseCsv(csv);
-    const texto = rows.map((r) => r.map((c) => String(c || "").trim()).join("\t")).join("\n");
+    const texto = rows
+      .map((r) => r.map((c) => String(c || "").replace(/[\r\n]+/g, " ").trim()).join("\t"))
+      .join("\n");
     res.status(200).json({ rows: rows.length, texto });
   } catch (error) {
     res.status(500).json({ error: "Error leyendo Google Sheets", detalle: String(error && error.message ? error.message : error) });

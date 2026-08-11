@@ -1,0 +1,58 @@
+{
+  "folders": [
+    {
+      "name": "Choco Planner",
+      "path": "."
+    }
+  ],
+  "settings": {
+    "files.exclude": {
+      "**/node_modules": true,
+      "**/dist": true
+    },
+    "search.exclude": {
+      "**/node_modules": true,
+      "**/dist": true
+    },
+    "typescript.tsdk": "node_modules/typescript/lib",
+    "editor.formatOnSave": false
+  },
+  "extensions": {
+    "recommendations": [
+      "dbaeumer.vscode-eslint",
+      "bradlc.vscode-tailwindcss",
+      "github.copilot",
+      "github.copilot-chat"
+    ]
+  },
+  "tasks": {
+    "version": "2.0.0",
+    "tasks": [
+      {
+        "label": "Choco Planner: lancer la previsualisation",
+        "type": "npm",
+        "script": "dev",
+        "isBackground": true,
+        "problemMatcher": [],
+        "group": "build"
+      },
+      {
+        "label": "Choco Planner: verifier le code",
+        "type": "npm",
+        "script": "typecheck",
+        "problemMatcher": "$tsc",
+        "group": "test"
+      },
+      {
+        "label": "Choco Planner: compiler",
+        "type": "npm",
+        "script": "build",
+        "problemMatcher": "$tsc",
+        "group": {
+          "kind": "build",
+          "isDefault": true
+        }
+      }
+    ]
+  }
+}

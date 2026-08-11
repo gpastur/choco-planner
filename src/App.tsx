@@ -8,7 +8,7 @@ import {
   ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts";
 
-const APP_VERSION = "2026.08.11-stock-alfabetico";
+const APP_VERSION = "2026.08.11-capacites-mitre-revisees";
 const PORTAIL_EMAIL_ACTIF = true;
 
 const PALETTE = [
@@ -56,9 +56,9 @@ const LIGNES_INIT = [
   { id: "e_dec", nom: "Decorado", capacite: 145, pal: 0, usine: "esandi" },
   { id: "e_env", nom: "Envasado", capacite: 170, pal: 1, usine: "esandi" },
   { id: "e_mh", nom: "Mini Huevos", capacite: 100, pal: 2, usine: "esandi" },
-  { id: "l3", nom: "GDG", capacite: 500, pal: 2, usine: "mitre" },
-  { id: "l4", nom: "Sollich", capacite: 500, pal: 3, usine: "mitre" },
-  { id: "l5", nom: "Bulher", capacite: 500, pal: 4, usine: "mitre" },
+  { id: "l3", nom: "GDG", capacite: 170, pal: 2, usine: "mitre" },
+  { id: "l4", nom: "Sollich", capacite: 65, pal: 3, usine: "mitre" },
+  { id: "l5", nom: "Bulher", capacite: 100, pal: 4, usine: "mitre" },
   { id: "vb_stephan", nom: "Stephan / Buldos", capacite: 400, pal: 0, usine: "vb" },
   { id: "vb_tostadora", nom: "Tostadora", capacite: 140, pal: 1, usine: "vb" },
   { id: "vb_envasado", nom: "Envasado", capacite: 450, pal: 2, usine: "vb" },
@@ -1097,7 +1097,11 @@ function fusionAvecBase(base: any[], sauvegarde: any[]) {
       fusionne.max = baseItem.max;
       fusionne.ligne = baseItem.ligne;
     }
-    if (baseItem && fusionne.usine === "mitre") {
+    if (baseItem && fusionne.usine === "mitre" && typeof baseItem.capacite === "number") {
+      fusionne.nom = baseItem.nom;
+      fusionne.capacite = baseItem.capacite;
+    }
+    if (baseItem && fusionne.usine === "mitre" && typeof baseItem.id === "number") {
       fusionne.nom = baseItem.nom;
       fusionne.sku = baseItem.sku;
       fusionne.ligne = baseItem.ligne;
